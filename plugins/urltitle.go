@@ -94,7 +94,13 @@ func (p *URLTitle) Handle(b *bot.Bot, m bot.Message) bool {
 			return
 		}
 		if isYouTubeHost(parsed.Hostname()) {
-			if metadata, ok := youtubeMetadata(requestCtx, p.client, parsed, body); ok {
+			// Keep metadata lookup independent from the page-fetch timeout. Some
+			// YouTube pages are slow enough that oEmbed/player requests would
+			// otherwise inherit an already-expired context after the title fetch.
+			metadataCtx, metadataCancel := context.WithTimeout(context.Background(), p.client.Timeout)
+			metadata, ok := youtubeMetadata(metadataCtx, p.client, parsed, body)
+			metadataCancel()
+			if ok {
 				title = metadata.title
 				youtubeChannel = metadata.channel
 				youtubeDuration = metadata.duration
