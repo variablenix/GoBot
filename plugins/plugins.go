@@ -14,6 +14,7 @@ func All() []bot.Plugin {
 		&Tell{},
 		&Karma{},
 		&Dice{},
+		&Blackjack{},
 		&Help{},
 	}
 }
