@@ -22,7 +22,7 @@ Persistent plugin state such as seen/tell/karma data is stored in BoltDB. Runtim
 - A writable filesystem for the BoltDB database
 - IRC network access
 - Optional: Docker / Docker Compose
-- Optional: fortune packages if you want extra banter quote sources
+- Optional: fortune packages if you want a curated set of extra banter quote sources
 
 ## Build and run
 
@@ -455,25 +455,52 @@ Behavior:
 
 GoBot does not shell out to `fortune`. It reads quote files directly, which keeps behavior predictable and avoids command-execution surprises.
 
-If you want system fortune databases on Debian/Ubuntu, install:
+The recommended setup is to install the fortune data packages, then copy only the collections you want into a separate curated directory. This avoids loading every system fortune into the bot and makes the bot's quote sources explicit.
+
+On Debian or Ubuntu, the following installs the data and creates a curated set containing `computers`, `linux`, `science`, `tao`, and `wisdom` in one step:
 
 ```sh
-sudo apt update
-sudo apt install fortune-mod fortunes-min
+sudo apt update && sudo apt install -y fortune-mod fortunes-min fortunes && \
+mkdir -p "$HOME/irc-bot/fortune-curated" && \
+for quote in computers linux science tao wisdom; do \
+  source_file="$(find /usr/share/games/fortunes /usr/share/fortune -maxdepth 1 -type f -name "$quote" -print -quit 2>/dev/null)"; \
+  if [ -n "$source_file" ]; then \
+    cp "$source_file" "$HOME/irc-bot/fortune-curated/$quote"; \
+  else \
+    printf 'Warning: fortune collection not found: %s\n' "$quote" >&2; \
+  fi; \
+done
 ```
 
-You can add more quote packs if your distro provides them, such as `fortunes`.
+The package names and source directories can vary by distribution. If a collection is not found, locate it with:
 
-Common fortune directories include:
+```sh
+find /usr/share/games/fortunes /usr/share/fortune -maxdepth 1 -type f 2>/dev/null | sort
+```
 
-- `/usr/share/games/fortunes`
-- `/usr/share/fortune`
+Add or remove names in the loop to choose a different curated set. The files are classic `%`-delimited fortune files; GoBot parses those delimiters directly.
 
-If you only want the repository’s built-in banter file, you do not need any OS fortune packages. The included file is:
+Point `fortune_dir` at the resulting directory using an absolute path:
+
+```yaml
+plugins:
+  banter:
+    enabled: true
+    probability: 0.25
+    quotes_file: "quotes/banter.txt"
+    fortune_dir: "/path/to/your/fortune-curated"
+  quote:
+    enabled: true
+    fortune_dir: "/path/to/your/fortune-curated"
+```
+
+Replace `/path/to/your/fortune-curated` with the real path on the host, for example the `$HOME/irc-bot/fortune-curated` directory created above. Configuration values are read by GoBot as written, so use the expanded absolute path rather than relying on `$HOME` inside YAML.
+
+Both banter and `!quote` use the configured fortune directory. Every regular file in that directory is loaded, so the curated directory can contain exactly the collections you selected. Files ending in `.dat` or `.u8` are ignored. The repository's built-in file is also loaded automatically:
 
 - `quotes/banter.txt`
 
-You can also point `fortune_dir` at a cloned `fortune-mod` datfiles tree or any local directory containing classic `%`-delimited fortune text files.
+You do not need OS fortune packages if you only want `quotes/banter.txt`. You may also point `fortune_dir` at another local directory containing classic `%`-delimited fortune text files, but avoid pointing it at a large system-wide collection unless you intentionally want all of it loaded.
 
 ## News plugin
 
