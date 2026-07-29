@@ -1,6 +1,8 @@
 package plugins
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"regexp"
 	"testing"
@@ -57,6 +59,30 @@ func TestYouTubeHostDetection(t *testing.T) {
 	}
 	if isYouTubeHost("notyoutube.example") {
 		t.Fatal("unexpected YouTube host match")
+	}
+}
+
+func TestRedditHostDetection(t *testing.T) {
+	for _, host := range []string{"reddit.com", "www.reddit.com", "old.reddit.com", "redd.it"} {
+		if !isRedditHost(host) {
+			t.Errorf("expected %q to be recognized", host)
+		}
+	}
+	if isRedditHost("notreddit.example") {
+		t.Fatal("unexpected Reddit host match")
+	}
+}
+
+func TestOembedTitle(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"title":"A Reddit post title"}`))
+	}))
+	defer server.Close()
+
+	title, ok := oembedTitle(t.Context(), server.Client(), server.URL)
+	if !ok || title != "A Reddit post title" {
+		t.Fatalf("got title %q, ok=%v", title, ok)
 	}
 }
 

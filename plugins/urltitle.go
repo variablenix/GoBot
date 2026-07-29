@@ -66,6 +66,9 @@ func (p *URLTitle) Handle(b *bot.Bot, m bot.Message) bool {
 		start := time.Now()
 		res, err := p.client.Do(req)
 		if err != nil {
+			if title, ok := redditTitle(requestCtx, p.client, parsed); ok {
+				b.Send(m.Target, formatURLTitle(title, parsed, p.cfg.Int("max_title_length", 120)))
+			}
 			return
 		}
 		defer res.Body.Close()
@@ -77,25 +80,38 @@ func (p *URLTitle) Handle(b *bot.Bot, m bot.Message) bool {
 			return
 		}
 		title := pageTitle(body)
+		// Prefer Reddit's metadata endpoint for Reddit URLs. It returns the
+		// actual post title even when the normal HTML page is a shell, a
+		// bot-check page, or an access-denied document.
+		if isRedditHost(parsed.Hostname()) {
+			if reddit, ok := redditTitle(requestCtx, p.client, parsed); ok {
+				title = reddit
+			}
+		}
 		if title == "" || titleLooksLikeError(title) {
 			return
 		}
-		displaySource := parsed.Host
 		if isYouTubeHost(parsed.Hostname()) {
 			if oembedTitle, ok := youtubeTitle(requestCtx, p.client, parsed); ok {
 				title = oembedTitle
-			}
-			if shortURL, ok := shortYouTubeDisplayURL(parsed); ok {
-				displaySource = shortURL
 			}
 		}
 		if title == "" {
 			return
 		}
-		title = truncateRunes(title, p.cfg.Int("max_title_length", 120))
-		b.Send(m.Target, fmt.Sprintf("[ %s — %s ]", title, displaySource))
+		b.Send(m.Target, formatURLTitle(title, parsed, p.cfg.Int("max_title_length", 120)))
 	}()
 	return false
+}
+
+func formatURLTitle(title string, parsed *url.URL, maxLength int) string {
+	displaySource := parsed.Host
+	if isYouTubeHost(parsed.Hostname()) {
+		if shortURL, ok := shortYouTubeDisplayURL(parsed); ok {
+			displaySource = shortURL
+		}
+	}
+	return fmt.Sprintf("[ %s — %s ]", truncateRunes(title, maxLength), displaySource)
 }
 
 func pageTitle(body []byte) string {
@@ -203,11 +219,24 @@ func isYouTubeHost(host string) bool {
 
 func youtubeTitle(ctx context.Context, client *http.Client, videoURL *url.URL) (string, bool) {
 	oembed := "https://www.youtube.com/oembed?url=" + url.QueryEscape(videoURL.String()) + "&format=json"
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, oembed, nil)
+	return oembedTitle(ctx, client, oembed)
+}
+
+func redditTitle(ctx context.Context, client *http.Client, postURL *url.URL) (string, bool) {
+	if !isRedditHost(postURL.Hostname()) {
+		return "", false
+	}
+	oembed := "https://www.reddit.com/oembed?url=" + url.QueryEscape(postURL.String()) + "&format=json"
+	return oembedTitle(ctx, client, oembed)
+}
+
+func oembedTitle(ctx context.Context, client *http.Client, endpoint string) (string, bool) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
 		return "", false
 	}
 	req.Header.Set("User-Agent", "GoBot/1.0 (+IRC URL title fetcher)")
+	req.Header.Set("Accept", "application/json")
 	res, err := client.Do(req)
 	if err != nil {
 		return "", false
@@ -224,6 +253,11 @@ func youtubeTitle(ctx context.Context, client *http.Client, videoURL *url.URL) (
 	}
 	title := cleanTitle(data.Title)
 	return title, title != ""
+}
+
+func isRedditHost(host string) bool {
+	host = strings.ToLower(strings.TrimSuffix(host, "."))
+	return host == "reddit.com" || strings.HasSuffix(host, ".reddit.com") || host == "redd.it"
 }
 
 func shortYouTubeDisplayURL(u *url.URL) (string, bool) {
