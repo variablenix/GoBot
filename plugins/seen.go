@@ -36,6 +36,23 @@ func (p *Seen) Handle(b *bot.Bot, m bot.Message) bool {
 	}
 	var x record
 	json.Unmarshal(v, &x)
-	b.Send(m.ReplyTarget(), fmt.Sprintf("%s was last seen in %s %s ago saying: %q", x.Nick, x.Channel, time.Since(x.At).Round(time.Minute), x.Text))
+	b.Send(m.ReplyTarget(), fmt.Sprintf("%s was last seen in %s %s ago saying: %q", x.Nick, x.Channel, formatSeenAge(x.At, time.Now()), x.Text))
 	return true
+}
+
+func formatSeenAge(at, now time.Time) string {
+	age := now.Sub(at)
+	if age < 0 {
+		age = 0
+	}
+	switch {
+	case age < time.Minute:
+		return fmt.Sprintf("%ds", int(age/time.Second))
+	case age < time.Hour:
+		return fmt.Sprintf("%dm", int(age/time.Minute))
+	case age < 24*time.Hour:
+		return fmt.Sprintf("%dh", int(age/time.Hour))
+	default:
+		return fmt.Sprintf("%dd", int(age/(24*time.Hour)))
+	}
 }
