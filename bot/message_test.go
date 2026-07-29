@@ -12,6 +12,13 @@ func TestParseMessage(t *testing.T) {
 	}
 }
 
+func TestIsCommandRejectsEmptyPrefix(t *testing.T) {
+	m := Message{Target: "#test", IsChannel: true, Text: "ordinary text"}
+	if _, _, ok := IsCommand(m, ""); ok {
+		t.Fatal("empty command prefix must not classify ordinary text as a command")
+	}
+}
+
 func TestValidChannelName(t *testing.T) {
 	for _, channel := range []string{"#test", "&local"} {
 		if !validChannelName(channel) {

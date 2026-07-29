@@ -201,6 +201,9 @@ func (b *Bot) IsOwner(m Message) bool {
 // handlers. The warning has its own cooldown so rejected commands cannot
 // flood the channel with cooldown notices.
 func (b *Bot) AllowCommand(m Message) bool {
+	if commandBypassesCooldown(m, b.Config.CommandPrefix) {
+		return true
+	}
 	cooldown := time.Duration(b.Config.RateLimit.CommandCooldownSeconds) * time.Second
 	if cooldown <= 0 {
 		cooldown = 2 * time.Second
@@ -212,6 +215,12 @@ func (b *Bot) AllowCommand(m Message) bool {
 	key := commandRateKey(m)
 	now := time.Now()
 	b.commandMu.Lock()
+	if b.lastCommands == nil {
+		b.lastCommands = make(map[string]time.Time)
+	}
+	if b.lastWarnings == nil {
+		b.lastWarnings = make(map[string]time.Time)
+	}
 	last, exists := b.lastCommands[key]
 	if exists && now.Sub(last) < cooldown {
 		lastWarning, warned := b.lastWarnings[key]
@@ -227,6 +236,25 @@ func (b *Bot) AllowCommand(m Message) bool {
 	b.lastCommands[key] = now
 	b.commandMu.Unlock()
 	return true
+}
+
+func commandBypassesCooldown(m Message, prefix string) bool {
+	cmd, arg, ok := IsCommand(m, prefix)
+	if !ok {
+		return false
+	}
+	cmd = strings.ToLower(strings.TrimSpace(cmd))
+	arg = strings.ToLower(strings.TrimSpace(arg))
+	switch cmd {
+	case "hit", "stand", "double":
+		return true
+	case "21", "bj", "blackjack":
+		return arg == "hit" || arg == "stand" || arg == "double" || arg == "h" || arg == "s" || arg == "d"
+	case "poll":
+		return arg == "vote" || arg == "results" || arg == "status" || arg == "close" || arg == "end" || strings.HasPrefix(arg, "vote ")
+	default:
+		return false
+	}
 }
 
 func commandRateKey(m Message) string {
@@ -395,7 +423,7 @@ func (b *Bot) Run(ctx context.Context) error {
 	}
 }
 func IsCommand(msg Message, prefix string) (string, string, bool) {
-	if !msg.IsChannel && msg.Target == "" {
+	if prefix == "" || (!msg.IsChannel && msg.Target == "") {
 		return "", "", false
 	}
 	if !strings.HasPrefix(msg.Text, prefix) {
