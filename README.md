@@ -146,6 +146,8 @@ GoBot ships with these plugins:
 
 Plugin toggles live under `plugins.<name>.enabled`.
 
+`!help` shows a compact one-line plugin index. Use `!help <plugin>` for detailed usage, such as `!help poll`, `!help blackjack`, or `!help urltitle`.
+
 ### Blackjack / 21
 
 Start a game with:
