@@ -207,13 +207,21 @@ The correction history is kept in memory and controlled by `history_size`.
 
 ### URL titles
 
-When someone posts an HTTP or HTTPS URL in a channel, `urltitle` fetches a page title and posts it. It prefers Open Graph and Twitter metadata, then falls back to the HTML `<title>` element. YouTube links use public metadata and are formatted with the title, channel, and duration:
+When someone posts an HTTP or HTTPS URL in a channel, `urltitle` fetches a page title and posts it. It prefers Open Graph and Twitter metadata, then falls back to the HTML `<title>` element. YouTube links are formatted with the title, channel, and duration:
 
 ```text
 [YouTube] Video title | Channel: Example Channel | 1m 37s
 ```
 
-YouTube does not require an API key. Sites that block automated requests may not provide a title; GoBot suppresses access-denied/error titles rather than posting them.
+For the most reliable YouTube duration data, configure an optional YouTube Data API v3 key. Without it, GoBot uses public oEmbed, player metadata, and HTML fallbacks; some restricted or dynamically rendered videos may not expose their duration. Sites that block automated requests may not provide a title; GoBot suppresses access-denied/error titles rather than posting them.
+
+Keep the key out of Git and set it in `.env`:
+
+```text
+BOT_YOUTUBE_API_KEY=your-youtube-data-api-key
+```
+
+The API key must have YouTube Data API v3 enabled. GoBot requests only `snippet` and `contentDetails` for the linked video; the API response supplies the canonical title, channel, and ISO-8601 duration.
 
 ### Weather
 

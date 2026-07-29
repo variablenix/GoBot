@@ -20,9 +20,10 @@ import (
 )
 
 type URLTitle struct {
-	cfg    bot.PluginConfig
-	rx     *regexp.Regexp
-	client *http.Client
+	cfg           bot.PluginConfig
+	rx            *regexp.Regexp
+	client        *http.Client
+	youtubeAPIKey string
 }
 
 func (p *URLTitle) Name() string       { return "urltitle" }
@@ -30,6 +31,7 @@ func (p *URLTitle) Commands() []string { return nil }
 func (p *URLTitle) Help() string       { return "posts the title of URLs shared in a channel" }
 func (p *URLTitle) Init(c bot.PluginConfig, _ *storage.DB) error {
 	p.cfg = c
+	p.youtubeAPIKey = strings.TrimSpace(c.String("youtube_api_key", ""))
 	p.rx = regexp.MustCompile(`https?://[^\s<>]+`)
 	p.client = &http.Client{
 		Timeout: time.Duration(c.Int("timeout_seconds", 5)) * time.Second,
@@ -98,7 +100,7 @@ func (p *URLTitle) Handle(b *bot.Bot, m bot.Message) bool {
 			// YouTube pages are slow enough that oEmbed/player requests would
 			// otherwise inherit an already-expired context after the title fetch.
 			metadataCtx, metadataCancel := context.WithTimeout(context.Background(), p.client.Timeout)
-			metadata, ok := youtubeMetadata(metadataCtx, p.client, parsed, body)
+			metadata, ok := youtubeMetadata(metadataCtx, p.client, parsed, body, p.youtubeAPIKey)
 			metadataCancel()
 			if ok {
 				title = metadata.title
@@ -251,7 +253,12 @@ type youtubeMetadataResult struct {
 	title, channel, duration string
 }
 
-func youtubeMetadata(ctx context.Context, client *http.Client, videoURL *url.URL, body []byte) (youtubeMetadataResult, bool) {
+func youtubeMetadata(ctx context.Context, client *http.Client, videoURL *url.URL, body []byte, apiKey string) (youtubeMetadataResult, bool) {
+	if apiKey != "" {
+		if result, ok := youtubeAPIResult(ctx, client, videoURL, apiKey); ok {
+			return result, true
+		}
+	}
 	oembed := "https://www.youtube.com/oembed?url=" + url.QueryEscape(videoURL.String()) + "&format=json"
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, oembed, nil)
 	if err != nil {
@@ -287,6 +294,54 @@ func youtubeMetadata(ctx context.Context, client *http.Client, videoURL *url.URL
 	}
 	if result.channel == "" {
 		result.channel = cleanTitle(youtubeJSONStringField(body, "author"))
+	}
+	return result, result.title != ""
+}
+
+func youtubeAPIResult(ctx context.Context, client *http.Client, videoURL *url.URL, apiKey string) (youtubeMetadataResult, bool) {
+	videoID, ok := youtubeVideoID(videoURL)
+	if !ok {
+		return youtubeMetadataResult{}, false
+	}
+	query := url.Values{
+		"part": {"snippet,contentDetails"},
+		"id":   {videoID},
+		"key":  {apiKey},
+	}
+	endpoint := "https://www.googleapis.com/youtube/v3/videos?" + query.Encode()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return youtubeMetadataResult{}, false
+	}
+	req.Header.Set("User-Agent", "GoBot/1.0 (+IRC URL title fetcher)")
+	req.Header.Set("Accept", "application/json")
+	res, err := client.Do(req)
+	if err != nil {
+		return youtubeMetadataResult{}, false
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		return youtubeMetadataResult{}, false
+	}
+	var data struct {
+		Items []struct {
+			Snippet struct {
+				Title       string `json:"title"`
+				ChannelName string `json:"channelTitle"`
+			} `json:"snippet"`
+			ContentDetails struct {
+				Duration string `json:"duration"`
+			} `json:"contentDetails"`
+		} `json:"items"`
+	}
+	if err := json.NewDecoder(io.LimitReader(res.Body, 512<<10)).Decode(&data); err != nil || len(data.Items) == 0 {
+		return youtubeMetadataResult{}, false
+	}
+	item := data.Items[0]
+	result := youtubeMetadataResult{
+		title:    cleanTitle(item.Snippet.Title),
+		channel:  cleanTitle(item.Snippet.ChannelName),
+		duration: formatISO8601Duration(strings.TrimPrefix(strings.ToUpper(strings.TrimSpace(item.ContentDetails.Duration)), "PT")),
 	}
 	return result, result.title != ""
 }
