@@ -80,14 +80,20 @@ func (p *URLTitle) Handle(b *bot.Bot, m bot.Message) bool {
 		if title == "" || titleLooksLikeError(title) {
 			return
 		}
+		displaySource := parsed.Host
 		if isYouTubeHost(parsed.Hostname()) {
 			if oembedTitle, ok := youtubeTitle(requestCtx, p.client, parsed); ok {
 				title = oembedTitle
 			}
+			if shortURL, ok := shortYouTubeDisplayURL(parsed); ok {
+				displaySource = shortURL
+			}
 		}
-		if title != "" && !strings.Contains(strings.ToLower(title), strings.ToLower(u)) && len([]rune(title)) <= p.cfg.Int("max_title_length", 120) {
-			b.Send(m.Target, fmt.Sprintf("[ %s — %s ]", title, parsed.Host))
+		if title == "" {
+			return
 		}
+		title = truncateRunes(title, p.cfg.Int("max_title_length", 120))
+		b.Send(m.Target, fmt.Sprintf("[ %s — %s ]", title, displaySource))
 	}()
 	return false
 }
@@ -158,6 +164,20 @@ func cleanTitle(title string) string {
 	return strings.Join(strings.Fields(html.UnescapeString(title)), " ")
 }
 
+func truncateRunes(s string, max int) string {
+	if max <= 0 {
+		return s
+	}
+	runes := []rune(s)
+	if len(runes) <= max {
+		return s
+	}
+	if max == 1 {
+		return "…"
+	}
+	return string(runes[:max-1]) + "…"
+}
+
 func titleLooksLikeError(title string) bool {
 	title = strings.ToLower(cleanTitle(title))
 	for _, phrase := range []string{
@@ -204,6 +224,36 @@ func youtubeTitle(ctx context.Context, client *http.Client, videoURL *url.URL) (
 	}
 	title := cleanTitle(data.Title)
 	return title, title != ""
+}
+
+func shortYouTubeDisplayURL(u *url.URL) (string, bool) {
+	if u == nil {
+		return "", false
+	}
+	host := strings.ToLower(strings.TrimSuffix(u.Hostname(), "."))
+	switch {
+	case host == "youtu.be":
+		id := strings.Trim(strings.TrimSpace(u.Path), "/")
+		if id == "" {
+			return "", false
+		}
+		return "youtu.be/" + id, true
+	case host == "youtube.com", strings.HasSuffix(host, ".youtube.com"):
+		queryID := strings.TrimSpace(u.Query().Get("v"))
+		if queryID != "" {
+			return "youtu.be/" + queryID, true
+		}
+		parts := strings.Split(strings.Trim(u.Path, "/"), "/")
+		if len(parts) >= 2 {
+			switch parts[0] {
+			case "shorts", "embed", "live":
+				if parts[1] != "" {
+					return "youtu.be/" + parts[1], true
+				}
+			}
+		}
+	}
+	return "", false
 }
 
 func publicHTTPURL(u *url.URL) bool {

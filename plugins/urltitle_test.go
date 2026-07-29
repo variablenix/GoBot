@@ -1,6 +1,7 @@
 package plugins
 
 import (
+	"net/url"
 	"regexp"
 	"testing"
 )
@@ -56,5 +57,46 @@ func TestYouTubeHostDetection(t *testing.T) {
 	}
 	if isYouTubeHost("notyoutube.example") {
 		t.Fatal("unexpected YouTube host match")
+	}
+}
+
+func TestTruncateRunes(t *testing.T) {
+	if got := truncateRunes("abcdef", 4); got != "abc…" {
+		t.Fatalf("got %q", got)
+	}
+	if got := truncateRunes("cafe\u0301", 10); got != "cafe\u0301" {
+		t.Fatalf("got %q", got)
+	}
+	if got := truncateRunes("abcdef", 1); got != "…" {
+		t.Fatalf("got %q", got)
+	}
+}
+
+func TestTitleLooksLikeURLIsAllowed(t *testing.T) {
+	title := "Example https://example.com"
+	if titleLooksLikeError(title) {
+		t.Fatalf("title %q should not be treated as an error", title)
+	}
+}
+
+func TestShortYouTubeDisplayURL(t *testing.T) {
+	tests := map[string]string{
+		"https://www.youtube.com/watch?v=abc123": "youtu.be/abc123",
+		"https://youtu.be/xyz789":                "youtu.be/xyz789",
+		"https://youtube.com/shorts/qwerty":      "youtu.be/qwerty",
+		"https://youtube.com/embed/zxcvb":        "youtu.be/zxcvb",
+	}
+	for raw, want := range tests {
+		u, err := url.Parse(raw)
+		if err != nil {
+			t.Fatalf("parse %q: %v", raw, err)
+		}
+		got, ok := shortYouTubeDisplayURL(u)
+		if !ok {
+			t.Fatalf("expected display URL for %q", raw)
+		}
+		if got != want {
+			t.Fatalf("for %q got %q want %q", raw, got, want)
+		}
 	}
 }
