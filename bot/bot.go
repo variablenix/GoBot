@@ -17,19 +17,20 @@ import (
 )
 
 type Bot struct {
-	Config      Config
-	DB          *storage.DB
-	Stats       *Stats
-	Plugins     []Plugin
-	Log         *zap.Logger
-	Queue       *Queue
-	client      *irc.Client
-	mu          sync.RWMutex
-	commandMu   sync.Mutex
-	lastHelp    map[string]time.Time
-	inviteMu    sync.Mutex
-	lastInvites map[string]time.Time
-	lastInvite  time.Time
+	Config       Config
+	DB           *storage.DB
+	Stats        *Stats
+	Plugins      []Plugin
+	Log          *zap.Logger
+	Queue        *Queue
+	client       *irc.Client
+	mu           sync.RWMutex
+	commandMu    sync.Mutex
+	lastCommands map[string]time.Time
+	lastWarnings map[string]time.Time
+	inviteMu     sync.Mutex
+	lastInvites  map[string]time.Time
+	lastInvite   time.Time
 }
 
 func New(cfg Config, db *storage.DB, plugins []Plugin, log *zap.Logger) *Bot {
@@ -37,7 +38,7 @@ func New(cfg Config, db *storage.DB, plugins []Plugin, log *zap.Logger) *Bot {
 }
 
 func NewWithStats(cfg Config, db *storage.DB, plugins []Plugin, log *zap.Logger, stats *Stats) *Bot {
-	b := &Bot{Config: cfg, DB: db, Stats: stats, Plugins: plugins, Log: log, lastHelp: make(map[string]time.Time), lastInvites: make(map[string]time.Time)}
+	b := &Bot{Config: cfg, DB: db, Stats: stats, Plugins: plugins, Log: log, lastCommands: make(map[string]time.Time), lastWarnings: make(map[string]time.Time), lastInvites: make(map[string]time.Time)}
 	b.Queue = NewQueue(cfg.RateLimit.MessagesPerSecond, cfg.RateLimit.Burst, func(o Outgoing) { b.sendNow(o.Target, o.Text) })
 	return b
 }
@@ -196,24 +197,43 @@ func (b *Bot) IsOwner(m Message) bool {
 	return false
 }
 
-// AllowHelp prevents one sender from repeatedly triggering help responses.
-// Outbound queue throttling still applies independently to all messages.
-func (b *Bot) AllowHelp(m Message) bool {
-	cooldown := time.Duration(b.Config.RateLimit.HelpCooldownSeconds) * time.Second
+// AllowCommand prevents one sender from repeatedly triggering command
+// handlers. The warning has its own cooldown so rejected commands cannot
+// flood the channel with cooldown notices.
+func (b *Bot) AllowCommand(m Message) bool {
+	cooldown := time.Duration(b.Config.RateLimit.CommandCooldownSeconds) * time.Second
 	if cooldown <= 0 {
-		cooldown = 5 * time.Second
+		cooldown = 2 * time.Second
 	}
-	key := strings.ToLower(m.Nick) + "\x00" + strings.ToLower(m.Target)
+	warningCooldown := time.Duration(b.Config.RateLimit.CommandWarningCooldownSeconds) * time.Second
+	if warningCooldown <= 0 {
+		warningCooldown = 10 * time.Second
+	}
+	key := commandRateKey(m)
 	now := time.Now()
 	b.commandMu.Lock()
-	last, exists := b.lastHelp[key]
+	last, exists := b.lastCommands[key]
 	if exists && now.Sub(last) < cooldown {
+		lastWarning, warned := b.lastWarnings[key]
+		if !warned || now.Sub(lastWarning) >= warningCooldown {
+			b.lastWarnings[key] = now
+			b.commandMu.Unlock()
+			b.Send(m.ReplyTarget(), "command cooldown—please wait a moment")
+			return false
+		}
 		b.commandMu.Unlock()
 		return false
 	}
-	b.lastHelp[key] = now
+	b.lastCommands[key] = now
 	b.commandMu.Unlock()
 	return true
+}
+
+func commandRateKey(m Message) string {
+	if account := strings.TrimSpace(m.Account); account != "" && account != "*" {
+		return "account:" + strings.ToLower(account)
+	}
+	return "user:" + strings.ToLower(strings.Join([]string{m.Nick, m.User, m.Host}, "\x00"))
 }
 
 func handleSASL(client *irc.Client, message *irc.Message, username, password string, log *zap.Logger) {
@@ -326,6 +346,9 @@ func (b *Bot) logIRCEvent(m *irc.Message) {
 	}
 }
 func (b *Bot) dispatch(msg Message) {
+	if _, _, ok := IsCommand(msg, b.Config.CommandPrefix); ok && !b.AllowCommand(msg) {
+		return
+	}
 	command := false
 	for _, p := range b.Plugins {
 		consumed := false

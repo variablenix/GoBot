@@ -11,9 +11,10 @@ type Config struct {
 	CommandPrefix string   `mapstructure:"command_prefix"`
 	OwnerAccounts []string `mapstructure:"owner_accounts"`
 	RateLimit     struct {
-		MessagesPerSecond   float64 `mapstructure:"messages_per_second"`
-		Burst               int
-		HelpCooldownSeconds int `mapstructure:"help_cooldown_seconds"`
+		MessagesPerSecond             float64 `mapstructure:"messages_per_second"`
+		Burst                         int
+		CommandCooldownSeconds        int `mapstructure:"command_cooldown_seconds"`
+		CommandWarningCooldownSeconds int `mapstructure:"command_warning_cooldown_seconds"`
 	}
 	Invites struct {
 		Enabled         bool `mapstructure:"enabled"`

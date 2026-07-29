@@ -79,7 +79,7 @@ Important sections:
 - `command_prefix`: command prefix, default `!`
 - `owner_accounts`: authenticated IRC account names reserved for future owner-only features
 - `invites`: whether the bot accepts IRC invitations and the invite cooldown
-- `rate_limit`: outbound message pacing and `!help` response cooldown
+- `rate_limit`: outbound message pacing, per-user command cooldowns, and cooldown-warning pacing
 - `plugins`: plugin enable/disable and plugin-specific settings
 - `stats`: HTTP stats listener
 - `storage`: BoltDB path
@@ -151,14 +151,15 @@ From an IRC client:
 
 GoBot joins the invited channel after validating the channel name. Invitations are rate-limited globally per bot/network and per channel. Invited channels are temporary and are not written to `config.yaml`; add a channel to the network's `channels` list if it should be rejoined after a restart.
 
-Help responses are also rate-limited per sender and target. Configure the cooldown with:
+All command responses are rate-limited per authenticated account or sender identity. This includes `!help`, `!weather`, `!roll`, `!poll`, and every other command. Configure it with:
 
 ```yaml
 rate_limit:
-  help_cooldown_seconds: 5
+  command_cooldown_seconds: 2
+  command_warning_cooldown_seconds: 10
 ```
 
-This prevents repeated `!help` requests from flooding a channel while preserving the normal outbound queue rate limit for all bot messages.
+When a user sends commands too quickly, GoBot replies once with `command cooldown—please wait a moment`. Warning messages have their own cooldown, so repeated violations cannot flood the channel. The normal outbound queue rate limit still applies to all bot messages.
 
 ## Plugins
 
@@ -634,7 +635,7 @@ Both endpoints have no built-in authentication. Restrict port `8082` to the Prom
 - Bind stats to localhost unless you intentionally expose them.
 - The URL title plugin only fetches public HTTP/HTTPS targets and rejects loopback, private, link-local, multicast, and local hostnames to reduce SSRF risk.
 - External HTTP lookups use timeouts.
-- IRC invitations and `!help` responses are rate-limited to reduce channel and join flooding.
+- IRC invitations, command handling, and cooldown warnings are rate-limited to reduce channel and join flooding.
 - The Docker image runs as a non-root user.
 - BoltDB data persists locally; protect filesystem access on the host.
 
