@@ -34,7 +34,7 @@ plugins:
   # Disabled by default to avoid unsolicited channel chatter.
   # quotes_file is optional; any plain text files in quotes/ are also loaded.
   # fortune_dir may point at a local fortune-mod datfiles directory.
-  banter: {enabled: true, probability: 0.54, quotes_file: "quotes/banter.txt", fortune_dir: "/home/ak/irc-bot/fortune-curated"}
+  banter: {enabled: true, probability: 0.54, quotes_file: "quotes/banter.txt", fortune_dir: "/usr/share/games/fortunes"}
   urltitle: {enabled: true, max_title_length: 120, timeout_seconds: 5}
   weather: {enabled: true, default_units: metric}
   news: {enabled: true, api_key: "", max_results: 3}

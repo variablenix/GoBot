@@ -177,7 +177,7 @@ Example `.env`:
 BOT_SASL_USER=Echo
 BOT_SASL_PASS=replace-with-your-nickserv-password
 BOT_NEWS_API_KEY=
-BOT_STORAGE_DB_PATH=/home/ak/irc-bot/GoBot/data/bot.db
+BOT_STORAGE_DB_PATH=./data/bot.db
 BOT_STATS_LISTEN_ADDRESS=127.0.0.1:8080
 ```
 
