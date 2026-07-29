@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -80,6 +81,7 @@ func (p *URLTitle) Handle(b *bot.Bot, m bot.Message) bool {
 			return
 		}
 		title := pageTitle(body)
+		var youtubeChannel, youtubeDuration string
 		// Prefer Reddit's metadata endpoint for Reddit URLs. It returns the
 		// actual post title even when the normal HTML page is a shell, a
 		// bot-check page, or an access-denied document.
@@ -92,11 +94,17 @@ func (p *URLTitle) Handle(b *bot.Bot, m bot.Message) bool {
 			return
 		}
 		if isYouTubeHost(parsed.Hostname()) {
-			if oembedTitle, ok := youtubeTitle(requestCtx, p.client, parsed); ok {
-				title = oembedTitle
+			if metadata, ok := youtubeMetadata(requestCtx, p.client, parsed, body); ok {
+				title = metadata.title
+				youtubeChannel = metadata.channel
+				youtubeDuration = metadata.duration
 			}
 		}
 		if title == "" {
+			return
+		}
+		if isYouTubeHost(parsed.Hostname()) {
+			b.Send(m.Target, formatYouTubeTitle(title, youtubeChannel, youtubeDuration, p.cfg.Int("max_title_length", 120)))
 			return
 		}
 		b.Send(m.Target, formatURLTitle(title, parsed, p.cfg.Int("max_title_length", 120)))
@@ -112,6 +120,17 @@ func formatURLTitle(title string, parsed *url.URL, maxLength int) string {
 		}
 	}
 	return fmt.Sprintf("[ %s — %s ]", truncateRunes(title, maxLength), displaySource)
+}
+
+func formatYouTubeTitle(title, channel, duration string, maxLength int) string {
+	result := "[YouTube] " + truncateRunes(title, maxLength)
+	if channel != "" {
+		result += " | Channel: " + truncateRunes(channel, 80)
+	}
+	if duration != "" {
+		result += " | " + duration
+	}
+	return result
 }
 
 func pageTitle(body []byte) string {
@@ -220,6 +239,131 @@ func isYouTubeHost(host string) bool {
 func youtubeTitle(ctx context.Context, client *http.Client, videoURL *url.URL) (string, bool) {
 	oembed := "https://www.youtube.com/oembed?url=" + url.QueryEscape(videoURL.String()) + "&format=json"
 	return oembedTitle(ctx, client, oembed)
+}
+
+type youtubeMetadataResult struct {
+	title, channel, duration string
+}
+
+func youtubeMetadata(ctx context.Context, client *http.Client, videoURL *url.URL, body []byte) (youtubeMetadataResult, bool) {
+	oembed := "https://www.youtube.com/oembed?url=" + url.QueryEscape(videoURL.String()) + "&format=json"
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, oembed, nil)
+	if err != nil {
+		return youtubeMetadataResult{}, false
+	}
+	req.Header.Set("User-Agent", "GoBot/1.0 (+IRC URL title fetcher)")
+	req.Header.Set("Accept", "application/json")
+	res, err := client.Do(req)
+	if err != nil {
+		return youtubeMetadataResult{}, false
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		return youtubeMetadataResult{}, false
+	}
+	var data struct {
+		Title      string `json:"title"`
+		AuthorName string `json:"author_name"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&data); err != nil {
+		return youtubeMetadataResult{}, false
+	}
+	result := youtubeMetadataResult{
+		title:    cleanTitle(data.Title),
+		channel:  cleanTitle(data.AuthorName),
+		duration: youtubeDuration(body),
+	}
+	if result.channel == "" {
+		result.channel = cleanTitle(youtubeJSONStringField(body, "ownerChannelName"))
+	}
+	if result.channel == "" {
+		result.channel = cleanTitle(youtubeJSONStringField(body, "author"))
+	}
+	return result, result.title != ""
+}
+
+func youtubeDuration(body []byte) string {
+	seconds := youtubeJSONField(body, "lengthSeconds")
+	if seconds == "" {
+		meta := regexp.MustCompile(`(?i)<meta[^>]+itemprop=["']duration["'][^>]+content=["']PT([^"']+)["']`).FindSubmatch(body)
+		if len(meta) == 2 {
+			return formatISO8601Duration(string(meta[1]))
+		}
+		return ""
+	}
+	value, err := strconv.Atoi(seconds)
+	if err != nil || value < 1 {
+		return ""
+	}
+	hours := value / 3600
+	minutes := (value % 3600) / 60
+	remaining := value % 60
+	if hours > 0 {
+		if remaining > 0 {
+			return fmt.Sprintf("%dh %dm %ds", hours, minutes, remaining)
+		}
+		return fmt.Sprintf("%dh %dm", hours, minutes)
+	}
+	if minutes > 0 {
+		return fmt.Sprintf("%dm %ds", minutes, remaining)
+	}
+	return fmt.Sprintf("%ds", remaining)
+}
+
+func formatISO8601Duration(value string) string {
+	match := regexp.MustCompile(`^(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$`).FindStringSubmatch(value)
+	if len(match) == 0 {
+		return ""
+	}
+	hours, minutes, seconds := 0, 0, 0
+	if match[1] != "" {
+		hours, _ = strconv.Atoi(match[1])
+	}
+	if match[2] != "" {
+		minutes, _ = strconv.Atoi(match[2])
+	}
+	if match[3] != "" {
+		seconds, _ = strconv.Atoi(match[3])
+	}
+	return formatYouTubeDurationParts(hours, minutes, seconds)
+}
+
+func formatYouTubeDurationParts(hours, minutes, seconds int) string {
+	if hours > 0 {
+		if seconds > 0 {
+			return fmt.Sprintf("%dh %dm %ds", hours, minutes, seconds)
+		}
+		return fmt.Sprintf("%dh %dm", hours, minutes)
+	}
+	if minutes > 0 {
+		return fmt.Sprintf("%dm %ds", minutes, seconds)
+	}
+	if seconds > 0 {
+		return fmt.Sprintf("%ds", seconds)
+	}
+	return ""
+}
+
+func youtubeJSONField(body []byte, field string) string {
+	pattern := regexp.MustCompile(`"` + regexp.QuoteMeta(field) + `":"([0-9]+)"`)
+	match := pattern.FindSubmatch(body)
+	if len(match) == 2 {
+		return string(match[1])
+	}
+	return ""
+}
+
+func youtubeJSONStringField(body []byte, field string) string {
+	pattern := regexp.MustCompile(`"` + regexp.QuoteMeta(field) + `":"((?:\\.|[^"\\])*)"`)
+	match := pattern.FindSubmatch(body)
+	if len(match) != 2 {
+		return ""
+	}
+	var value string
+	if err := json.Unmarshal([]byte(`"`+string(match[1])+`"`), &value); err != nil {
+		return ""
+	}
+	return value
 }
 
 func redditTitle(ctx context.Context, client *http.Client, postURL *url.URL) (string, bool) {
