@@ -30,10 +30,11 @@ func (p *News) Handle(b *bot.Bot, m bot.Message) bool {
 		b.Send(m.ReplyTarget(), "news is not configured")
 		return true
 	}
-	endpoint := "https://newsapi.org/v2/top-headlines?country=us&pageSize=" + url.QueryEscape(fmt.Sprintf("%d", p.cfg.Int("max_results", 3)))
-	if strings.TrimSpace(arg) != "" {
-		endpoint = "https://newsapi.org/v2/everything?q=" + url.QueryEscape(strings.TrimSpace(arg)) + "&sortBy=publishedAt&pageSize=" + url.QueryEscape(fmt.Sprintf("%d", p.cfg.Int("max_results", 3)))
+	max := p.cfg.Int("max_results", 3)
+	if max < 1 {
+		max = 1
 	}
+	endpoint := newsEndpoint(arg, max)
 	requestCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	req, err := http.NewRequestWithContext(requestCtx, http.MethodGet, endpoint, nil)
@@ -61,10 +62,6 @@ func (p *News) Handle(b *bot.Bot, m bot.Message) bool {
 		b.Send(m.ReplyTarget(), "no news found")
 		return true
 	}
-	max := p.cfg.Int("max_results", 3)
-	if max < 1 {
-		max = 1
-	}
 	if len(data.Articles) > max {
 		data.Articles = data.Articles[:max]
 	}
@@ -74,4 +71,20 @@ func (p *News) Handle(b *bot.Bot, m bot.Message) bool {
 		}
 	}
 	return true
+}
+
+func newsEndpoint(query string, maxResults int) string {
+	if maxResults < 1 {
+		maxResults = 1
+	}
+	// Ask for extra results so filtering or unavailable articles do not
+	// unnecessarily reduce the number of English headlines returned.
+	pageSize := maxResults * 3
+	if pageSize > 100 {
+		pageSize = 100
+	}
+	if strings.TrimSpace(query) == "" {
+		return "https://newsapi.org/v2/top-headlines?country=us&pageSize=" + url.QueryEscape(fmt.Sprintf("%d", pageSize))
+	}
+	return "https://newsapi.org/v2/everything?q=" + url.QueryEscape(strings.TrimSpace(query)) + "&language=en&sortBy=publishedAt&pageSize=" + url.QueryEscape(fmt.Sprintf("%d", pageSize))
 }
