@@ -127,3 +127,16 @@ func TestShortYouTubeDisplayURL(t *testing.T) {
 		}
 	}
 }
+
+func TestYouTubeDuration(t *testing.T) {
+	body := []byte(`{"lengthSeconds":"97","ownerChannelName":"Ordinary Sausage"}`)
+	if got := youtubeDuration(body); got != "1m 37s" {
+		t.Fatalf("got %q, want 1m 37s", got)
+	}
+	if got := youtubeJSONStringField(body, "ownerChannelName"); got != "Ordinary Sausage" {
+		t.Fatalf("got channel %q", got)
+	}
+	if got := formatYouTubeTitle("Steak Boiled in Candle Wax", "Ordinary Sausage", "1m 37s", 120); got != "[YouTube] Steak Boiled in Candle Wax | Channel: Ordinary Sausage | 1m 37s" {
+		t.Fatalf("got %q", got)
+	}
+}

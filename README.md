@@ -127,7 +127,7 @@ GoBot ships with these plugins:
 
 - `correction`: watches recent messages and supports IRC-style fixes like `s/wiiifee/wife`
 - `banter`: optional conversational replies when the bot is directly addressed
-- `urltitle`: fetches and posts page titles for shared URLs
+- `urltitle`: fetches and posts page titles for shared URLs; YouTube links include the channel and video duration
 - `weather`: current weather using Open-Meteo, no API key required
 - `news`: headlines and search using NewsAPI
 - `wikipedia`: article summaries from Wikipedia
