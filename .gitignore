@@ -2,5 +2,6 @@ bin/
 bot.db
 data/
 .env
+.env.bak
 .act-runner/
 !scripts/build.sh
