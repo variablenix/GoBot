@@ -476,7 +476,7 @@ Useful commands:
 
 ```sh
 docker compose ps
-curl http://localhost:8080/stats
+curl http://localhost:8082/stats
 docker compose down
 ```
 

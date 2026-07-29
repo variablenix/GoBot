@@ -17,9 +17,9 @@ services:
       - ./config.yaml:/app/config.yaml:ro
       - gobot-data:/data
     ports:
-      - "8080:8080"
+        - "8082:8082"
     healthcheck:
-      test: ["CMD", "wget", "--spider", "--quiet", "http://127.0.0.1:8080/stats"]
+      test: ["CMD", "wget", "--spider", "--quiet", "http://127.0.0.1:8082/stats"]
       interval: 30s
       timeout: 5s
       retries: 3

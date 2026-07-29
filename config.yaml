@@ -42,7 +42,7 @@ rate_limit:
   # Limit cooldown warnings so they cannot become a second flood source.
   command_warning_cooldown_seconds: 10
   # Ignore channel backlog/history immediately after joining.
-  join_warmup_seconds: 10
+  join_warmup_seconds: 30
 # Set enabled: false to disable any plugin.
 plugins:
   correction: {enabled: true, history_size: 100}
@@ -70,8 +70,8 @@ plugins:
   channelstats: {enabled: true}
 stats:
   enabled: true
-  http_port: 8080
-  # Local default. Docker Compose overrides this to 0.0.0.0 in the container.
+  http_port: 8082
+  # Local default. Docker Compose overrides the address to 0.0.0.0 in the container.
   listen_address: 127.0.0.1
 storage:
   db_path: bot.db
