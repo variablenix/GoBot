@@ -190,6 +190,26 @@ Plugin toggles live under `plugins.<name>.enabled`.
 `!help` shows a compact one-line plugin index. Use `!help <plugin>` for detailed usage, such as `!help poll`, `!help blackjack`, or `!help urltitle`.
 Use `!alias` for a compact grouped alias list, or `!alias wiki` to inspect one command's aliases.
 
+### Talking to GoBot
+
+With the optional banter plugin enabled, address the bot in a channel:
+
+```text
+Echo hello, how are you?
+@Echo hello
+```
+
+Banter replies are intentionally random and may not respond to every message. Commands can be sent in a channel or by direct message where the command supports it:
+
+```text
+!help
+!weather Seattle
+!quote
+!tell username hello
+```
+
+`!tell` stores a message and delivers it when that nickname speaks again. GoBot does not currently provide a command for an owner to relay arbitrary text into a channel on demand; `owner_accounts` is reserved for future owner-only features.
+
 ### Correction
 
 Use the familiar IRC correction syntax immediately after your message:
