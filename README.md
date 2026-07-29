@@ -77,7 +77,9 @@ Important sections:
 - `networks[].identity`: nick, user, real name, optional SASL settings
 - `networks[].channels`: channels to join on that network
 - `command_prefix`: command prefix, default `!`
-- `rate_limit`: outbound message pacing
+- `owner_accounts`: authenticated IRC account names reserved for future owner-only features
+- `invites`: whether the bot accepts IRC invitations and the invite cooldown
+- `rate_limit`: outbound message pacing and `!help` response cooldown
 - `plugins`: plugin enable/disable and plugin-specific settings
 - `stats`: HTTP stats listener
 - `storage`: BoltDB path
@@ -120,6 +122,43 @@ networks:
 ```
 
 If `networks` is set, it takes precedence over the older single-network top-level fields.
+
+### Owners and channel invitations
+
+Owners are configured out-of-band using authenticated NickServ/IRC accounts. Nicknames alone are never treated as proof of ownership:
+
+```yaml
+owner_accounts:
+  - "your-account"
+  - "another-owner"
+```
+
+GoBot records the IRCv3 `account` tag when the network provides it and exposes owner status to future owner-only features. There is intentionally no ownership-claim command, so nobody can claim ownership from IRC.
+
+Anyone may invite the bot to a valid channel when invitations are enabled:
+
+```yaml
+invites:
+  enabled: true
+  cooldown_seconds: 30
+```
+
+From an IRC client:
+
+```text
+/invite Echo #new-channel
+```
+
+GoBot joins the invited channel after validating the channel name. Invitations are rate-limited globally per bot/network and per channel. Invited channels are temporary and are not written to `config.yaml`; add a channel to the network's `channels` list if it should be rejoined after a restart.
+
+Help responses are also rate-limited per sender and target. Configure the cooldown with:
+
+```yaml
+rate_limit:
+  help_cooldown_seconds: 5
+```
+
+This prevents repeated `!help` requests from flooding a channel while preserving the normal outbound queue rate limit for all bot messages.
 
 ## Plugins
 
@@ -411,6 +450,7 @@ There is no setup wizard yet, so first run is configuration-first.
 6. Start the bot.
 7. Watch logs and confirm it joins the expected channels.
 8. Test a few commands such as `!help`, `!weather`, `!wiki`, and `!karma`.
+9. To add a temporary channel, invite the bot with `/invite <bot-nick> #channel`; add permanent channels to `config.yaml`.
 
 For direct binary use:
 
@@ -589,10 +629,12 @@ Both endpoints have no built-in authentication. Restrict port `8082` to the Prom
 - Keep `server.verify_cert: true` unless you have a controlled reason not to.
 - GoBot refuses to send SASL or NickServ credentials over a non-TLS IRC connection.
 - Keep secrets in `.env` or your deployment secret store, not in Git.
+- Configure owner accounts by authenticated account name; do not rely on nicknames for authorization.
 - `/stats` and `/metrics` have no built-in authentication.
 - Bind stats to localhost unless you intentionally expose them.
 - The URL title plugin only fetches public HTTP/HTTPS targets and rejects loopback, private, link-local, multicast, and local hostnames to reduce SSRF risk.
 - External HTTP lookups use timeouts.
+- IRC invitations and `!help` responses are rate-limited to reduce channel and join flooding.
 - The Docker image runs as a non-root user.
 - BoltDB data persists locally; protect filesystem access on the host.
 

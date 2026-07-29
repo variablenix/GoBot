@@ -140,3 +140,13 @@ func TestYouTubeDuration(t *testing.T) {
 		t.Fatalf("got %q", got)
 	}
 }
+
+func TestYouTubeDurationToleratesMetadataVariants(t *testing.T) {
+	if got := youtubeDuration([]byte(`{"lengthSeconds": 97}`)); got != "1m 37s" {
+		t.Fatalf("numeric lengthSeconds: got %q", got)
+	}
+	body := []byte(`<meta content="PT1H2M3S" itemprop="duration">`)
+	if got := youtubeDuration(body); got != "1h 2m 3s" {
+		t.Fatalf("reordered duration metadata: got %q", got)
+	}
+}

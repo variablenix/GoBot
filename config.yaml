@@ -24,10 +24,21 @@ networks:
 # For older single-network deployments, server/identity/channels can still be
 # used instead of networks. Networks takes precedence when it is non-empty.
 command_prefix: "!"
+# Authenticated IRC account names reserved for future owner-only features.
+# Nicknames alone are never treated as ownership proof.
+owner_accounts:
+  - "ak"
+# Anyone may invite the bot to a valid channel. Invited channels are not
+# persisted; add permanent channels under the network's channels list.
+invites:
+  enabled: true
+  cooldown_seconds: 30
 # Outbound messages are rate limited per bot instance/network.
 rate_limit:
   messages_per_second: 1.5
   burst: 5
+  # Prevent one sender from repeatedly triggering !help responses.
+  help_cooldown_seconds: 5
 # Set enabled: false to disable any plugin.
 plugins:
   correction: {enabled: true, history_size: 100}

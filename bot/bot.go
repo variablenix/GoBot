@@ -17,14 +17,19 @@ import (
 )
 
 type Bot struct {
-	Config  Config
-	DB      *storage.DB
-	Stats   *Stats
-	Plugins []Plugin
-	Log     *zap.Logger
-	Queue   *Queue
-	client  *irc.Client
-	mu      sync.RWMutex
+	Config      Config
+	DB          *storage.DB
+	Stats       *Stats
+	Plugins     []Plugin
+	Log         *zap.Logger
+	Queue       *Queue
+	client      *irc.Client
+	mu          sync.RWMutex
+	commandMu   sync.Mutex
+	lastHelp    map[string]time.Time
+	inviteMu    sync.Mutex
+	lastInvites map[string]time.Time
+	lastInvite  time.Time
 }
 
 func New(cfg Config, db *storage.DB, plugins []Plugin, log *zap.Logger) *Bot {
@@ -32,7 +37,7 @@ func New(cfg Config, db *storage.DB, plugins []Plugin, log *zap.Logger) *Bot {
 }
 
 func NewWithStats(cfg Config, db *storage.DB, plugins []Plugin, log *zap.Logger, stats *Stats) *Bot {
-	b := &Bot{Config: cfg, DB: db, Stats: stats, Plugins: plugins, Log: log}
+	b := &Bot{Config: cfg, DB: db, Stats: stats, Plugins: plugins, Log: log, lastHelp: make(map[string]time.Time), lastInvites: make(map[string]time.Time)}
 	b.Queue = NewQueue(cfg.RateLimit.MessagesPerSecond, cfg.RateLimit.Burst, func(o Outgoing) { b.sendNow(o.Target, o.Text) })
 	return b
 }
@@ -71,6 +76,9 @@ func (b *Bot) connect(ctx context.Context) error {
 			handleSASL(c, m, b.Config.Identity.SASLUser, b.Config.Identity.SASLPass, b.Log)
 		}
 		b.logIRCEvent(m)
+		if m.Command == "INVITE" {
+			b.handleInvite(m)
+		}
 		if m.Command == "001" {
 			actualNick := ""
 			if len(m.Params) > 0 {
@@ -123,6 +131,89 @@ func (b *Bot) connect(ctx context.Context) error {
 		b.mu.Unlock()
 		return err
 	}
+}
+
+func (b *Bot) handleInvite(m *irc.Message) {
+	if !b.Config.Invites.Enabled || len(m.Params) < 2 {
+		return
+	}
+	if !strings.EqualFold(m.Params[0], b.Config.Identity.Nick) {
+		return
+	}
+	channel := m.Params[1]
+	if !validChannelName(channel) {
+		return
+	}
+	cooldown := time.Duration(b.Config.Invites.CooldownSeconds) * time.Second
+	if cooldown <= 0 {
+		cooldown = 30 * time.Second
+	}
+	now := time.Now()
+	key := strings.ToLower(channel)
+	b.inviteMu.Lock()
+	if !b.lastInvite.IsZero() && now.Sub(b.lastInvite) < cooldown {
+		b.inviteMu.Unlock()
+		return
+	}
+	last, exists := b.lastInvites[key]
+	if exists && now.Sub(last) < cooldown {
+		b.inviteMu.Unlock()
+		return
+	}
+	b.lastInvites[key] = now
+	b.lastInvite = now
+	b.inviteMu.Unlock()
+
+	b.mu.RLock()
+	client := b.client
+	b.mu.RUnlock()
+	if client == nil {
+		return
+	}
+	b.Log.Info("joining invited channel", zap.String("network", b.Config.NetworkName), zap.String("channel", channel), zap.String("invited_by", m.Name))
+	client.Write("JOIN " + channel)
+}
+
+func validChannelName(channel string) bool {
+	if len(channel) < 2 || len(channel) > 200 || (channel[0] != '#' && channel[0] != '&') {
+		return false
+	}
+	return !strings.ContainsAny(channel, " \r\n,\x00\x07")
+}
+
+// IsOwner checks an authenticated IRC account tag against the configured
+// owner accounts. Nicknames alone are intentionally not accepted.
+func (b *Bot) IsOwner(m Message) bool {
+	account := strings.TrimSpace(m.Account)
+	if account == "" || account == "*" {
+		return false
+	}
+	for _, owner := range b.Config.OwnerAccounts {
+		if strings.EqualFold(strings.TrimSpace(owner), account) {
+			return true
+		}
+	}
+	return false
+}
+
+// AllowHelp prevents one sender from repeatedly triggering help responses.
+// Outbound queue throttling still applies independently to all messages.
+func (b *Bot) AllowHelp(m Message) bool {
+	cooldown := time.Duration(b.Config.RateLimit.HelpCooldownSeconds) * time.Second
+	if cooldown <= 0 {
+		cooldown = 5 * time.Second
+	}
+	key := strings.ToLower(m.Nick) + "\x00" + strings.ToLower(m.Target)
+	now := time.Now()
+	b.commandMu.Lock()
+	last, exists := b.lastHelp[key]
+	if exists && now.Sub(last) < cooldown {
+		b.commandMu.Unlock()
+		return false
+	}
+	b.lastHelp[key] = now
+	b.commandMu.Unlock()
+	return true
 }
 
 func handleSASL(client *irc.Client, message *irc.Message, username, password string, log *zap.Logger) {

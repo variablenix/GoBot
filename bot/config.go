@@ -8,10 +8,16 @@ type Config struct {
 	Channels      []string
 	Networks      []NetworkConfig
 	NetworkName   string
-	CommandPrefix string `mapstructure:"command_prefix"`
+	CommandPrefix string   `mapstructure:"command_prefix"`
+	OwnerAccounts []string `mapstructure:"owner_accounts"`
 	RateLimit     struct {
-		MessagesPerSecond float64 `mapstructure:"messages_per_second"`
-		Burst             int
+		MessagesPerSecond   float64 `mapstructure:"messages_per_second"`
+		Burst               int
+		HelpCooldownSeconds int `mapstructure:"help_cooldown_seconds"`
+	}
+	Invites struct {
+		Enabled         bool `mapstructure:"enabled"`
+		CooldownSeconds int  `mapstructure:"cooldown_seconds"`
 	}
 	Plugins map[string]PluginConfig
 	Stats   struct {

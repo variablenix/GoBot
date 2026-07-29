@@ -19,6 +19,9 @@ func (p *Help) Handle(b *bot.Bot, m bot.Message) bool {
 	if !ok || cmd != "help" {
 		return false
 	}
+	if !b.AllowHelp(m) {
+		return true
+	}
 	if strings.TrimSpace(arg) != "" {
 		for _, x := range b.Plugins {
 			if strings.EqualFold(x.Name(), strings.TrimSpace(arg)) {
