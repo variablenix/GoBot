@@ -136,6 +136,12 @@ GoBot ships with these plugins:
 - `karma`: tracks `thing++` and `thing--`, and answers `!karma <thing>`
 - `dice`: dice rolling commands
 - `blackjack`: play a private per-user game of blackjack/21
+- `poll`: create and vote in channel polls
+- `remind`: schedule a reminder message
+- `quote`: request a random quote from the configured quote sources
+- `choose`: randomly choose between several options
+- `time`: show the current time in an IANA timezone
+- `channelstats`: in-memory per-channel message and user statistics
 - `help`: lists commands and usage
 
 Plugin toggles live under `plugins.<name>.enabled`.
@@ -155,6 +161,32 @@ Then use:
 - `!21 double` to draw one final card and stand; this is available only on the initial two-card hand
 
 Shortcut aliases are also available during a game: `!hit`, `!stand`, and `!double`. `!bj` is a short alias for `!21`.
+
+### Polls
+
+Create a poll with two or more options:
+
+```text
+!poll create Pizza or tacos? | Pizza | Tacos
+!poll vote 1
+!poll results
+!poll close
+```
+
+Each nickname gets one vote, and voting again changes that nickname's vote. Polls are held in memory and reset when the bot restarts.
+
+### Reminders, quotes, choices, time, and channel statistics
+
+```text
+!remind 30m check the logs
+!quote
+!choose pizza | tacos | burgers
+!time America/Los_Angeles
+!tz UTC
+!stats
+```
+
+Reminders accept Go-style durations from `1s` through `720h` and are limited to 20 pending reminders per user/channel. They are in-memory and disappear after a restart. `!quote` uses the same built-in, configured, and fortune sources as banter. Channel statistics are runtime-only and report message totals, distinct users, and the top five users in the current channel.
 
 Games are tracked separately for each nickname in each channel and are held in memory, so active games disappear if the bot restarts. Replies are posted to the channel. The dealer stands on 17. `!blackjack` is also accepted as an alias for `!21`.
 

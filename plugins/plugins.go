@@ -15,6 +15,12 @@ func All() []bot.Plugin {
 		&Karma{},
 		&Dice{},
 		&Blackjack{},
+		&Poll{},
+		&Reminder{},
+		&Quote{},
+		&Choose{},
+		&Timezone{},
+		&ChannelStats{},
 		&Help{},
 	}
 }

@@ -39,17 +39,22 @@ func (p *Banter) Init(c bot.PluginConfig, _ *storage.DB) error {
 	if p.probability > 1 {
 		p.probability = 1
 	}
-	p.quotes = append([]string(nil), defaultQuotes...)
+	p.quotes = loadQuotes(c)
+	return nil
+}
+
+func loadQuotes(c bot.PluginConfig) []string {
+	quotes := append([]string(nil), defaultQuotes...)
 	if path := c.String("quotes_file", ""); path != "" {
-		p.quotes = append(p.quotes, readQuotes(path)...)
+		quotes = append(quotes, readQuotes(path)...)
 	}
 	if _, err := os.Stat("quotes"); err == nil {
-		p.quotes = append(p.quotes, readQuotesDir("quotes")...)
+		quotes = append(quotes, readQuotesDir("quotes")...)
 	}
 	if dir := c.String("fortune_dir", ""); dir != "" {
-		p.quotes = append(p.quotes, readFortuneDir(dir)...)
+		quotes = append(quotes, readFortuneDir(dir)...)
 	}
-	return nil
+	return quotes
 }
 func (p *Banter) Handle(b *bot.Bot, m bot.Message) bool {
 	if m.Nick == "" || len(p.quotes) == 0 {

@@ -44,6 +44,12 @@ plugins:
   karma: {enabled: true}
   dice: {enabled: true}
   blackjack: {enabled: true}
+  poll: {enabled: true}
+  remind: {enabled: true}
+  quote: {enabled: true, quotes_file: "", fortune_dir: ""}
+  choose: {enabled: true}
+  time: {enabled: true}
+  channelstats: {enabled: true}
 stats:
   enabled: true
   http_port: 8080
