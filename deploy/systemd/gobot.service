@@ -1,0 +1,18 @@
+[Unit]
+Description=GoBot IRC Bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ak
+Group=ak
+WorkingDirectory=/home/$USER/irc-bot/GoBot
+EnvironmentFile=/home/$USER/irc-bot/GoBot/.env
+ExecStart=/home/USER/irc-bot/GoBot/bin/irc-bot
+Restart=on-failure
+RestartSec=10
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
