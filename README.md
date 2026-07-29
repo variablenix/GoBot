@@ -135,9 +135,26 @@ GoBot ships with these plugins:
 - `tell`: queues a message for delivery when a nick speaks again
 - `karma`: tracks `thing++` and `thing--`, and answers `!karma <thing>`
 - `dice`: dice rolling commands
+- `blackjack`: play a private per-user game of blackjack/21
 - `help`: lists commands and usage
 
 Plugin toggles live under `plugins.<name>.enabled`.
+
+### Blackjack / 21
+
+Start a game with:
+
+```text
+!21
+```
+
+Then use:
+
+- `!21 hit` to draw another card
+- `!21 stand` to let the dealer finish
+- `!21 double` to draw one final card and stand; this is available only on the initial two-card hand
+
+Games are tracked separately for each nickname in each channel and are held in memory, so active games disappear if the bot restarts. The dealer stands on 17. `!blackjack` is also accepted as an alias for `!21`.
 
 ## NickServ registration and SASL authentication
 
