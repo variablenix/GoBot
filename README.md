@@ -183,10 +183,12 @@ GoBot ships with these plugins:
 - `time`: show the current time in an IANA timezone
 - `channelstats`: persistent per-channel message and user statistics
 - `help`: lists commands and usage
+- `alias`: lists command aliases and supports per-command alias details
 
 Plugin toggles live under `plugins.<name>.enabled`.
 
 `!help` shows a compact one-line plugin index. Use `!help <plugin>` for detailed usage, such as `!help poll`, `!help blackjack`, or `!help urltitle`.
+Use `!alias` for a compact grouped alias list, or `!alias wiki` to inspect one command's aliases.
 
 ### Correction
 
@@ -270,6 +272,13 @@ project--
 !help weather
 !help urltitle
 !help blackjack
+```
+
+List aliases without scanning the full help output:
+
+```text
+!alias
+!alias blackjack
 ```
 
 ### Blackjack / 21

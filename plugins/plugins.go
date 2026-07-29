@@ -22,5 +22,6 @@ func All() []bot.Plugin {
 		&Timezone{},
 		&ChannelStats{},
 		&Help{},
+		&Alias{},
 	}
 }
