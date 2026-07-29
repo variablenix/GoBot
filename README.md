@@ -85,6 +85,8 @@ Important sections:
 - `storage`: BoltDB path
 - `log`: log level and format
 
+GoBot ignores channel messages for 10 seconds after joining by default. This prevents IRC history replay or relay backlog from triggering URL previews, banter, and other plugins as a flood. Adjust the window with `rate_limit.join_warmup_seconds`; set it to `0` to use the 10-second default.
+
 Example multi-network layout:
 
 ```yaml

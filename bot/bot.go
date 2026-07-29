@@ -31,6 +31,8 @@ type Bot struct {
 	inviteMu     sync.Mutex
 	lastInvites  map[string]time.Time
 	lastInvite   time.Time
+	warmupMu     sync.RWMutex
+	warmupUntil  map[string]time.Time
 }
 
 func New(cfg Config, db *storage.DB, plugins []Plugin, log *zap.Logger) *Bot {
@@ -38,7 +40,7 @@ func New(cfg Config, db *storage.DB, plugins []Plugin, log *zap.Logger) *Bot {
 }
 
 func NewWithStats(cfg Config, db *storage.DB, plugins []Plugin, log *zap.Logger, stats *Stats) *Bot {
-	b := &Bot{Config: cfg, DB: db, Stats: stats, Plugins: plugins, Log: log, lastCommands: make(map[string]time.Time), lastWarnings: make(map[string]time.Time), lastInvites: make(map[string]time.Time)}
+	b := &Bot{Config: cfg, DB: db, Stats: stats, Plugins: plugins, Log: log, lastCommands: make(map[string]time.Time), lastWarnings: make(map[string]time.Time), lastInvites: make(map[string]time.Time), warmupUntil: make(map[string]time.Time)}
 	b.Queue = NewQueue(cfg.RateLimit.MessagesPerSecond, cfg.RateLimit.Burst, func(o Outgoing) { b.sendNow(o.Target, o.Text) })
 	return b
 }
@@ -95,6 +97,7 @@ func (b *Bot) connect(ctx context.Context) error {
 				go b.nickServFallback(c, actualNick)
 			}
 			for _, ch := range b.Config.Channels {
+				b.markChannelWarmup(ch)
 				c.Write("JOIN " + ch)
 			}
 		}
@@ -172,7 +175,25 @@ func (b *Bot) handleInvite(m *irc.Message) {
 		return
 	}
 	b.Log.Info("joining invited channel", zap.String("network", b.Config.NetworkName), zap.String("channel", channel), zap.String("invited_by", m.Name))
+	b.markChannelWarmup(channel)
 	client.Write("JOIN " + channel)
+}
+
+func (b *Bot) markChannelWarmup(channel string) {
+	duration := time.Duration(b.Config.RateLimit.JoinWarmupSeconds) * time.Second
+	if duration <= 0 {
+		duration = 10 * time.Second
+	}
+	b.warmupMu.Lock()
+	b.warmupUntil[strings.ToLower(channel)] = time.Now().Add(duration)
+	b.warmupMu.Unlock()
+}
+
+func (b *Bot) channelWarming(channel string) bool {
+	b.warmupMu.RLock()
+	until := b.warmupUntil[strings.ToLower(channel)]
+	b.warmupMu.RUnlock()
+	return !until.IsZero() && time.Now().Before(until)
 }
 
 func validChannelName(channel string) bool {
@@ -374,6 +395,9 @@ func (b *Bot) logIRCEvent(m *irc.Message) {
 	}
 }
 func (b *Bot) dispatch(msg Message) {
+	if msg.Command == "PRIVMSG" && msg.IsChannel && b.channelWarming(msg.Target) {
+		return
+	}
 	if _, _, ok := IsCommand(msg, b.Config.CommandPrefix); ok && !b.AllowCommand(msg) {
 		return
 	}
