@@ -51,6 +51,9 @@ func (b *Bot) sendNow(target, text string) {
 	}
 }
 func (b *Bot) connect(ctx context.Context) error {
+	if !b.Config.Server.TLS && b.Config.Identity.SASLUser != "" && b.Config.Identity.SASLPass != "" {
+		return fmt.Errorf("refusing to send IRC authentication credentials without TLS")
+	}
 	server := net.JoinHostPort(b.Config.Server.Host, fmt.Sprintf("%d", b.Config.Server.Port))
 	var conn net.Conn
 	var err error
