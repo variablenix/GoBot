@@ -150,3 +150,25 @@ func TestYouTubeDurationToleratesMetadataVariants(t *testing.T) {
 		t.Fatalf("reordered duration metadata: got %q", got)
 	}
 }
+
+func TestYouTubeVideoID(t *testing.T) {
+	tests := map[string]string{
+		"https://www.youtube.com/watch?v=abc123": "abc123",
+		"https://youtu.be/xyz789?t=10":           "xyz789",
+		"https://www.youtube.com/shorts/qwerty":  "qwerty",
+		"https://www.youtube.com/live/zxcvb":     "zxcvb",
+	}
+	for raw, want := range tests {
+		u, err := url.Parse(raw)
+		if err != nil {
+			t.Fatalf("parse %q: %v", raw, err)
+		}
+		got, ok := youtubeVideoID(u)
+		if !ok || got != want {
+			t.Fatalf("youtubeVideoID(%q) = %q, %v; want %q, true", raw, got, ok, want)
+		}
+	}
+	if _, ok := youtubeVideoID(&url.URL{Scheme: "https", Host: "example.com", Path: "/watch"}); ok {
+		t.Fatal("non-YouTube URL should not produce a video ID")
+	}
+}

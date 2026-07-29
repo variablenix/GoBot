@@ -273,6 +273,9 @@ func youtubeMetadata(ctx context.Context, client *http.Client, videoURL *url.URL
 		channel:  cleanTitle(data.AuthorName),
 		duration: youtubeDuration(body),
 	}
+	if result.duration == "" {
+		result.duration = youtubePlayerDuration(ctx, client, videoURL)
+	}
 	if result.channel == "" {
 		result.channel = cleanTitle(youtubeJSONStringField(body, "ownerChannelName"))
 	}
@@ -304,6 +307,57 @@ func youtubeDuration(body []byte) string {
 		return fmt.Sprintf("%dm %ds", minutes, remaining)
 	}
 	return fmt.Sprintf("%ds", remaining)
+}
+
+// youtubePlayerDuration uses YouTube's public player endpoint when the HTML
+// page does not include lengthSeconds. This is common for consent, Music,
+// Shorts, and other pages whose metadata is rendered dynamically.
+func youtubePlayerDuration(ctx context.Context, client *http.Client, videoURL *url.URL) string {
+	videoID, ok := youtubeVideoID(videoURL)
+	if !ok {
+		return ""
+	}
+	requestBody := fmt.Sprintf(`{"context":{"client":{"clientName":"ANDROID","clientVersion":"20.10.38"}},"videoId":%q}`, videoID)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://www.youtube.com/youtubei/v1/player?prettyPrint=false", strings.NewReader(requestBody))
+	if err != nil {
+		return ""
+	}
+	req.Header.Set("User-Agent", "com.google.android.youtube/20.10.38 (Linux; U; Android 14)")
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+	res, err := client.Do(req)
+	if err != nil {
+		return ""
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		return ""
+	}
+	body, err := io.ReadAll(io.LimitReader(res.Body, 512<<10))
+	if err != nil {
+		return ""
+	}
+	return youtubeDuration(body)
+}
+
+func youtubeVideoID(u *url.URL) (string, bool) {
+	if u == nil || !isYouTubeHost(u.Hostname()) {
+		return "", false
+	}
+	host := strings.ToLower(strings.TrimSuffix(u.Hostname(), "."))
+	if host == "youtu.be" {
+		id := strings.Trim(strings.TrimSpace(u.Path), "/")
+		return id, id != ""
+	}
+	if id := strings.TrimSpace(u.Query().Get("v")); id != "" {
+		return id, true
+	}
+	parts := strings.Split(strings.Trim(u.Path, "/"), "/")
+	if len(parts) >= 2 && (parts[0] == "shorts" || parts[0] == "embed" || parts[0] == "live") {
+		id := strings.TrimSpace(parts[1])
+		return id, id != ""
+	}
+	return "", false
 }
 
 // YouTube has used several valid HTML/JSON layouts over time. Keep duration
