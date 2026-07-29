@@ -7,9 +7,9 @@ import (
 )
 
 type Message struct {
-	Raw, Nick, User, Host, Command, Target, Text string
-	IsChannel                                    bool
-	Timestamp                                    time.Time
+	Raw, Nick, User, Host, Account, Command, Target, Text string
+	IsChannel                                             bool
+	Timestamp                                             time.Time
 }
 
 func ParseMessage(m *irc.Message) Message {
@@ -20,7 +20,8 @@ func ParseMessage(m *irc.Message) Message {
 	if len(m.Params) > 1 {
 		text = strings.Join(m.Params[1:], " ")
 	}
-	return Message{Raw: m.String(), Nick: m.Name, User: m.User, Host: m.Host, Command: m.Command, Target: target, Text: text, IsChannel: strings.HasPrefix(strings.ToLower(target), "#") || strings.HasPrefix(strings.ToLower(target), "&"), Timestamp: time.Now()}
+	account, _ := m.GetTag("account")
+	return Message{Raw: m.String(), Nick: m.Name, User: m.User, Host: m.Host, Account: account, Command: m.Command, Target: target, Text: text, IsChannel: strings.HasPrefix(strings.ToLower(target), "#") || strings.HasPrefix(strings.ToLower(target), "&"), Timestamp: time.Now()}
 }
 func (m Message) ReplyTarget() string {
 	if m.IsChannel {

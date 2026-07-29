@@ -285,11 +285,7 @@ func youtubeMetadata(ctx context.Context, client *http.Client, videoURL *url.URL
 func youtubeDuration(body []byte) string {
 	seconds := youtubeJSONField(body, "lengthSeconds")
 	if seconds == "" {
-		meta := regexp.MustCompile(`(?i)<meta[^>]+itemprop=["']duration["'][^>]+content=["']PT([^"']+)["']`).FindSubmatch(body)
-		if len(meta) == 2 {
-			return formatISO8601Duration(string(meta[1]))
-		}
-		return ""
+		return youtubeMetaDuration(body)
 	}
 	value, err := strconv.Atoi(seconds)
 	if err != nil || value < 1 {
@@ -308,6 +304,46 @@ func youtubeDuration(body []byte) string {
 		return fmt.Sprintf("%dm %ds", minutes, remaining)
 	}
 	return fmt.Sprintf("%ds", remaining)
+}
+
+// YouTube has used several valid HTML/JSON layouts over time. Keep duration
+// extraction tolerant of whitespace, numeric-vs-string JSON values, and meta
+// attribute order so it works consistently for regular videos, Music videos,
+// Shorts, and other YouTube-hosted video pages.
+func youtubeMetaDuration(body []byte) string {
+	z := html.NewTokenizer(strings.NewReader(string(body)))
+	for {
+		tt := z.Next()
+		if tt == html.ErrorToken {
+			return ""
+		}
+		if tt != html.StartTagToken && tt != html.SelfClosingTagToken {
+			continue
+		}
+		name, hasAttr := z.TagName()
+		if string(name) != "meta" || !hasAttr {
+			continue
+		}
+		var itemprop, content string
+		for {
+			key, value, more := z.TagAttr()
+			switch strings.ToLower(string(key)) {
+			case "itemprop":
+				itemprop = strings.ToLower(strings.TrimSpace(string(value)))
+			case "content":
+				content = strings.TrimSpace(string(value))
+			}
+			if !more {
+				break
+			}
+		}
+		if itemprop != "duration" || !strings.HasPrefix(strings.ToUpper(content), "PT") {
+			continue
+		}
+		if duration := formatISO8601Duration(strings.TrimPrefix(strings.ToUpper(content), "PT")); duration != "" {
+			return duration
+		}
+	}
 }
 
 func formatISO8601Duration(value string) string {
@@ -345,7 +381,7 @@ func formatYouTubeDurationParts(hours, minutes, seconds int) string {
 }
 
 func youtubeJSONField(body []byte, field string) string {
-	pattern := regexp.MustCompile(`"` + regexp.QuoteMeta(field) + `":"([0-9]+)"`)
+	pattern := regexp.MustCompile(`"` + regexp.QuoteMeta(field) + `"\s*:\s*"?([0-9]+)"?`)
 	match := pattern.FindSubmatch(body)
 	if len(match) == 2 {
 		return string(match[1])
