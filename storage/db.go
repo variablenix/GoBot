@@ -12,6 +12,10 @@ var ErrNotFound = errors.New("key not found")
 
 type DB struct{ db *bbolt.DB }
 
+func Decode(data []byte, value interface{}) error {
+	return json.Unmarshal(data, value)
+}
+
 func Open(path string) (*DB, error) {
 	db, err := bbolt.Open(path, 0600, nil)
 	if err != nil {
