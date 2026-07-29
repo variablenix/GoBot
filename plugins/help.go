@@ -21,6 +21,10 @@ func (p *Help) Handle(b *bot.Bot, m bot.Message) bool {
 	}
 	if strings.TrimSpace(arg) != "" {
 		for _, x := range b.Plugins {
+			if strings.EqualFold(x.Name(), strings.TrimSpace(arg)) {
+				b.Send(m.ReplyTarget(), x.Help())
+				return true
+			}
 			for _, c := range x.Commands() {
 				if c == strings.ToLower(strings.TrimSpace(arg)) {
 					b.Send(m.ReplyTarget(), x.Help())
@@ -29,15 +33,11 @@ func (p *Help) Handle(b *bot.Bot, m bot.Message) bool {
 			}
 		}
 	}
-	var lines []string
+	var names []string
 	for _, x := range b.Plugins {
-		if len(x.Commands()) > 0 {
-			lines = append(lines, strings.Join(x.Commands(), ", ")+" — "+x.Help())
-		}
+		names = append(names, x.Name())
 	}
-	sort.Strings(lines)
-	for _, part := range splitIRCText(strings.Join(lines, " | "), 350) {
-		b.Send(m.ReplyTarget(), part)
-	}
+	sort.Strings(names)
+	b.Send(m.ReplyTarget(), "plugins: "+strings.Join(names, ", ")+" — use !help <plugin> for details")
 	return true
 }
