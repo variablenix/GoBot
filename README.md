@@ -2,7 +2,7 @@
 
 GoBot is a Go IRC bot built for long-running use on one or more IRC networks. It connects over TLS, rejoins after disconnects, rate-limits outbound messages, stores plugin data in BoltDB, and exposes runtime stats over HTTP.
 
-The repository includes a default configuration for `irc.ouch.chat` on port `6697` joining `#test123`, but the bot is structured to support multiple networks and multiple channels per network.
+The repository includes sample IRC connection details to help you get started, but the bot is structured to support multiple networks and multiple channels per network.
 
 ## What GoBot does
 
