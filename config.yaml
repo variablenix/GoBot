@@ -49,7 +49,9 @@ plugins:
   # Set fortune_dir to an explicit, curated fortune directory if desired.
   # Leave empty to avoid loading the entire system fortune collection.
   banter: {enabled: true, probability: 0.54, quotes_file: "quotes/banter.txt", fortune_dir: ""}
-  urltitle: {enabled: true, max_title_length: 120, timeout_seconds: 5}
+  # Optional YouTube Data API v3 key for reliable title/channel/duration data.
+  # Without it, GoBot uses YouTube's public oEmbed/player fallbacks.
+  urltitle: {enabled: true, max_title_length: 120, timeout_seconds: 5, youtube_api_key: ""}
   weather: {enabled: true, default_units: imperial}
   news: {enabled: true, api_key: "", max_results: 3}
   wikipedia: {enabled: true, max_summary_length: 300}
