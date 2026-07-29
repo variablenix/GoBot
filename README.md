@@ -18,7 +18,7 @@ Persistent plugin state such as seen/tell/karma data is stored in BoltDB. Runtim
 
 ## Requirements
 
-- Go `1.23+`
+- Go `1.25+`
 - A writable filesystem for the BoltDB database
 - IRC network access
 - Optional: Docker / Docker Compose
@@ -560,6 +560,7 @@ Both endpoints have no built-in authentication. Restrict port `8082` to the Prom
 ## Security notes
 
 - Keep `server.verify_cert: true` unless you have a controlled reason not to.
+- GoBot refuses to send SASL or NickServ credentials over a non-TLS IRC connection.
 - Keep secrets in `.env` or your deployment secret store, not in Git.
 - `/stats` and `/metrics` have no built-in authentication.
 - Bind stats to localhost unless you intentionally expose them.
