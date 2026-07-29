@@ -135,7 +135,7 @@ GoBot ships with these plugins:
 - `tell`: queues a message for delivery when a nick speaks again
 - `karma`: tracks `thing++` and `thing--`, and answers `!karma <thing>`
 - `dice`: dice rolling commands
-- `blackjack`: play a private per-user game of blackjack/21
+- `blackjack`: play a separate per-user game of blackjack/21
 - `poll`: create and vote in channel polls
 - `remind`: schedule a reminder message
 - `quote`: request a random quote from the configured quote sources
@@ -147,6 +147,82 @@ GoBot ships with these plugins:
 Plugin toggles live under `plugins.<name>.enabled`.
 
 `!help` shows a compact one-line plugin index. Use `!help <plugin>` for detailed usage, such as `!help poll`, `!help blackjack`, or `!help urltitle`.
+
+### Correction
+
+Use the familiar IRC correction syntax immediately after your message:
+
+```text
+I need a wiiifee
+s/wiiifee/wife
+```
+
+GoBot corrects the most recent matching message from that nickname. Add `/g` for every matching occurrence:
+
+```text
+s/wiiifee/wife/g
+```
+
+The correction history is kept in memory and controlled by `history_size`.
+
+### URL titles
+
+When someone posts an HTTP or HTTPS URL in a channel, `urltitle` fetches a page title and posts it. It prefers Open Graph and Twitter metadata, then falls back to the HTML `<title>` element. YouTube links use public metadata and are formatted with the title, channel, and duration:
+
+```text
+[YouTube] Video title | Channel: Example Channel | 1m 37s
+```
+
+YouTube does not require an API key. Sites that block automated requests may not provide a title; GoBot suppresses access-denied/error titles rather than posting them.
+
+### Weather
+
+Weather uses Open-Meteo and does not require an API key:
+
+```text
+!weather Seattle
+```
+
+Set `default_units` to `metric` or `imperial` in `config.yaml`.
+
+### Wikipedia
+
+Use either command alias to search English Wikipedia and receive a summary:
+
+```text
+!wiki Linux
+!wikipedia FreeBSD
+```
+
+GoBot first tries the article title, then searches Wikipedia if the query is not an exact title. `max_summary_length` controls the response length.
+
+### Seen, tell, karma, and dice
+
+```text
+!seen nickname
+!tell nickname message for them
+!karma project
+project++
+project--
+!roll d20
+!roll 2d6
+```
+
+- `seen` reports the channel and message from the last time a nickname spoke. Its records are stored in BoltDB.
+- `tell` delivers queued messages the next time that nickname speaks. Messages are stored in BoltDB until delivered.
+- `karma` tracks case-insensitive `thing++` and `thing--` changes and reports totals with `!karma <thing>`.
+- `dice` accepts `NdN` notation or a single number such as `!roll 20`, which means `1d20`. It allows up to 100 dice and 10,000 sides per die and uses secure random values.
+
+### Help
+
+`!help` returns a compact plugin index. Ask for details without flooding the channel:
+
+```text
+!help
+!help weather
+!help urltitle
+!help blackjack
+```
 
 ### Blackjack / 21
 
@@ -164,6 +240,8 @@ Then use:
 
 Shortcut aliases are also available during a game: `!hit`, `!stand`, and `!double`. `!bj` is a short alias for `!21`.
 
+Games are tracked separately for each nickname in each channel and are held in memory, so active games disappear if the bot restarts. Replies are posted to the channel. The dealer stands on 17. `!blackjack` is also accepted as an alias for `!21`.
+
 ### Polls
 
 Create a poll with two or more options:
@@ -177,23 +255,52 @@ Create a poll with two or more options:
 
 Each nickname gets one vote, and voting again changes that nickname's vote. Polls are held in memory and reset when the bot restarts.
 
-### Reminders, quotes, choices, time, and channel statistics
+### Reminders
 
 ```text
 !remind 30m check the logs
-!quote
-!choose pizza | tacos | burgers
-!time America/Los_Angeles
-!tz UTC
-!stats
-!chanstats
-!wiki <query>
-!wikipedia <query>
 ```
 
-Reminders accept Go-style durations from `1s` through `720h` and are limited to 20 pending reminders per user/channel. They are in-memory and disappear after a restart. `!quote` uses the same built-in, configured, and fortune sources as banter. Channel statistics are runtime-only and report message totals, distinct users, and the top five users in the current channel.
+Reminders accept Go-style durations from `1s` through `720h` and are limited to 20 pending reminders per user/channel. They are in-memory and disappear after a restart.
 
-Games are tracked separately for each nickname in each channel and are held in memory, so active games disappear if the bot restarts. Replies are posted to the channel. The dealer stands on 17. `!blackjack` is also accepted as an alias for `!21`.
+### Quotes
+
+```text
+!quote
+```
+
+The quote plugin uses the same built-in, configured, and fortune sources as banter. It reads files directly and never executes the `fortune` command.
+
+### Random choices
+
+Choose between two to twenty options using pipes or commas:
+
+```text
+!choose pizza | tacos | burgers
+!choose red, blue, green
+```
+
+### Timezones
+
+Use IANA timezone names, with a few common aliases:
+
+```text
+!time America/Los_Angeles
+!tz UTC
+!time EST
+```
+
+### Channel statistics
+
+Use any of these aliases:
+
+```text
+!stats
+!chanstats
+!channelstats
+```
+
+The response reports in-memory message totals, distinct users, and the top five users for the current channel. These statistics reset when the bot restarts.
 
 ## NickServ registration and SASL authentication
 
@@ -424,7 +531,7 @@ Find the correct VPS address with:
 ip -br addr
 ```
 
-Allow only the monitoring host through the VPS firewall. For UFW, where `192.168.70.107` is the Prometheus host:
+Allow only the monitoring host through the VPS firewall. For UFW, where `192.0.2.50` is the Prometheus host:
 
 ```sh
 sudo ufw allow from 192.0.2.50 to any port 8082 proto tcp
