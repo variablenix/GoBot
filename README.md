@@ -186,6 +186,9 @@ Each nickname gets one vote, and voting again changes that nickname's vote. Poll
 !time America/Los_Angeles
 !tz UTC
 !stats
+!chanstats
+!wiki <query>
+!wikipedia <query>
 ```
 
 Reminders accept Go-style durations from `1s` through `720h` and are limited to 20 pending reminders per user/channel. They are in-memory and disappear after a restart. `!quote` uses the same built-in, configured, and fortune sources as banter. Channel statistics are runtime-only and report message totals, distinct users, and the top five users in the current channel.
