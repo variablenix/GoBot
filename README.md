@@ -334,7 +334,7 @@ Recommended secret handling:
 Usage:
 
 - `!news` shows top US headlines
-- `!news linux` searches recent articles for `linux`
+- `!news linux` searches recent English-language articles for `linux`
 
 If no key is configured, the plugin responds with `news is not configured`.
 
