@@ -21,7 +21,7 @@ type ChannelStats struct {
 }
 
 func (p *ChannelStats) Name() string       { return "channelstats" }
-func (p *ChannelStats) Commands() []string { return []string{"stats", "channelstats"} }
+func (p *ChannelStats) Commands() []string { return []string{"stats", "chanstats", "channelstats"} }
 func (p *ChannelStats) Help() string {
 	return "!stats — show in-memory message and user statistics for this channel"
 }

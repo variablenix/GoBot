@@ -15,7 +15,7 @@ import (
 type Wikipedia struct{ cfg bot.PluginConfig }
 
 func (p *Wikipedia) Name() string                                 { return "wikipedia" }
-func (p *Wikipedia) Commands() []string                           { return []string{"wiki"} }
+func (p *Wikipedia) Commands() []string                           { return []string{"wiki", "wikipedia"} }
 func (p *Wikipedia) Help() string                                 { return "!wiki <query> — summarize a Wikipedia article" }
 func (p *Wikipedia) Init(c bot.PluginConfig, _ *storage.DB) error { p.cfg = c; return nil }
 func (p *Wikipedia) Handle(b *bot.Bot, m bot.Message) bool {
