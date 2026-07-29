@@ -172,3 +172,10 @@ func TestYouTubeVideoID(t *testing.T) {
 		t.Fatal("non-YouTube URL should not produce a video ID")
 	}
 }
+
+func TestYouTubePlayerDurationResponse(t *testing.T) {
+	body := []byte(`{"videoDetails":{"videoId":"abc123","lengthSeconds":"367"}}`)
+	if got := youtubeDuration(body); got != "6m 7s" {
+		t.Fatalf("youtube player response duration: got %q, want %q", got, "6m 7s")
+	}
+}
