@@ -11,34 +11,50 @@ import (
 )
 
 type channelStat struct {
-	messages uint64
-	users    map[string]uint64
+	Messages uint64            `json:"messages"`
+	Users    map[string]uint64 `json:"users"`
 }
 
 type ChannelStats struct {
 	mu       sync.Mutex
 	channels map[string]*channelStat
+	db       *storage.DB
 }
 
 func (p *ChannelStats) Name() string       { return "channelstats" }
 func (p *ChannelStats) Commands() []string { return []string{"stats", "chanstats", "channelstats"} }
 func (p *ChannelStats) Help() string {
-	return "!stats — show in-memory message and user statistics for this channel"
+	return "!stats — show persistent message and user statistics for this channel"
 }
-func (p *ChannelStats) Init(_ bot.PluginConfig, _ *storage.DB) error {
+func (p *ChannelStats) Init(_ bot.PluginConfig, db *storage.DB) error {
 	p.channels = make(map[string]*channelStat)
+	p.db = db
+	if db != nil {
+		for _, key := range mustChannelStatsList(db) {
+			if raw, err := db.Get("channelstats", key); err == nil {
+				var saved channelStat
+				if storage.Decode(raw, &saved) == nil && saved.Users != nil {
+					p.channels[key] = &saved
+				}
+			}
+		}
+	}
 	return nil
 }
 func (p *ChannelStats) Handle(b *bot.Bot, m bot.Message) bool {
 	if m.Command == "PRIVMSG" && m.IsChannel && m.Nick != "" {
 		p.mu.Lock()
-		stats := p.channels[strings.ToLower(m.Target)]
+		key := channelStatsKey(b.Config.NetworkName, m.Target)
+		stats := p.channels[key]
 		if stats == nil {
-			stats = &channelStat{users: make(map[string]uint64)}
-			p.channels[strings.ToLower(m.Target)] = stats
+			stats = &channelStat{Users: make(map[string]uint64)}
+			p.channels[key] = stats
 		}
-		stats.messages++
-		stats.users[m.Nick]++
+		stats.Messages++
+		stats.Users[m.Nick]++
+		if p.db != nil {
+			_ = p.db.Set("channelstats", key, stats)
+		}
 		p.mu.Unlock()
 	}
 	cmd, _, ok := bot.IsCommand(m, b.Config.CommandPrefix)
@@ -46,7 +62,7 @@ func (p *ChannelStats) Handle(b *bot.Bot, m bot.Message) bool {
 		return false
 	}
 	p.mu.Lock()
-	stats := p.channels[strings.ToLower(m.Target)]
+	stats := p.channels[channelStatsKey(b.Config.NetworkName, m.Target)]
 	response := formatChannelStats(m.Target, stats)
 	p.mu.Unlock()
 	b.Send(m.ReplyTarget(), response)
@@ -61,8 +77,8 @@ func formatChannelStats(channel string, stats *channelStat) string {
 		nick  string
 		count uint64
 	}
-	users := make([]userCount, 0, len(stats.users))
-	for nick, count := range stats.users {
+	users := make([]userCount, 0, len(stats.Users))
+	for nick, count := range stats.Users {
 		users = append(users, userCount{nick, count})
 	}
 	sort.Slice(users, func(i, j int) bool {
@@ -78,5 +94,14 @@ func formatChannelStats(channel string, stats *channelStat) string {
 	for i, user := range users {
 		top[i] = fmt.Sprintf("%s %d", user.nick, user.count)
 	}
-	return fmt.Sprintf("%s: %d messages, %d users; top: %s", channel, stats.messages, len(stats.users), strings.Join(top, ", "))
+	return fmt.Sprintf("%s: %d messages, %d users; top: %s", channel, stats.Messages, len(stats.Users), strings.Join(top, ", "))
+}
+
+func channelStatsKey(network, channel string) string {
+	return strings.ToLower(network) + "\x00" + strings.ToLower(channel)
+}
+
+func mustChannelStatsList(db *storage.DB) []string {
+	keys, _ := db.List("channelstats")
+	return keys
 }

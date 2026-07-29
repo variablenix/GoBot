@@ -81,7 +81,8 @@ func main() {
 	}
 	defer db.Close()
 
-	stats := bot.NewStats()
+	stats := bot.NewStats(db)
+	defer stats.Close()
 	if cfg.Stats.Enabled {
 		stats.Serve(cfg.Stats.ListenAddress, cfg.Stats.HTTPPort)
 	}
@@ -113,6 +114,11 @@ func main() {
 			active = append(active, p)
 		}
 		instance := bot.NewWithStats(networkCfg, db, active, log, stats)
+		for _, plugin := range active {
+			if starter, ok := plugin.(bot.Starter); ok {
+				starter.Start(instance)
+			}
+		}
 		instances = append(instances, instance)
 		wg.Add(1)
 		go func(networkName string, b *bot.Bot) {

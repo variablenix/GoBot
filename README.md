@@ -14,7 +14,7 @@ GoBot starts one IRC connection per configured network. Each connection:
 - hands each message to enabled plugins
 - reconnects with backoff if the network drops
 
-Persistent plugin state such as seen/tell/karma data is stored in BoltDB. Runtime counters are exposed on `/stats` and `/metrics`.
+Persistent plugin state such as seen/tell/karma data is stored in BoltDB. Runtime counters are exposed on `/stats` and `/metrics` and their cumulative totals survive restarts.
 
 ## Requirements
 
@@ -181,7 +181,7 @@ GoBot ships with these plugins:
 - `quote`: request a random quote from the configured quote sources
 - `choose`: randomly choose between several options
 - `time`: show the current time in an IANA timezone
-- `channelstats`: in-memory per-channel message and user statistics
+- `channelstats`: persistent per-channel message and user statistics
 - `help`: lists commands and usage
 
 Plugin toggles live under `plugins.<name>.enabled`.
@@ -301,7 +301,7 @@ Create a poll with two or more options:
 !poll close
 ```
 
-Each nickname gets one vote, and voting again changes that nickname's vote. Polls are held in memory and reset when the bot restarts.
+Each nickname gets one vote, and voting again changes that nickname's vote. Active polls are stored in BoltDB and restored after a restart. Polls automatically expire after 15 days.
 
 ### Reminders
 
@@ -309,7 +309,7 @@ Each nickname gets one vote, and voting again changes that nickname's vote. Poll
 !remind 30m check the logs
 ```
 
-Reminders accept Go-style durations from `1s` through `720h` and are limited to 20 pending reminders per user/channel. They are in-memory and disappear after a restart.
+Reminders accept Go-style durations from `1s` through `360h` and are limited to 20 pending reminders per user/channel. Pending reminders are stored in BoltDB and rescheduled after a restart; reminders older than 15 days are discarded.
 
 ### Quotes
 
@@ -348,7 +348,7 @@ Use any of these aliases:
 !channelstats
 ```
 
-The response reports in-memory message totals, distinct users, and the top five users for the current channel. These statistics reset when the bot restarts.
+The response reports message totals, distinct users, and the top five users for the current channel. HTTP `/stats`, `/metrics`, and `!stats` channel details persist in BoltDB and survive restarts.
 
 ## NickServ registration and SASL authentication
 
@@ -591,7 +591,7 @@ curl http://127.0.0.1:8082/stats
 curl http://127.0.0.1:8082/metrics
 ```
 
-Stats are in-memory and reset when the bot restarts.
+The cumulative counters persist in BoltDB and survive restarts. Uptime and current connection status are runtime values and naturally reset or change when the process restarts.
 
 ### Scraping from a separate Prometheus host
 

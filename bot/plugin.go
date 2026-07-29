@@ -9,3 +9,7 @@ type Plugin interface {
 	Init(PluginConfig, *storage.DB) error
 	Handle(*Bot, Message) bool
 }
+
+type Starter interface {
+	Start(*Bot)
+}
