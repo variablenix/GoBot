@@ -316,9 +316,13 @@ Each nickname gets one vote, and voting again changes that nickname's vote. Acti
 
 ```text
 !remind 30m check the logs
+!remind 45s check the connection
+!remind 2h restart the service
+!remind 1h30m check the deployment
+!remind 72h check in three days
 ```
 
-Reminders accept Go-style durations from `1s` through `360h` and are limited to 20 pending reminders per user/channel. Pending reminders are stored in BoltDB and rescheduled after a restart; reminders older than 15 days are discarded.
+Reminders accept Go-style durations from `1s` through `360h` and are limited to 20 pending reminders per user/channel. Supported units are `s` (seconds), `m` (minutes), and `h` (hours). Days must be expressed as hours because `d` is not a valid Go duration; use `72h` for three days. Pending reminders are stored in BoltDB and rescheduled after a restart; reminders older than 15 days are discarded.
 
 ### Quotes
 
