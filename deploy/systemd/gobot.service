@@ -5,14 +5,22 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=ak
-Group=ak
-WorkingDirectory=/home/$USER/irc-bot/GoBot
-EnvironmentFile=/home/$USER/irc-bot/GoBot/.env
-ExecStart=/home/USER/irc-bot/GoBot/bin/irc-bot
+# Replace these with the user/group that should run the bot.
+User=gobot
+Group=gobot
+
+# Replace /opt/gobot with the directory where this repository is deployed.
+WorkingDirectory=/opt/gobot
+EnvironmentFile=/opt/gobot/.env
+ExecStart=/opt/gobot/bin/irc-bot
+
 Restart=on-failure
 RestartSec=10
 UMask=0077
+
+# Send logs to journald.
+StandardOutput=journal
+StandardError=journal
 
 [Install]
 WantedBy=multi-user.target
