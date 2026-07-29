@@ -1,6 +1,7 @@
 package plugins
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -80,7 +81,7 @@ func TestOembedTitle(t *testing.T) {
 	}))
 	defer server.Close()
 
-	title, ok := oembedTitle(t.Context(), server.Client(), server.URL)
+	title, ok := oembedTitle(context.Background(), server.Client(), server.URL)
 	if !ok || title != "A Reddit post title" {
 		t.Fatalf("got title %q, ok=%v", title, ok)
 	}
