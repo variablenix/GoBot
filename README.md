@@ -154,7 +154,7 @@ Then use:
 - `!21 stand` to let the dealer finish
 - `!21 double` to draw one final card and stand; this is available only on the initial two-card hand
 
-Games are tracked separately for each nickname in each channel and are held in memory, so active games disappear if the bot restarts. The dealer stands on 17. `!blackjack` is also accepted as an alias for `!21`.
+Games are tracked separately for each nickname in each channel and are held in memory, so active games disappear if the bot restarts. Replies are posted to the channel. The dealer stands on 17. `!blackjack` is also accepted as an alias for `!21`.
 
 ## NickServ registration and SASL authentication
 
