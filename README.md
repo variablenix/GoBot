@@ -234,7 +234,7 @@ BOT_SASL_USER=Echo
 BOT_SASL_PASS=replace-with-your-nickserv-password
 BOT_NEWS_API_KEY=
 BOT_STORAGE_DB_PATH=./data/bot.db
-BOT_STATS_LISTEN_ADDRESS=127.0.0.1:8080
+BOT_STATS_LISTEN_ADDRESS=127.0.0.1:8082
 ```
 
 Protect it:
@@ -398,17 +398,57 @@ If no key is configured, the plugin responds with `news is not configured`.
 
 GoBot exposes:
 
-- `/stats`: human-readable JSON-style runtime stats
-- `/metrics`: Prometheus metrics
+- `/stats`: human-readable JSON runtime stats for troubleshooting
+- `/metrics`: Prometheus-compatible metrics for monitoring
 
 Typical checks:
 
 ```sh
-curl http://127.0.0.1:8080/stats
-curl http://127.0.0.1:8080/metrics
+curl http://127.0.0.1:8082/stats
+curl http://127.0.0.1:8082/metrics
 ```
 
 Stats are in-memory and reset when the bot restarts.
+
+### Scraping from a separate Prometheus host
+
+If Prometheus runs on another machine, GoBot must listen on a VPS address reachable by that machine. For example, on the GoBot VPS set `.env` to the VPS's LAN address and port:
+
+```env
+BOT_STATS_LISTEN_ADDRESS=<BOT_VPS_LAN_IP>:8082
+```
+
+Find the correct VPS address with:
+
+```sh
+ip -br addr
+```
+
+Allow only the monitoring host through the VPS firewall. For UFW, where `192.168.70.107` is the Prometheus host:
+
+```sh
+sudo ufw allow from 192.168.70.107 to any port 8082 proto tcp
+sudo systemctl restart gobot
+```
+
+Prometheus should scrape `/metrics`, not `/stats`:
+
+```yaml
+scrape_configs:
+  - job_name: gobot
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - <BOT_VPS_LAN_IP>:8082
+```
+
+Test connectivity from the Prometheus host:
+
+```sh
+curl http://<BOT_VPS_LAN_IP>:8082/metrics
+```
+
+Both endpoints have no built-in authentication. Restrict port `8082` to the Prometheus host and do not expose it to the public Internet.
 
 ## Security notes
 
