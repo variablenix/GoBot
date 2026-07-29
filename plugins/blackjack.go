@@ -27,10 +27,12 @@ type Blackjack struct {
 	games map[string]*blackjackGame
 }
 
-func (p *Blackjack) Name() string       { return "blackjack" }
-func (p *Blackjack) Commands() []string { return []string{"21", "blackjack"} }
+func (p *Blackjack) Name() string { return "blackjack" }
+func (p *Blackjack) Commands() []string {
+	return []string{"21", "bj", "blackjack", "hit", "stand", "double"}
+}
 func (p *Blackjack) Help() string {
-	return "!21 — start blackjack; !21 hit, !21 stand, or !21 double"
+	return "!21 — start blackjack; use !hit, !stand, or !double during a game"
 }
 func (p *Blackjack) Init(_ bot.PluginConfig, _ *storage.DB) error {
 	p.games = make(map[string]*blackjackGame)
@@ -39,7 +41,7 @@ func (p *Blackjack) Init(_ bot.PluginConfig, _ *storage.DB) error {
 
 func (p *Blackjack) Handle(b *bot.Bot, m bot.Message) bool {
 	cmd, arg, ok := bot.IsCommand(m, b.Config.CommandPrefix)
-	if !ok || (cmd != "21" && cmd != "blackjack") {
+	if !ok || (cmd != "21" && cmd != "bj" && cmd != "blackjack" && cmd != "hit" && cmd != "stand" && cmd != "double") {
 		return false
 	}
 
@@ -47,6 +49,13 @@ func (p *Blackjack) Handle(b *bot.Bot, m bot.Message) bool {
 	p.mu.Lock()
 	game := p.games[key]
 	action := strings.ToLower(strings.TrimSpace(arg))
+	if cmd == "hit" || cmd == "stand" || cmd == "double" {
+		if action != "" {
+			action = "invalid"
+		} else {
+			action = cmd
+		}
+	}
 	var response string
 
 	switch action {
