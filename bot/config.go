@@ -15,6 +15,7 @@ type Config struct {
 		Burst                         int
 		CommandCooldownSeconds        int `mapstructure:"command_cooldown_seconds"`
 		CommandWarningCooldownSeconds int `mapstructure:"command_warning_cooldown_seconds"`
+		JoinWarmupSeconds             int `mapstructure:"join_warmup_seconds"`
 	}
 	Invites struct {
 		Enabled         bool `mapstructure:"enabled"`

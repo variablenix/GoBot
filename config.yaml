@@ -41,6 +41,8 @@ rate_limit:
   command_cooldown_seconds: 2
   # Limit cooldown warnings so they cannot become a second flood source.
   command_warning_cooldown_seconds: 10
+  # Ignore channel backlog/history immediately after joining.
+  join_warmup_seconds: 10
 # Set enabled: false to disable any plugin.
 plugins:
   correction: {enabled: true, history_size: 100}
