@@ -1,0 +1,55 @@
+# GoBot configuration. Add one entry under networks for each IRC network.
+# Each network can join any number of channels.
+networks:
+  - name: ouch
+    server:
+      host: irc.ouch.chat
+      port: 6697
+      tls: true
+      verify_cert: true
+    identity:
+      nick: Echo
+      user: Echo
+      realname: I am a Go IRC Bot
+      # After registering this nick with NickServ, set sasl_user/password.
+      sasl_user: "Echo"
+      sasl_pass: ""
+      # If SASL does not stick on a network, optionally fall back to NickServ.
+      nickserv_fallback: false
+      # If the network renames the bot to Guest..., try to reclaim the nick.
+      nickserv_ghost: false
+    channels:
+      - "#test123"
+
+# For older single-network deployments, server/identity/channels can still be
+# used instead of networks. Networks takes precedence when it is non-empty.
+command_prefix: "!"
+# Outbound messages are rate limited per bot instance/network.
+rate_limit:
+  messages_per_second: 1.5
+  burst: 5
+# Set enabled: false to disable any plugin.
+plugins:
+  correction: {enabled: true, history_size: 100}
+  # Disabled by default to avoid unsolicited channel chatter.
+  # quotes_file is optional; any plain text files in quotes/ are also loaded.
+  # fortune_dir may point at a local fortune-mod datfiles directory.
+  banter: {enabled: true, probability: 0.54, quotes_file: "quotes/banter.txt", fortune_dir: "/home/ak/irc-bot/fortune-curated"}
+  urltitle: {enabled: true, max_title_length: 120, timeout_seconds: 5}
+  weather: {enabled: true, default_units: metric}
+  news: {enabled: true, api_key: "", max_results: 3}
+  wikipedia: {enabled: true, max_summary_length: 300}
+  seen: {enabled: true}
+  tell: {enabled: true}
+  karma: {enabled: true}
+  dice: {enabled: true}
+stats:
+  enabled: true
+  http_port: 8080
+  # Local default. Docker Compose overrides this to 0.0.0.0 in the container.
+  listen_address: 127.0.0.1
+storage:
+  db_path: bot.db
+log:
+  level: info
+  format: console

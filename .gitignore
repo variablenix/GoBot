@@ -1,0 +1,8 @@
+bin/
+bot.db
+data/
+.env
+.act-runner/
+scripts/*
+!scripts/setup-act-runner.sh
+!scripts/publish-docker.sh
