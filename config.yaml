@@ -43,6 +43,7 @@ plugins:
   tell: {enabled: true}
   karma: {enabled: true}
   dice: {enabled: true}
+  blackjack: {enabled: true}
 stats:
   enabled: true
   http_port: 8080
