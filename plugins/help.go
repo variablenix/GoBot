@@ -36,6 +36,8 @@ func (p *Help) Handle(b *bot.Bot, m bot.Message) bool {
 		}
 	}
 	sort.Strings(lines)
-	b.Send(m.ReplyTarget(), strings.Join(lines, " | "))
+	for _, part := range splitIRCText(strings.Join(lines, " | "), 350) {
+		b.Send(m.ReplyTarget(), part)
+	}
 	return true
 }
