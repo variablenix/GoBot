@@ -3,7 +3,9 @@ package bot
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
+	"strconv"
 	"sync/atomic"
 	"time"
 )
@@ -43,7 +45,7 @@ func (s *Stats) Serve(address string, port int) {
 		address = "127.0.0.1"
 	}
 	server := &http.Server{
-		Addr:              fmt.Sprintf("%s:%d", address, port),
+		Addr:              statsListenAddress(address, port),
 		Handler:           mux,
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
@@ -51,4 +53,11 @@ func (s *Stats) Serve(address string, port int) {
 		IdleTimeout:       60 * time.Second,
 	}
 	go server.ListenAndServe()
+}
+
+func statsListenAddress(address string, port int) string {
+	if _, _, err := net.SplitHostPort(address); err == nil {
+		return address
+	}
+	return net.JoinHostPort(address, strconv.Itoa(port))
 }
