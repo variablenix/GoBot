@@ -427,7 +427,7 @@ ip -br addr
 Allow only the monitoring host through the VPS firewall. For UFW, where `192.168.70.107` is the Prometheus host:
 
 ```sh
-sudo ufw allow from 192.168.70.107 to any port 8082 proto tcp
+sudo ufw allow from 192.0.2.50 to any port 8082 proto tcp
 sudo systemctl restart gobot
 ```
 
