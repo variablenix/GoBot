@@ -14,7 +14,7 @@ GoBot starts one IRC connection per configured network. Each connection:
 - hands each message to enabled plugins
 - reconnects with backoff if the network drops
 
-Persistent plugin state such as seen/tell/karma data is stored in BoltDB. Runtime counters are exposed on `/stats` and `/metrics` and their cumulative totals survive restarts.
+Persistent plugin state such as seen/karma data is stored in BoltDB. Runtime counters are exposed on `/stats` and `/metrics` and their cumulative totals survive restarts.
 
 ## Requirements
 
@@ -174,7 +174,7 @@ GoBot ships with these plugins:
 - `news`: headlines and search using NewsAPI
 - `wikipedia`: article summaries from Wikipedia
 - `seen`: records when a nick last spoke
-- `tell`: queues a message for delivery when a nick speaks again
+- `tell`: immediately relays a message to the current channel or conversation
 - `karma`: tracks `thing++` and `thing--`, and answers `!karma <thing>`
 - `dice`: dice rolling commands
 - `blackjack`: play a separate per-user game of blackjack/21
@@ -211,7 +211,13 @@ Banter replies are intentionally random and may not respond to every message. Co
 !tell username hello
 ```
 
-`!tell` stores a message and delivers it when that nickname speaks again. GoBot does not currently provide a command for an owner to relay arbitrary text into a channel on demand; `owner_accounts` is reserved for future owner-only features.
+`!tell` immediately relays a message to the current channel or conversation:
+
+```text
+!tell Echo you are awesome
+```
+
+GoBot posts `Echo: you are awesome` immediately. `owner_accounts` is reserved for future owner-only features.
 
 ### Correction
 
@@ -282,7 +288,7 @@ project--
 ```
 
 - `seen` reports the channel and message from the last time a nickname spoke. Its records are stored in BoltDB.
-- `tell` delivers queued messages the next time that nickname speaks. Messages are stored in BoltDB until delivered.
+- `tell` immediately relays the requested message in the current channel or conversation.
 - `karma` tracks case-insensitive `thing++` and `thing--` changes and reports totals with `!karma <thing>`.
 - `dice` accepts `NdN` notation or a single number such as `!roll 20`, which means `1d20`. It allows up to 100 dice and 10,000 sides per die and uses secure random values.
 
