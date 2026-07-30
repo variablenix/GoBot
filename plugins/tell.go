@@ -12,9 +12,13 @@ import (
 
 type Tell struct{ db *storage.DB }
 
+func formatTellMessage(nick, message string) string {
+	return fmt.Sprintf("%s: %s", nick, message)
+}
+
 func (p *Tell) Name() string                                 { return "tell" }
 func (p *Tell) Commands() []string                           { return []string{"tell"} }
-func (p *Tell) Help() string                                 { return "!tell <nick> <message> — deliver a message when they speak" }
+func (p *Tell) Help() string                                 { return "!tell <nick> <message> — relay a message immediately" }
 func (p *Tell) Init(_ bot.PluginConfig, d *storage.DB) error { p.db = d; return nil }
 func (p *Tell) Handle(b *bot.Bot, m bot.Message) bool {
 	if m.Command == "PRIVMSG" && m.Nick != "" {
@@ -37,13 +41,6 @@ func (p *Tell) Handle(b *bot.Bot, m bot.Message) bool {
 		b.Send(m.ReplyTarget(), "usage: !tell <nick> <message>")
 		return true
 	}
-	key := strings.ToLower(parts[0])
-	var xs []record
-	if v, e := p.db.Get("tell", key); e == nil {
-		json.Unmarshal(v, &xs)
-	}
-	xs = append(xs, record{m.Nick, "", strings.Join(parts[1:], " "), time.Now()})
-	p.db.Set("tell", key, xs)
-	b.Send(m.ReplyTarget(), "message queued")
+	b.Send(m.ReplyTarget(), formatTellMessage(parts[0], strings.Join(parts[1:], " ")))
 	return true
 }
