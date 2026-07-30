@@ -18,3 +18,14 @@ func TestCompassDirection(t *testing.T) {
 		}
 	}
 }
+
+func TestWeatherCommandAliases(t *testing.T) {
+	for _, command := range []string{"weather", "wx", "forecast", "temp", "WX"} {
+		if !isWeatherCommand(command) {
+			t.Errorf("expected %q to be a weather command", command)
+		}
+	}
+	if isWeatherCommand("weatherize") {
+		t.Error("unexpectedly accepted invalid weather command")
+	}
+}

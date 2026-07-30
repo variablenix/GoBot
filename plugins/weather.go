@@ -27,10 +27,15 @@ type weatherCache struct {
 	at   time.Time
 }
 
-func (p *Weather) Name() string       { return "weather" }
-func (p *Weather) Commands() []string { return []string{"weather"} }
+func (p *Weather) Name() string {
+	return "weather"
+}
+
+func (p *Weather) Commands() []string {
+	return []string{"weather", "wx", "forecast", "temp"}
+}
 func (p *Weather) Help() string {
-	return "!weather <city> — current weather from Open-Meteo (no API key required)"
+	return "!weather <city> — current weather from Open-Meteo (aliases: !wx, !forecast, !temp; no API key required)"
 }
 func (p *Weather) Init(c bot.PluginConfig, _ *storage.DB) error {
 	p.cfg = c
@@ -39,7 +44,7 @@ func (p *Weather) Init(c bot.PluginConfig, _ *storage.DB) error {
 }
 func (p *Weather) Handle(b *bot.Bot, m bot.Message) bool {
 	cmd, arg, ok := bot.IsCommand(m, b.Config.CommandPrefix)
-	if !ok || cmd != "weather" {
+	if !ok || !isWeatherCommand(cmd) {
 		return false
 	}
 	key := strings.TrimSpace(arg)
@@ -111,6 +116,15 @@ func (p *Weather) Handle(b *bot.Bot, m bot.Message) bool {
 	p.mu.Unlock()
 	b.Send(m.ReplyTarget(), body)
 	return true
+}
+
+func isWeatherCommand(command string) bool {
+	switch strings.ToLower(command) {
+	case "weather", "wx", "forecast", "temp":
+		return true
+	default:
+		return false
+	}
 }
 
 func compassDirection(degrees float64) string {
