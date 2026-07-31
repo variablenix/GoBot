@@ -1,8 +1,12 @@
 package plugins
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/variablenix/GoBot/bot"
+	"github.com/variablenix/GoBot/storage"
 )
 
 func TestBlackjackHandValue(t *testing.T) {
@@ -72,5 +76,29 @@ func TestBlackjackFinishedDoesNotEndAfterHitStatus(t *testing.T) {
 	}
 	if !strings.Contains(status, "🂠") {
 		t.Fatal("test status should include the hidden-card marker")
+	}
+}
+
+func TestBlackjackStatsPersistByAccount(t *testing.T) {
+	db, err := storage.Open(filepath.Join(t.TempDir(), "stats.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	p := &Blackjack{db: db}
+	m := bot.Message{Nick: "Echo", Account: "Echo"}
+	game := &blackjackGame{
+		player: []blackjackCard{{rank: "A"}, {rank: "K"}},
+		dealer: []blackjackCard{{rank: "9"}, {rank: "7"}},
+	}
+	p.recordResult(m, game)
+
+	stats := p.playerStats(m)
+	if !strings.Contains(stats, "1 hands") || !strings.Contains(stats, "1 blackjack") {
+		t.Fatalf("unexpected persisted stats: %q", stats)
+	}
+	if !strings.Contains(p.leaderboard(), "Echo 1W-0L-0P") {
+		t.Fatalf("unexpected leaderboard: %q", p.leaderboard())
 	}
 }
