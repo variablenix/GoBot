@@ -1,6 +1,9 @@
 package plugins
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestBlackjackHandValue(t *testing.T) {
 	tests := []struct {
@@ -46,5 +49,24 @@ func TestBlackjackShufflePreservesCards(t *testing.T) {
 	}
 	if len(deck) != 52 {
 		t.Fatalf("got %d cards after shuffle, want 52", len(deck))
+	}
+}
+
+func TestBlackjackCardUsesReadableUnicodeSuits(t *testing.T) {
+	if got := formatBlackjackCard(blackjackCard{rank: "A", suit: "spades"}); got != "A♠" {
+		t.Fatalf("got %q, want A♠", got)
+	}
+}
+
+func TestBlackjackFinishedDoesNotEndAfterHitStatus(t *testing.T) {
+	status := "Your hand: 8♠, 4♥, 2♦ = 14 | Dealer shows: K♣ 🂠"
+	if blackjackFinished(status) {
+		t.Fatal("a normal hit status must leave the game active")
+	}
+	if !blackjackFinished("You win! | You: A♠, K♥ = 21 | Dealer: 10♣, 7♦ = 17") {
+		t.Fatal("a completed result must end the game")
+	}
+	if !strings.Contains(status, "🂠") {
+		t.Fatal("test status should include the hidden-card marker")
 	}
 }
