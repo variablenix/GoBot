@@ -31,14 +31,6 @@ type Blackjack struct {
 
 const blackjackGameTTL = 30 * time.Minute
 
-const (
-	ircReset  = "\x0f"
-	ircGreen  = "\x0303"
-	ircRed    = "\x0304"
-	ircCyan   = "\x0311"
-	ircYellow = "\x0308"
-)
-
 func (p *Blackjack) Name() string { return "blackjack" }
 func (p *Blackjack) Commands() []string {
 	return []string{"21", "bj", "blackjack", "hit", "stand", "double"}

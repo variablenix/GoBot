@@ -65,7 +65,7 @@ func (p *ChannelStats) Handle(b *bot.Bot, m bot.Message) bool {
 	stats := p.channels[channelStatsKey(b.Config.NetworkName, m.Target)]
 	response := formatChannelStats(m.Target, stats)
 	p.mu.Unlock()
-	b.Send(m.ReplyTarget(), response)
+	b.Send(m.ReplyTarget(), ircColor(ircCyan, response))
 	return true
 }
 

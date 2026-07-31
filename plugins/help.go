@@ -22,12 +22,12 @@ func (p *Help) Handle(b *bot.Bot, m bot.Message) bool {
 	if strings.TrimSpace(arg) != "" {
 		for _, x := range b.Plugins {
 			if strings.EqualFold(x.Name(), strings.TrimSpace(arg)) {
-				b.Send(m.ReplyTarget(), x.Help())
+				b.Send(m.ReplyTarget(), ircColor(ircCyan, x.Help()))
 				return true
 			}
 			for _, c := range x.Commands() {
 				if c == strings.ToLower(strings.TrimSpace(arg)) {
-					b.Send(m.ReplyTarget(), x.Help())
+					b.Send(m.ReplyTarget(), ircColor(ircCyan, x.Help()))
 					return true
 				}
 			}
@@ -38,6 +38,6 @@ func (p *Help) Handle(b *bot.Bot, m bot.Message) bool {
 		names = append(names, x.Name())
 	}
 	sort.Strings(names)
-	b.Send(m.ReplyTarget(), "plugins: "+strings.Join(names, ", ")+" — use !help <plugin> for details")
+	b.Send(m.ReplyTarget(), ircBold+"plugins:"+ircReset+" "+strings.Join(names, ", ")+" — use !help <plugin> for details")
 	return true
 }
