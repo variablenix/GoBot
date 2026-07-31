@@ -326,7 +326,9 @@ Then use:
 
 Shortcut aliases are also available during a game: `!hit`, `!stand`, and `!double`. `!bj` is a short alias for `!21`.
 
-Games are tracked separately for each nickname in each channel and are held in memory, so active games disappear if the bot restarts. Replies are posted to the channel. The dealer stands on 17. `!blackjack` is also accepted as an alias for `!21`.
+Games are tracked separately for each nickname in each channel and are held in memory, so active games disappear if the bot restarts. Abandoned games expire after 30 minutes. Replies are posted to the channel. The dealer stands on 17. `!blackjack` is also accepted as an alias for `!21`.
+
+Blackjack replies use standard IRC color formatting where supported, plus UTF-8 suit symbols such as `♠`, `♥`, `♦`, and `♣`. Clients without color or Unicode support still receive readable card ranks and game results, although the suit symbols may display differently.
 
 ### Polls
 
