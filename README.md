@@ -328,9 +328,18 @@ Then use:
 - `!21 stand` to let the dealer finish
 - `!21 double` to draw one final card and stand; this is available only on the initial two-card hand
 
+View your persistent personal record or the top five players:
+
+```text
+!bj stats
+!bj leaderboard
+```
+
 Shortcut aliases are also available during a game: `!hit`, `!stand`, and `!double`. `!bj` is a short alias for `!21`.
 
 Games are tracked separately for each nickname in each channel and are held in memory, so active games disappear if the bot restarts. Abandoned games expire after 30 minutes. Replies are posted to the channel. The dealer stands on 17. `!blackjack` is also accepted as an alias for `!21`.
+
+Blackjack records are stored in BoltDB and survive restarts. GoBot tracks hands, wins, losses, pushes, blackjacks, busts, win rate, and streaks. Authenticated IRC account names are preferred for identity; nicknames are used when no account tag is available. No real-money or virtual-currency betting is involved.
 
 Blackjack replies use standard IRC color formatting where supported, plus UTF-8 suit symbols such as `♠`, `♥`, `♦`, and `♣`. Clients without color or Unicode support still receive readable card ranks and game results, although the suit symbols may display differently.
 

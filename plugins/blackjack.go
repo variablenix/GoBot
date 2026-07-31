@@ -27,6 +27,7 @@ type blackjackGame struct {
 type Blackjack struct {
 	mu    sync.Mutex
 	games map[string]*blackjackGame
+	db    *storage.DB
 }
 
 const blackjackGameTTL = 30 * time.Minute
@@ -36,10 +37,11 @@ func (p *Blackjack) Commands() []string {
 	return []string{"21", "bj", "blackjack", "hit", "stand", "double"}
 }
 func (p *Blackjack) Help() string {
-	return "!21 — start blackjack; use !hit, !stand, or !double during a game"
+	return "!21 — start blackjack; use !hit, !stand, or !double; !bj stats; !bj leaderboard"
 }
-func (p *Blackjack) Init(_ bot.PluginConfig, _ *storage.DB) error {
+func (p *Blackjack) Init(_ bot.PluginConfig, db *storage.DB) error {
 	p.games = make(map[string]*blackjackGame)
+	p.db = db
 	return nil
 }
 
@@ -64,6 +66,15 @@ func (p *Blackjack) Handle(b *bot.Bot, m bot.Message) bool {
 			action = cmd
 		}
 	}
+	if (cmd == "21" || cmd == "bj" || cmd == "blackjack") && (action == "stats" || action == "leaderboard" || action == "lb") {
+		p.mu.Unlock()
+		if action == "stats" {
+			b.Send(m.ReplyTarget(), p.playerStats(m))
+		} else {
+			b.Send(m.ReplyTarget(), p.leaderboard())
+		}
+		return true
+	}
 	var response string
 
 	switch action {
@@ -81,6 +92,7 @@ func (p *Blackjack) Handle(b *bot.Bot, m bot.Message) bool {
 		p.games[key] = game
 		response = blackjackOpening(game)
 		if blackjackFinished(response) {
+			p.recordResult(m, game)
 			delete(p.games, key)
 		}
 	case "hit", "h":
@@ -90,6 +102,7 @@ func (p *Blackjack) Handle(b *bot.Bot, m bot.Message) bool {
 		}
 		response = blackjackHit(game)
 		if blackjackFinished(response) {
+			p.recordResult(m, game)
 			delete(p.games, key)
 		}
 	case "stand", "s":
@@ -98,6 +111,7 @@ func (p *Blackjack) Handle(b *bot.Bot, m bot.Message) bool {
 			break
 		}
 		response = blackjackStand(game)
+		p.recordResult(m, game)
 		delete(p.games, key)
 	case "double", "d":
 		if game == nil {
@@ -109,6 +123,7 @@ func (p *Blackjack) Handle(b *bot.Bot, m bot.Message) bool {
 			break
 		}
 		response = blackjackDouble(game)
+		p.recordResult(m, game)
 		delete(p.games, key)
 	default:
 		response = "usage: !21 [hit|stand|double]"
