@@ -49,7 +49,7 @@ func (p *Weather) Handle(b *bot.Bot, m bot.Message) bool {
 	}
 	key := strings.TrimSpace(arg)
 	if key == "" {
-		b.Send(m.ReplyTarget(), "usage: !weather <city>")
+		b.Send(m.ReplyTarget(), ircColor(ircYellow, "usage: !weather <city>"))
 		return true
 	}
 	p.mu.Lock()
@@ -73,12 +73,12 @@ func (p *Weather) Handle(b *bot.Bot, m bot.Message) bool {
 	req, _ := http.NewRequestWithContext(requestCtx, http.MethodGet, geocodeURL, nil)
 	res, err := apiHTTPClient.Do(req)
 	if err != nil || res.StatusCode != 200 {
-		b.Send(m.ReplyTarget(), "I couldn't find weather for that city.")
+		b.Send(m.ReplyTarget(), ircColor(ircRed, "I couldn't find weather for that city."))
 		return true
 	}
 	defer res.Body.Close()
 	if err := json.NewDecoder(res.Body).Decode(&location); err != nil || len(location.Results) == 0 {
-		b.Send(m.ReplyTarget(), "I couldn't find weather for that city.")
+		b.Send(m.ReplyTarget(), ircColor(ircRed, "I couldn't find weather for that city."))
 		return true
 	}
 	place := location.Results[0]
@@ -91,7 +91,7 @@ func (p *Weather) Handle(b *bot.Bot, m bot.Message) bool {
 	req, _ = http.NewRequestWithContext(requestCtx, http.MethodGet, forecastURL, nil)
 	res, err = apiHTTPClient.Do(req)
 	if err != nil || res.StatusCode != 200 {
-		b.Send(m.ReplyTarget(), "Weather data is temporarily unavailable.")
+		b.Send(m.ReplyTarget(), ircColor(ircRed, "Weather data is temporarily unavailable."))
 		return true
 	}
 	defer res.Body.Close()
@@ -106,11 +106,11 @@ func (p *Weather) Handle(b *bot.Bot, m bot.Message) bool {
 		} `json:"current"`
 	}
 	if err := json.NewDecoder(res.Body).Decode(&forecast); err != nil {
-		b.Send(m.ReplyTarget(), "Weather data is temporarily unavailable.")
+		b.Send(m.ReplyTarget(), ircColor(ircRed, "Weather data is temporarily unavailable."))
 		return true
 	}
 	direction := compassDirection(forecast.Current.WindDirection)
-	body := fmt.Sprintf("Weather for %s, %s: %.0f%s, %s, humidity %.0f%%, wind %.0f %s %s, feels like %.0f%s", place.Name, strings.ToUpper(place.CountryCode), forecast.Current.Temperature, temperatureSuffix, weatherDescription(forecast.Current.WeatherCode), forecast.Current.Humidity, forecast.Current.WindSpeed, windUnit, direction, forecast.Current.FeelsLike, temperatureSuffix)
+	body := fmt.Sprintf("%s for %s, %s: %.0f%s, %s, humidity %.0f%%, wind %.0f %s %s, feels like %.0f%s", ircColor(ircCyan, "Weather"), place.Name, strings.ToUpper(place.CountryCode), forecast.Current.Temperature, temperatureSuffix, weatherDescription(forecast.Current.WeatherCode), forecast.Current.Humidity, forecast.Current.WindSpeed, windUnit, direction, forecast.Current.FeelsLike, temperatureSuffix)
 	p.mu.Lock()
 	p.cache[strings.ToLower(key)] = weatherCache{body, time.Now()}
 	p.mu.Unlock()

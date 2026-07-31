@@ -163,6 +163,10 @@ rate_limit:
 
 When a user sends commands too quickly, GoBot replies once with `command cooldown—please wait a moment`. Warning messages have their own cooldown, so repeated violations cannot flood the channel. The normal outbound queue rate limit still applies to all bot messages.
 
+### IRC formatting
+
+Selected command responses use standard mIRC IRC color and bold control codes for headings, success, warning, and error states. These are not terminal-specific ANSI escapes: clients such as WeeChat, Irssi, and Relay can render them, while clients without formatting support show the same underlying text. Blackjack also uses UTF-8 suit symbols; clients with limited Unicode fonts may display those symbols as replacement characters.
+
 ## Plugins
 
 GoBot ships with these plugins:

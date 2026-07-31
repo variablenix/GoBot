@@ -24,16 +24,16 @@ func (p *Alias) Handle(b *bot.Bot, m bot.Message) bool {
 	if arg != "" {
 		if aliases, plugin, ok := aliasesFor(b.Plugins, arg); ok {
 			if len(aliases) == 0 {
-				b.Send(m.ReplyTarget(), "!"+plugin+" has no aliases")
+				b.Send(m.ReplyTarget(), ircColor(ircYellow, "!"+plugin+" has no aliases"))
 			} else {
 				b.Send(m.ReplyTarget(), "!"+plugin+" aliases: "+formatAliasNames(aliases))
 			}
 			return true
 		}
-		b.Send(m.ReplyTarget(), "unknown command; use !alias to list aliases")
+		b.Send(m.ReplyTarget(), ircColor(ircRed, "unknown command; use !alias to list aliases"))
 		return true
 	}
-	b.Send(m.ReplyTarget(), "aliases: "+formatAliasGroups(b.Plugins))
+	b.Send(m.ReplyTarget(), ircBold+"aliases:"+ircReset+" "+formatAliasGroups(b.Plugins))
 	return true
 }
 

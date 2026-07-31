@@ -42,7 +42,7 @@ func (p *Dice) Handle(b *bot.Bot, m bot.Message) bool {
 	}
 	n, s, e := ParseDice(arg)
 	if e != nil {
-		b.Send(m.ReplyTarget(), e.Error())
+		b.Send(m.ReplyTarget(), ircColor(ircRed, e.Error()))
 		return true
 	}
 	vals := make([]string, n)
@@ -53,6 +53,6 @@ func (p *Dice) Handle(b *bot.Bot, m bot.Message) bool {
 		vals[i] = strconv.Itoa(x)
 		sum += x
 	}
-	b.Send(m.ReplyTarget(), fmt.Sprintf("Rolled %dd%d: [%s] = %d", n, s, strings.Join(vals, ", "), sum))
+	b.Send(m.ReplyTarget(), fmt.Sprintf("%sRolled%s %dd%d: [%s] = %s%d%s", ircCyan, ircReset, n, s, strings.Join(vals, ", "), ircGreen, sum, ircReset))
 	return true
 }

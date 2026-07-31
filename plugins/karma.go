@@ -45,6 +45,12 @@ func (p *Karma) Handle(b *bot.Bot, m bot.Message) bool {
 	if raw, e := p.db.Get("karma", key); e == nil {
 		json.Unmarshal(raw, &v)
 	}
-	b.Send(m.ReplyTarget(), fmt.Sprintf("%s has karma of %+d", key, v))
+	color := ircYellow
+	if v > 0 {
+		color = ircGreen
+	} else if v < 0 {
+		color = ircRed
+	}
+	b.Send(m.ReplyTarget(), fmt.Sprintf("%s has karma of %s%+d%s", key, color, v, ircReset))
 	return true
 }

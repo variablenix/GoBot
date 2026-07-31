@@ -24,7 +24,7 @@ func (p *Timezone) Handle(b *bot.Bot, m bot.Message) bool {
 	}
 	zone := strings.TrimSpace(arg)
 	if zone == "" || len(zone) > 64 || strings.Contains(zone, "..") || strings.HasPrefix(zone, "/") {
-		b.Send(m.ReplyTarget(), "usage: !time <IANA timezone>, for example !time America/Los_Angeles")
+		b.Send(m.ReplyTarget(), ircColor(ircYellow, "usage: !time <IANA timezone>, for example !time America/Los_Angeles"))
 		return true
 	}
 	aliases := map[string]string{"pst": "America/Los_Angeles", "est": "America/New_York", "cst": "America/Chicago", "mst": "America/Denver", "utc": "UTC"}
@@ -33,10 +33,10 @@ func (p *Timezone) Handle(b *bot.Bot, m bot.Message) bool {
 	}
 	location, err := time.LoadLocation(zone)
 	if err != nil {
-		b.Send(m.ReplyTarget(), "unknown timezone; use an IANA name like America/Los_Angeles")
+		b.Send(m.ReplyTarget(), ircColor(ircRed, "unknown timezone; use an IANA name like America/Los_Angeles"))
 		return true
 	}
 	now := time.Now().In(location)
-	b.Send(m.ReplyTarget(), fmt.Sprintf("%s: %s", zone, now.Format("2006-01-02 15:04:05 MST")))
+	b.Send(m.ReplyTarget(), fmt.Sprintf("%s%s%s: %s", ircCyan, zone, ircReset, now.Format("2006-01-02 15:04:05 MST")))
 	return true
 }

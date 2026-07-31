@@ -32,21 +32,21 @@ func (p *Choose) Handle(b *bot.Bot, m bot.Message) bool {
 	for _, part := range parts {
 		if option := strings.TrimSpace(part); option != "" {
 			if len([]rune(option)) > 200 {
-				b.Send(m.ReplyTarget(), "each choice must be 200 characters or less")
+				b.Send(m.ReplyTarget(), ircColor(ircRed, "each choice must be 200 characters or less"))
 				return true
 			}
 			options = append(options, option)
 		}
 	}
 	if len(options) < 2 || len(options) > 20 {
-		b.Send(m.ReplyTarget(), "usage: !choose option 1 | option 2 (2 to 20 options)")
+		b.Send(m.ReplyTarget(), ircColor(ircYellow, "usage: !choose option 1 | option 2 (2 to 20 options)"))
 		return true
 	}
 	index, err := rand.Int(rand.Reader, big.NewInt(int64(len(options))))
 	if err != nil {
-		b.Send(m.ReplyTarget(), "choice is temporarily unavailable")
+		b.Send(m.ReplyTarget(), ircColor(ircRed, "choice is temporarily unavailable"))
 		return true
 	}
-	b.Send(m.ReplyTarget(), fmt.Sprintf("I choose: %s", options[index.Int64()]))
+	b.Send(m.ReplyTarget(), fmt.Sprintf("%sI choose:%s %s", ircGreen, ircReset, options[index.Int64()]))
 	return true
 }

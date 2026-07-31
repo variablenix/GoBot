@@ -85,24 +85,24 @@ func (p *Reminder) Handle(b *bot.Bot, m bot.Message) bool {
 	}
 	parts := strings.SplitN(strings.TrimSpace(arg), " ", 2)
 	if len(parts) != 2 {
-		b.Send(m.ReplyTarget(), "usage: !remind <duration> <message> (for example, !remind 30m check logs)")
+		b.Send(m.ReplyTarget(), ircColor(ircYellow, "usage: !remind <duration> <message> (for example, !remind 30m check logs)"))
 		return true
 	}
 	duration, err := time.ParseDuration(parts[0])
 	if err != nil || duration < time.Second || duration > reminderLifetime {
-		b.Send(m.ReplyTarget(), "duration must be between 1s and 360h")
+		b.Send(m.ReplyTarget(), ircColor(ircRed, "duration must be between 1s and 360h"))
 		return true
 	}
 	message := strings.TrimSpace(parts[1])
 	if message == "" || len([]rune(message)) > 300 {
-		b.Send(m.ReplyTarget(), "reminder message must be between 1 and 300 characters")
+		b.Send(m.ReplyTarget(), ircColor(ircRed, "reminder message must be between 1 and 300 characters"))
 		return true
 	}
 	key := reminderKey(b.Config.NetworkName, m.ReplyTarget(), m.Nick)
 	p.mu.Lock()
 	if len(p.items[key]) >= 20 {
 		p.mu.Unlock()
-		b.Send(m.ReplyTarget(), "you already have 20 reminders pending")
+		b.Send(m.ReplyTarget(), ircColor(ircRed, "you already have 20 reminders pending"))
 		return true
 	}
 	p.mu.Unlock()
@@ -111,7 +111,7 @@ func (p *Reminder) Handle(b *bot.Bot, m bot.Message) bool {
 		_ = p.db.Set("reminders", saved.ID, saved)
 	}
 	p.schedule(b, saved)
-	b.Send(m.ReplyTarget(), "reminder set for "+formatReminderDuration(duration))
+	b.Send(m.ReplyTarget(), ircColor(ircGreen, "reminder set for "+formatReminderDuration(duration)))
 	return true
 }
 
