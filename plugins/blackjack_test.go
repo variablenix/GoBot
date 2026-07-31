@@ -53,8 +53,12 @@ func TestBlackjackShufflePreservesCards(t *testing.T) {
 }
 
 func TestBlackjackCardUsesReadableUnicodeSuits(t *testing.T) {
-	if got := formatBlackjackCard(blackjackCard{rank: "A", suit: "spades"}); got != "A♠" {
-		t.Fatalf("got %q, want A♠", got)
+	got := formatBlackjackCard(blackjackCard{rank: "A", suit: "spades"})
+	if !strings.Contains(got, "[A♠]") {
+		t.Fatalf("got %q, want a card face containing [A♠]", got)
+	}
+	if !strings.Contains(got, "\x0301,00") {
+		t.Fatalf("got %q, want a white card background", got)
 	}
 }
 

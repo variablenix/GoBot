@@ -194,12 +194,12 @@ func blackjackOpening(g *blackjackGame) string {
 	if playerValue == 21 {
 		return blackjackStandResult(g, "blackjack")
 	}
-	return fmt.Sprintf("%sYour hand: %s = %d%s | %sDealer shows: %s 🂠 | Actions: !hit !stand !double%s", ircCyan, formatBlackjackHand(g.player), playerValue, ircReset, ircYellow, formatBlackjackCard(g.dealer[0]), ircReset)
+	return fmt.Sprintf("%sYour hand: %s = %d%s | %sDealer shows:%s %s | Actions: !hit !stand !double%s", ircCyan, formatBlackjackHand(g.player), playerValue, ircReset, ircYellow, ircReset, formatBlackjackCard(g.dealer[0])+" "+formatBlackjackHiddenCard(), ircReset)
 }
 
 func blackjackStatus(g *blackjackGame) string {
 	value, _ := blackjackHandValue(g.player)
-	return fmt.Sprintf("%sYour hand: %s = %d%s | %sDealer shows: %s 🂠 | Actions: !hit !stand !double%s", ircCyan, formatBlackjackHand(g.player), value, ircReset, ircYellow, formatBlackjackCard(g.dealer[0]), ircReset)
+	return fmt.Sprintf("%sYour hand: %s = %d%s | %sDealer shows:%s %s | Actions: !hit !stand !double%s", ircCyan, formatBlackjackHand(g.player), value, ircReset, ircYellow, ircReset, formatBlackjackCard(g.dealer[0])+" "+formatBlackjackHiddenCard(), ircReset)
 }
 
 func blackjackHit(g *blackjackGame) string {
@@ -211,7 +211,7 @@ func blackjackHit(g *blackjackGame) string {
 	if value == 21 {
 		return blackjackStandResult(g, "21")
 	}
-	return fmt.Sprintf("%sYour hand: %s = %d%s | %sDealer shows: %s 🂠%s", ircCyan, formatBlackjackHand(g.player), value, ircReset, ircYellow, formatBlackjackCard(g.dealer[0]), ircReset)
+	return fmt.Sprintf("%sYour hand: %s = %d%s | %sDealer shows:%s %s%s", ircCyan, formatBlackjackHand(g.player), value, ircReset, ircYellow, ircReset, formatBlackjackCard(g.dealer[0])+" "+formatBlackjackHiddenCard(), ircReset)
 }
 
 func blackjackDouble(g *blackjackGame) string {
@@ -261,5 +261,13 @@ func formatBlackjackHand(hand []blackjackCard) string {
 
 func formatBlackjackCard(card blackjackCard) string {
 	symbols := map[string]string{"clubs": "♣", "diamonds": "♦", "hearts": "♥", "spades": "♠"}
-	return card.rank + symbols[card.suit]
+	suit := symbols[card.suit]
+	if card.suit == "diamonds" || card.suit == "hearts" {
+		return "\x0301,00[" + card.rank + "\x0304,00" + suit + "\x0301,00]" + ircReset
+	}
+	return "\x0301,00[" + card.rank + suit + "]" + ircReset
+}
+
+func formatBlackjackHiddenCard() string {
+	return "\x0301,00[🂠]" + ircReset
 }
