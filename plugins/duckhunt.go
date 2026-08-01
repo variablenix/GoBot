@@ -19,19 +19,23 @@ type duckHuntConfig struct {
 	minDelay        time.Duration
 	maxDelay        time.Duration
 	timeout         time.Duration
+	flavorEnabled   bool
+	flavorMinLead   time.Duration
 	befriendEnabled bool
 	minReaction     time.Duration
 	retryCooldown   time.Duration
 }
 
 type duckHuntState struct {
-	channel   string
-	messages  int
-	users     map[string]struct{}
-	nextSpawn time.Time
-	spawnedAt time.Time
-	active    bool
-	stopped   bool
+	channel    string
+	messages   int
+	users      map[string]struct{}
+	nextSpawn  time.Time
+	spawnedAt  time.Time
+	flavorAt   time.Time
+	flavorSent bool
+	active     bool
+	stopped    bool
 }
 
 type duckScore struct {
@@ -52,10 +56,10 @@ type DuckHunt struct {
 
 func (p *DuckHunt) Name() string { return "duckhunt" }
 func (p *DuckHunt) Commands() []string {
-	return []string{"duckhunt", "dh", "bang", "befriend", "ducks"}
+	return []string{"duckhunt", "dh", "bang", "befriend", "bef", "ducks"}
 }
 func (p *DuckHunt) Help() string {
-	return "!bang or !befriend — interact with an active duck; !dh start|stop|status — owner controls; !ducks [nick] — show scores"
+	return "!bang or !bef[riend] — interact with an active duck; !dh start|stop|status — owner controls; !ducks [nick] — show scores"
 }
 
 func (p *DuckHunt) Init(c bot.PluginConfig, db *storage.DB) error {
@@ -64,6 +68,8 @@ func (p *DuckHunt) Init(c bot.PluginConfig, db *storage.DB) error {
 	minDelay := c.Int("min_delay_seconds", 60)
 	maxDelay := c.Int("max_delay_seconds", 300)
 	timeout := c.Int("timeout_seconds", 30)
+	flavorEnabled := c.Bool("flavor_enabled", true)
+	flavorMinLead := c.Int("flavor_min_lead_seconds", 15)
 	befriendEnabled := c.Bool("befriend_enabled", true)
 	minReaction := c.Int("min_reaction_seconds", 1)
 	retryCooldown := c.Int("retry_cooldown_seconds", 7)
@@ -83,6 +89,9 @@ func (p *DuckHunt) Init(c bot.PluginConfig, db *storage.DB) error {
 	if timeout < 1 {
 		timeout = 1
 	}
+	if flavorMinLead < 1 {
+		flavorMinLead = 1
+	}
 	if minReaction < 0 {
 		minReaction = 0
 	}
@@ -97,6 +106,8 @@ func (p *DuckHunt) Init(c bot.PluginConfig, db *storage.DB) error {
 		minDelay:        time.Duration(minDelay) * time.Second,
 		maxDelay:        time.Duration(maxDelay) * time.Second,
 		timeout:         time.Duration(timeout) * time.Second,
+		flavorEnabled:   flavorEnabled,
+		flavorMinLead:   time.Duration(flavorMinLead) * time.Second,
 		befriendEnabled: befriendEnabled,
 		minReaction:     time.Duration(minReaction) * time.Second,
 		retryCooldown:   time.Duration(retryCooldown) * time.Second,
@@ -137,7 +148,7 @@ func (p *DuckHunt) Handle(b *bot.Bot, m bot.Message) bool {
 	case "bang":
 		p.interact(b, m, false)
 		return true
-	case "befriend":
+	case "befriend", "bef":
 		if p.cfg.befriendEnabled {
 			p.interact(b, m, true)
 		} else {
@@ -170,6 +181,8 @@ func (p *DuckHunt) recordActivity(network, channel, nick string) {
 	state.users[strings.ToLower(nick)] = struct{}{}
 	if state.nextSpawn.IsZero() && state.messages >= p.cfg.minimumMessages && len(state.users) >= p.cfg.minimumUsers {
 		state.nextSpawn = now.Add(randomDuckDelay(p.cfg))
+		state.flavorAt = randomDuckFlavorTime(now, state.nextSpawn, p.cfg)
+		state.flavorSent = false
 	}
 }
 
@@ -192,6 +205,8 @@ func (p *DuckHunt) tick(b *bot.Bot) {
 			}
 			state.active = false
 			state.spawnedAt = time.Time{}
+			state.flavorAt = time.Time{}
+			state.flavorSent = false
 			state.messages = 0
 			state.users = make(map[string]struct{})
 			messages = append(messages, outgoing{
@@ -200,12 +215,21 @@ func (p *DuckHunt) tick(b *bot.Bot) {
 			})
 			continue
 		}
+		if !state.flavorSent && !state.flavorAt.IsZero() && !now.Before(state.flavorAt) && now.Before(state.nextSpawn) {
+			state.flavorSent = true
+			messages = append(messages, outgoing{
+				target: state.channel,
+				text:   randomDuckFlavor(),
+			})
+		}
 		if state.nextSpawn.IsZero() || now.Before(state.nextSpawn) {
 			continue
 		}
 		state.active = true
 		state.spawnedAt = now
 		state.nextSpawn = time.Time{}
+		state.flavorAt = time.Time{}
+		state.flavorSent = false
 		state.messages = 0
 		state.users = make(map[string]struct{})
 		messages = append(messages, outgoing{
@@ -251,6 +275,8 @@ func (p *DuckHunt) control(b *bot.Bot, m bot.Message, arg string) {
 		state := p.stateLocked(b.Config.NetworkName, m.Target)
 		state.stopped = false
 		state.nextSpawn = time.Time{}
+		state.flavorAt = time.Time{}
+		state.flavorSent = false
 		state.messages = 0
 		state.users = make(map[string]struct{})
 		p.mu.Unlock()
@@ -266,6 +292,8 @@ func (p *DuckHunt) control(b *bot.Bot, m bot.Message, arg string) {
 		state.active = false
 		state.spawnedAt = time.Time{}
 		state.nextSpawn = time.Time{}
+		state.flavorAt = time.Time{}
+		state.flavorSent = false
 		state.messages = 0
 		state.users = make(map[string]struct{})
 		p.mu.Unlock()
@@ -304,6 +332,8 @@ func (p *DuckHunt) interact(b *bot.Bot, m bot.Message, befriend bool) {
 	state.active = false
 	state.spawnedAt = time.Time{}
 	state.nextSpawn = time.Time{}
+	state.flavorAt = time.Time{}
+	state.flavorSent = false
 	state.messages = 0
 	state.users = make(map[string]struct{})
 	if befriend {
@@ -391,6 +421,36 @@ func randomDuckDelay(c duckHuntConfig) time.Duration {
 	}
 	span := int((c.maxDelay - c.minDelay) / time.Second)
 	return c.minDelay + time.Duration(rand.Intn(span+1))*time.Second
+}
+
+func randomDuckFlavorTime(now, nextSpawn time.Time, c duckHuntConfig) time.Time {
+	if !c.flavorEnabled {
+		return time.Time{}
+	}
+	remaining := nextSpawn.Sub(now)
+	minLead := c.flavorMinLead
+	if remaining <= minLead*2 {
+		return time.Time{}
+	}
+	maxOffset := remaining - minLead
+	span := maxOffset - minLead
+	return now.Add(minLead + time.Duration(rand.Int63n(int64(span)+1)))
+}
+
+func randomDuckFlavor() string {
+	trails := []string{
+		"· ° · ° · °",
+		"·  °   ·  °   ·",
+		"° · ° · ° · °",
+		"· · ° · · °",
+	}
+	flavors := []string{
+		`\_o< QUACK!`,
+		`\_O< QUACK QUACK!`,
+		`\_o< FLAP FLAP!`,
+		`\_ö< *flap flap*`,
+	}
+	return fmt.Sprintf("%s %s %s", ircColor(ircGreen, "[Duck Hunt]"), ircColor(ircYellow, trails[rand.Intn(len(trails))]), ircColor(ircCyan, flavors[rand.Intn(len(flavors))]))
 }
 
 func randomDuckAnnouncement() string {

@@ -23,6 +23,26 @@ func TestDuckHuntDefaults(t *testing.T) {
 	if !plugin.cfg.befriendEnabled || plugin.cfg.minReaction != time.Second || plugin.cfg.retryCooldown != 7*time.Second {
 		t.Fatalf("unexpected interaction defaults: %+v", plugin.cfg)
 	}
+	if !plugin.cfg.flavorEnabled || plugin.cfg.flavorMinLead != 15*time.Second {
+		t.Fatalf("unexpected flavor defaults: %+v", plugin.cfg)
+	}
+}
+
+func TestDuckHuntIncludesBefriendAlias(t *testing.T) {
+	plugin := &DuckHunt{}
+	found := false
+	for _, command := range plugin.Commands() {
+		if command == "bef" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatal("expected !bef command alias")
+	}
+	if !strings.Contains(plugin.Help(), "!bef") {
+		t.Fatal("expected !bef alias in help")
+	}
 }
 
 func TestDuckHuntSchedulesAfterActivityThreshold(t *testing.T) {
@@ -144,5 +164,34 @@ func TestDuckHuntAnnouncementIncludesColorDuckAndQuack(t *testing.T) {
 	}
 	if !strings.Contains(strings.ToLower(announcement), "quack") {
 		t.Fatal("expected quack text in announcement")
+	}
+}
+
+func TestDuckHuntFlavorIncludesColorAndMotion(t *testing.T) {
+	flavor := randomDuckFlavor()
+	if !strings.Contains(flavor, "\x03") {
+		t.Fatal("expected mIRC color formatting in Duck Hunt flavor")
+	}
+	if !strings.Contains(flavor, "[Duck Hunt]") {
+		t.Fatal("expected Duck Hunt label in flavor")
+	}
+	lower := strings.ToLower(flavor)
+	if !strings.Contains(lower, "quack") && !strings.Contains(lower, "flap") {
+		t.Fatal("expected quack or flap text in flavor")
+	}
+}
+
+func TestDuckHuntFlavorTimeIsBeforeSpawn(t *testing.T) {
+	now := time.Unix(1000, 0)
+	nextSpawn := now.Add(60 * time.Second)
+	cfg := duckHuntConfig{flavorEnabled: true, flavorMinLead: 15 * time.Second}
+	flavorAt := randomDuckFlavorTime(now, nextSpawn, cfg)
+	if flavorAt.Before(now.Add(15*time.Second)) || flavorAt.After(nextSpawn.Add(-15*time.Second)) {
+		t.Fatalf("flavor time %v is outside the expected window", flavorAt)
+	}
+
+	cfg.flavorEnabled = false
+	if flavorAt := randomDuckFlavorTime(now, nextSpawn, cfg); !flavorAt.IsZero() {
+		t.Fatalf("disabled flavor scheduled at %v", flavorAt)
 	}
 }
