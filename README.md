@@ -4,6 +4,25 @@ GoBot is a Go IRC bot built for long-running use on one or more IRC networks. It
 
 The repository includes sample IRC connection details to help you get started, but the bot is structured to support multiple networks and multiple channels per network.
 
+## Contents
+
+- [What GoBot does](#what-gobot-does)
+- [Requirements](#requirements)
+- [Build and run](#build-and-run)
+- [GitHub Actions and security updates](#github-actions-and-security-updates)
+- [Systemd deployment](#systemd-deployment)
+- [Project layout](#project-layout)
+- [Configuration overview](#configuration-overview)
+- [Plugins](#plugins)
+- [NickServ registration and SASL authentication](#nickserv-registration-and-sasl-authentication)
+- [Docker](#docker)
+- [First-run workflow](#first-run-workflow)
+- [Optional banter plugin](#optional-banter-plugin)
+- [News plugin](#news-plugin)
+- [Stats and monitoring](#stats-and-monitoring)
+- [Security notes](#security-notes)
+- [License](#license)
+
 ## What GoBot does
 
 GoBot starts one IRC connection per configured network. Each connection:
