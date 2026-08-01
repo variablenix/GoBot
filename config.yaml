@@ -1,25 +1,25 @@
 # GoBot configuration. Add one entry under networks for each IRC network.
 # Each network can join any number of channels.
 networks:
-  - name: ouch
+  - name: primary
     server:
-      host: irc.ouch.chat
+      host: irc.example.net
       port: 6697
       tls: true
       verify_cert: true
     identity:
-      nick: Echo
-      user: Echo
-      realname: I am a Go IRC Bot
+      nick: GoBot
+      user: gobot
+      realname: Go IRC Bot
       # After registering this nick with NickServ, set sasl_user/password.
-      sasl_user: "Echo"
+      sasl_user: ""
       sasl_pass: ""
       # If SASL does not stick on a network, optionally fall back to NickServ.
       nickserv_fallback: false
       # If the network renames the bot to Guest..., try to reclaim the nick.
       nickserv_ghost: false
     channels:
-      - "#test123"
+      - "#example"
 
 # For older single-network deployments, server/identity/channels can still be
 # used instead of networks. Networks takes precedence when it is non-empty.
@@ -27,7 +27,7 @@ command_prefix: "!"
 # Authenticated IRC account names reserved for future owner-only features.
 # Nicknames alone are never treated as ownership proof.
 owner_accounts:
-  - "ak"
+  - "your-account"
 # Anyone may invite the bot to a valid channel. Invited channels are not
 # persisted; add permanent channels under the network's channels list.
 invites:
