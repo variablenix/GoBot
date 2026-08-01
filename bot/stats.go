@@ -13,11 +13,11 @@ import (
 )
 
 type Stats struct {
-	started                                         time.Time
-	received, sent, commands, reconnects, connected atomic.Uint64
-	db                                              *storage.DB
-	persistDone                                     chan struct{}
-	persistOnce                                     atomic.Bool
+	started                                                  time.Time
+	received, sent, commands, reconnects, dropped, connected atomic.Uint64
+	db                                                       *storage.DB
+	persistDone                                              chan struct{}
+	persistOnce                                              atomic.Bool
 }
 
 type persistedStats struct {
@@ -25,6 +25,7 @@ type persistedStats struct {
 	Sent       uint64 `json:"messages_sent"`
 	Commands   uint64 `json:"commands_handled"`
 	Reconnects uint64 `json:"reconnects"`
+	Dropped    uint64 `json:"messages_dropped"`
 }
 
 func NewStats(dbs ...*storage.DB) *Stats {
@@ -38,6 +39,7 @@ func NewStats(dbs ...*storage.DB) *Stats {
 				s.sent.Store(saved.Sent)
 				s.commands.Store(saved.Commands)
 				s.reconnects.Store(saved.Reconnects)
+				s.dropped.Store(saved.Dropped)
 			}
 		}
 		s.persistDone = make(chan struct{})
@@ -64,7 +66,7 @@ func (s *Stats) Persist() {
 		return
 	}
 	_ = s.db.Set("stats", "global", persistedStats{
-		Received: s.received.Load(), Sent: s.sent.Load(), Commands: s.commands.Load(), Reconnects: s.reconnects.Load(),
+		Received: s.received.Load(), Sent: s.sent.Load(), Commands: s.commands.Load(), Reconnects: s.reconnects.Load(), Dropped: s.dropped.Load(),
 	})
 }
 
@@ -77,7 +79,14 @@ func (s *Stats) Close() {
 }
 
 func (s *Stats) Snapshot() map[string]interface{} {
-	return map[string]interface{}{"uptime": time.Since(s.started).Round(time.Second).String(), "connected": s.connected.Load() == 1, "reconnects": s.reconnects.Load(), "messages_received": s.received.Load(), "messages_sent": s.sent.Load(), "commands_handled": s.commands.Load()}
+	return map[string]interface{}{"uptime": time.Since(s.started).Round(time.Second).String(), "connected": s.connected.Load() == 1, "reconnects": s.reconnects.Load(), "messages_received": s.received.Load(), "messages_sent": s.sent.Load(), "messages_dropped": s.dropped.Load(), "commands_handled": s.commands.Load()}
+}
+
+func (s *Stats) MetricsSnapshot() map[string]interface{} {
+	snapshot := s.Snapshot()
+	delete(snapshot, "uptime")
+	snapshot["uptime_seconds"] = time.Since(s.started).Seconds()
+	return snapshot
 }
 func (s *Stats) Serve(address string, port int) {
 	mux := http.NewServeMux()
@@ -87,10 +96,7 @@ func (s *Stats) Serve(address string, port int) {
 	})
 	mux.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; version=0.0.4")
-		for k, v := range s.Snapshot() {
-			if k == "uptime" {
-				continue
-			}
+		for k, v := range s.MetricsSnapshot() {
 			if k == "connected" {
 				if v == true {
 					v = 1
