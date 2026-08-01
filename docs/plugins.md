@@ -47,13 +47,15 @@ can be sent in a channel or by direct message where supported:
 !tell username hello
 ~~~
 
-!tell immediately relays a message to the current channel or conversation:
+!tell queues a message for the next time the addressed nickname speaks:
 
 ~~~text
 !tell GoBot you are awesome
 ~~~
 
-GoBot posts GoBot: you are awesome immediately.
+GoBot confirms that it will tell GoBot the next time they speak. When GoBot
+next sends a message, the pending message is delivered in that channel or
+conversation. Pending messages are stored in BoltDB and survive restarts.
 
 ## Correction
 
@@ -244,7 +246,7 @@ project--
 
 - seen reports where and when a nickname last spoke. Records are stored in
   BoltDB.
-- tell immediately relays the requested message.
+- tell queues a message and delivers it when the addressed nickname next speaks.
 - karma tracks case-insensitive thing++ and thing-- changes.
 - dice accepts NdN notation or a single number such as !roll 20, meaning 1d20.
   It allows up to 100 dice and 10,000 sides per die and uses secure random
