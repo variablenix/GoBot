@@ -1,0 +1,33 @@
+green|As I see it, yes
+green|It is certain
+green|It is decidedly so
+green|Most likely
+green|Outlook good
+green|Signs point to yes
+green|One would be wise to think so
+green|Naturally
+green|Without a doubt
+green|Yes
+green|Yes, definitely
+green|You may rely on it
+yellow|Reply hazy, try again
+yellow|Ask again later
+yellow|Better not tell you now
+yellow|Cannot predict now
+yellow|Concentrate and ask again
+yellow|You know the answer better than I
+yellow|Maybe...
+yellow|The answer is still loading
+yellow|The stars are undecided
+yellow|Try asking with a snack nearby
+yellow|The signs are pointing in several directions
+red|You're kidding, right?
+red|Don't count on it
+red|In your dreams
+red|My reply is no
+red|My sources say no
+red|Outlook not so good
+red|Very doubtful
+red|Not today, cosmic traveler
+red|The odds are not on your side
+red|That sounds like a no to me
