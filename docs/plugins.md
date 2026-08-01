@@ -284,6 +284,16 @@ IRC message:
 !japanese
 !sushi
 !ramen
+!chinese
+!cantonese
+!mandarin
+!sichuan
+!hunan
+!shanghai
+!beijing
+!dongbei
+!yunnan
+!xinjiang
 !burrito
 !vietnamese
 !filipino
@@ -318,7 +328,9 @@ Finnish, Dutch, Belgian, Austrian, Swiss, Czech, Hungarian, Romanian, and
 Georgian dishes. The catalog also includes Moroccan, Nigerian, South African,
 Peruvian, Argentinian, Chilean, Colombian, Venezuelan, Cuban, Canadian,
 Australian, New Zealand, Malaysian, Pakistani, Bangladeshi, Sri Lankan, and
-Nepalese dishes. `!foods` is an alias for `!food`; country and regional aliases
+Nepalese dishes. Chinese regional lists include Cantonese, Northern Chinese
+(available as `!mandarin`), Sichuan, Hunan, Shanghai, Beijing, Dongbei,
+Yunnan, and Xinjiang dishes. `!foods` is an alias for `!food`; country and regional aliases
 such as `!de`, `!uk`, `!ie`, `!pt`, `!gr`, `!pl`, `!ua`, `!ru`, `!se`, `!no`,
 `!dk`, `!fi`, `!nl`, `!be`, `!at`, `!ch`, `!cz`, `!hu`, `!ro`, `!br`, `!pe`,
 `!ar`, `!cl`, `!co`, `!ve`, and `!nz` are also available.
