@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"path/filepath"
 	"strings"
+	"unicode"
 
 	"github.com/variablenix/GoBot/bot"
 	"github.com/variablenix/GoBot/storage"
@@ -17,6 +18,11 @@ type Foods struct {
 	items     map[string][]string
 	aliases   map[string]string
 	maxLength int
+}
+
+type foodMatch struct {
+	category string
+	item     string
 }
 
 var foodCategories = []string{
@@ -43,7 +49,7 @@ func (p *Foods) Commands() []string {
 }
 
 func (p *Foods) Help() string {
-	return "!food [category] [nickname] — suggest a food or drink; try !german, !british, !japanese, !mexican, !soda, !juice, or !mocktail"
+	return "!food [search term] — find a matching food or drink, or pick randomly; categories such as !ramen, !beer, !soda, and !german are also supported"
 }
 
 func (p *Foods) Init(c bot.PluginConfig, _ *storage.DB) error {
@@ -123,6 +129,18 @@ func (p *Foods) Handle(b *bot.Bot, m bot.Message) bool {
 	if arg != "" {
 		target = truncateRunes(cleanExternalText(arg), 80)
 	}
+	if target != "" {
+		if matches := p.findMatches(category, target); len(matches) > 0 {
+			match := matches[rand.Intn(len(matches))]
+			label := strings.Title(match.category)
+			if category == "food" {
+				label = "Food"
+			}
+			result := fmt.Sprintf("%s match: %s", label, match.item)
+			b.Send(m.ReplyTarget(), truncateRunes(ircColor(ircCyan, result), p.maxLength))
+			return true
+		}
+	}
 
 	if category == "food" {
 		category = p.randomCategory()
@@ -140,6 +158,51 @@ func (p *Foods) Handle(b *bot.Bot, m bot.Message) bool {
 	}
 	b.Send(m.ReplyTarget(), truncateRunes(ircColor(ircCyan, result), p.maxLength))
 	return true
+}
+
+// findMatches searches item text, not category names. A generic !food query
+// searches the complete catalog; a category command such as !beer searches
+// only that category. If no item matches, Handle preserves the historical
+// nickname fallback instead of rejecting the request.
+func (p *Foods) findMatches(category, query string) []foodMatch {
+	needle := normalizeFoodSearch(query)
+	if len([]rune(needle)) < 2 {
+		return nil
+	}
+
+	categories := []string{category}
+	if category == "food" {
+		categories = foodCategories
+	}
+	seen := make(map[string]struct{})
+	matches := make([]foodMatch, 0)
+	for _, candidateCategory := range categories {
+		for _, item := range p.items[candidateCategory] {
+			key := normalizeFoodSearch(item)
+			if key == "" || !strings.Contains(key, needle) {
+				continue
+			}
+			if _, exists := seen[key]; exists {
+				continue
+			}
+			seen[key] = struct{}{}
+			matches = append(matches, foodMatch{category: candidateCategory, item: item})
+		}
+	}
+	return matches
+}
+
+func normalizeFoodSearch(value string) string {
+	value = strings.ToLower(cleanExternalText(value))
+	var builder strings.Builder
+	for _, r := range value {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			builder.WriteRune(r)
+		} else {
+			builder.WriteByte(' ')
+		}
+	}
+	return strings.Join(strings.Fields(builder.String()), " ")
 }
 
 func (p *Foods) randomCategory() string {

@@ -402,6 +402,9 @@ IRC message:
 ~~~text
 !food
 !food ramen
+!food pork
+!food steak
+!beer guinness
 !beer
 !korean
 !japanese
@@ -475,6 +478,12 @@ or `!bubble-tea`. Coffee and tea remain available through `!coffee` and
 
 Each drink list is one item per line under `data/foods/`, and the output is
 bounded to one IRC message just like the cuisine lists.
+
+`!food` accepts a search term as well as a category. For example, `!food pork`
+searches the complete catalog for matching dishes, while `!beer guinness`
+searches only the beer list. Matching is case-insensitive and supports
+multi-word terms. If no item matches, the command keeps its friendly random
+suggestion behavior and treats the text as an optional nickname.
 
 ## Sports
 
