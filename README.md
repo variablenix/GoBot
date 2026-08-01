@@ -57,7 +57,7 @@ there.
 | [Deployment](docs/deployment.md) | Build, run, systemd, Docker, and first-run workflow |
 | [Configuration](docs/configuration.md) | Multi-network config, channels, invites, rate limits, and formatting |
 | [Plugins](docs/plugins.md) | Built-in plugin behavior and command reference |
-| [Games and activities](docs/games.md) | Blackjack, polls, reminders, Duck Hunt, dice, and choices |
+| [Games and activities](docs/games.md) | Blackjack, pool, polls, reminders, Duck Hunt, dice, and choices |
 | [NickServ and SASL](docs/nickserv-sasl.md) | Nickname registration and secure authentication |
 | [Banter and fortune](docs/banter-fortune.md) | Optional banter, quotes, and curated fortune files |
 | [News](docs/news.md) | NewsAPI setup and commands |
