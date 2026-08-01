@@ -22,6 +22,7 @@ func All() []bot.Plugin {
 		&Karma{},
 		&Dice{},
 		&Blackjack{},
+		&Pool{},
 		&Poll{},
 		&Reminder{},
 		&Quote{},

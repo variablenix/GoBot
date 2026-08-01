@@ -40,6 +40,57 @@ Replies use standard IRC colors where supported and UTF-8 suit symbols such as
 ♠, ♥, ♦, and ♣. Clients without color or Unicode support still receive
 readable ranks and results.
 
+## 8-ball and 9-ball pool
+
+Pool is a compact, turn-based simulation for two people in a channel. It uses
+legal target selection and randomized pocket/miss outcomes rather than trying
+to reproduce graphical billiards physics. It has no wagers, virtual currency,
+or real-money mechanics.
+
+Challenge another nickname and have them accept:
+
+~~~text
+!8ball Alex
+!9ball Alex
+!pool accept
+!pool decline
+~~~
+
+During a game, the player whose turn it is shoots one numbered ball:
+
+~~~text
+!pool status
+!pool shoot 3
+!pool shoot 8
+!pool forfeit
+~~~
+
+In 8-ball, balls 1–7 are solids, 9–15 are stripes, and the 8-ball becomes
+legal only after the player's assigned group is cleared. In 9-ball, the lowest
+remaining ball must be selected first; pocketing the 9-ball wins. A successful
+shot keeps the turn, while a miss passes it to the other player.
+
+Aliases include `!8`, `!9ball`, `!9`, `!pool break`, and `!shoot <ball>`.
+The invited player can use `!pool decline` if they do not want to play.
+Use `!poolstats [nick]` for persistent wins and losses or
+`!poolleaderboard` for the top five players. Active games are held in memory
+and expire after the configured game or turn timeout; completed scores are
+stored in BoltDB and survive restarts.
+
+Optional settings:
+
+~~~yaml
+plugins:
+  pool:
+    enabled: true
+    game_timeout_minutes: 30
+    turn_timeout_seconds: 120
+    shot_success_percent: 65
+~~~
+
+The success percentage only controls the fun simulation outcome. It does not
+alter the target-selection rules, and all responses remain single IRC messages.
+
 ## Polls
 
 Create a poll with two or more options:

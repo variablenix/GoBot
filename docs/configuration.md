@@ -68,6 +68,7 @@ plugins:
   reddit: {enabled: true, timeout_seconds: 8, max_length: 360}
   foods: {enabled: true, data_dir: "data/foods", max_length: 240}
   sports: {enabled: true, data_file: "data/sports.txt", max_length: 200}
+  pool: {enabled: true, game_timeout_minutes: 30, turn_timeout_seconds: 120, shot_success_percent: 65}
   horoscope: {enabled: true, max_summary_length: 360}
 ```
 
