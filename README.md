@@ -57,6 +57,12 @@ make run
 make test
 ```
 
+## GitHub Actions and security updates
+
+GitHub Actions runs verification on pushes and pull requests targeting `main` or `dev`. It checks Go formatting, `go vet`, race-enabled tests, the production build, and known vulnerabilities with `govulncheck`. A separate CodeQL workflow performs source-level security analysis and publishes findings to GitHub code scanning.
+
+The workflow also runs weekly on Monday at `03:17 UTC`. Dependabot checks Go modules and GitHub Actions weekly and opens update pull requests labeled `dependencies` and `security`. Review those updates before deploying them.
+
 ## Systemd deployment
 
 For a manual binary deployment on a Linux host using systemd, run the installer from the repository directory:
@@ -95,6 +101,7 @@ If the repository is moved, rerun the installer so the unit's paths are updated.
 - `plugins/`: built-in plugins, one plugin per file where practical
 - `storage/`: BoltDB wrapper used by stateful plugins
 - `quotes/`: local banter quote files
+- `grafana/`: importable Prometheus dashboard for GoBot
 - `scripts/`: helper scripts for building, publishing, and installing systemd
 
 ## Configuration overview
@@ -679,7 +686,17 @@ curl http://127.0.0.1:8082/stats
 curl http://127.0.0.1:8082/metrics
 ```
 
-The cumulative counters persist in BoltDB and survive restarts. Uptime and current connection status are runtime values and naturally reset or change when the process restarts.
+The cumulative counters persist in BoltDB and survive restarts. `/stats` shows uptime as a human-readable value; `/metrics` exposes numeric `bot_uptime_seconds` for Prometheus. Connection status and uptime naturally reset or change when the process restarts.
+
+The Prometheus metrics are:
+
+- `bot_connected`: `1` while at least one IRC connection is active, otherwise `0`
+- `bot_reconnects`: cumulative reconnect count
+- `bot_messages_received`: cumulative IRC messages received
+- `bot_messages_sent`: cumulative messages sent by GoBot
+- `bot_commands_handled`: cumulative commands handled
+- `bot_uptime_seconds`: current process uptime in seconds
+- `bot_messages_dropped`: messages discarded because the outbound queue was full
 
 ### Scraping from a separate Prometheus host
 

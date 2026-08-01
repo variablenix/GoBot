@@ -17,3 +17,19 @@ func TestStatsListenAddress(t *testing.T) {
 		}
 	}
 }
+
+func TestMetricsSnapshotIncludesUptimeAndDroppedMessages(t *testing.T) {
+	stats := NewStats()
+	stats.dropped.Store(3)
+
+	snapshot := stats.MetricsSnapshot()
+	if _, ok := snapshot["uptime_seconds"]; !ok {
+		t.Fatal("metrics snapshot does not include uptime_seconds")
+	}
+	if got := snapshot["messages_dropped"]; got != uint64(3) {
+		t.Fatalf("messages_dropped: got %v, want 3", got)
+	}
+	if _, ok := snapshot["uptime"]; ok {
+		t.Fatal("metrics snapshot should not include human-readable uptime")
+	}
+}

@@ -46,6 +46,7 @@ func NewWithStats(cfg Config, db *storage.DB, plugins []Plugin, log *zap.Logger,
 }
 func (b *Bot) Send(target, text string) {
 	if !b.Queue.Enqueue(Outgoing{target, text}) {
+		b.Stats.dropped.Add(1)
 		b.Log.Warn("outgoing queue full", zap.String("target", target))
 	}
 }
