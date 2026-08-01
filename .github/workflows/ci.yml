@@ -30,7 +30,8 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version-file: go.mod
+          # Keep CI on the patched standard library release reported by govulncheck.
+          go-version: '1.25.12'
           cache: true
 
       - name: Check formatting
