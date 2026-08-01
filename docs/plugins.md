@@ -127,11 +127,13 @@ Fetch today's horoscope by zodiac sign. The sign is saved for your nickname:
 ~~~
 
 The public daily horoscope API requires no key. GoBot keeps the response to one
-compact IRC message: it posts a short preview followed by a readable `Read
-more` link for the sign's daily horoscope page. The preview length defaults to
-220 characters and can be changed with `plugins.horoscope.max_summary_length`
-(120–260 characters). For example, a Virgo response links to the [Virgo daily
-horoscope page](https://astrology.com.au/horoscopes/daily-horoscopes/virgo).
+compact IRC message and allows a fuller paragraph when it fits the configured
+preview length. If the paragraph is longer, it is shortened and gets a
+readable `Read more` link for the sign's daily horoscope page. The preview
+length defaults to 360 characters and can be changed with
+`plugins.horoscope.max_summary_length` (120–400 characters). For example, a
+Virgo response links to the [Virgo daily horoscope
+page](https://astrology.com.au/horoscopes/daily-horoscopes/virgo).
 
 ## Urban Dictionary
 
@@ -145,7 +147,9 @@ Look up a slang term. Add a result number for another definition:
 
 GoBot returns one shortened definition and permalink. User-submitted text is
 treated as untrusted: IRC control characters are stripped and output length
-is bounded.
+is bounded. The `1/10` notation means the first definition out of ten returned
+by Urban Dictionary; it is not random. Add a number to select another result,
+such as `!urban yeet 2`.
 
 ## XKCD
 
@@ -237,17 +241,21 @@ expressions short and use `+`, `-`, `*`, `/`, and parentheses.
 ## Reddit lookup
 
 Posting a Reddit URL still uses the automatic URL-title plugin. Use `!reddit`
-when you want Reddit-specific metadata for a particular post:
+when you want Reddit-specific metadata for a particular post or one current
+post from a subreddit:
 
 ~~~text
 !reddit https://www.reddit.com/r/golang/comments/example/post-title/
 !r https://www.reddit.com/r/golang/comments/example/post-title/
+!reddit r/linux
+!r r/golang
 ~~~
 
 The response contains the post title, author, subreddit, score, comment count,
-and canonical Reddit URL in one compact message. Only recognized Reddit post
-URLs are accepted; subreddit browsing and arbitrary URL fetching are not
-performed by this command.
+and canonical Reddit URL in one compact message. For `r/subreddit`, GoBot
+fetches one recent post through Reddit's public JSON endpoint. Only recognized
+Reddit post URLs and simple subreddit names are accepted; arbitrary URL
+fetching is not performed by this command.
 
 ## Magic 8-Ball
 

@@ -42,17 +42,30 @@ func TestHoroscopeSummaryLengthDefaultsAndBounds(t *testing.T) {
 	if err := plugin.Init(map[string]interface{}{"max_summary_length": 500}, nil); err != nil {
 		t.Fatalf("upper-bound Init returned error: %v", err)
 	}
-	if plugin.maxSummaryLength != 260 {
-		t.Fatalf("upper-bound summary length = %d, want 260", plugin.maxSummaryLength)
+	if plugin.maxSummaryLength != 400 {
+		t.Fatalf("upper-bound summary length = %d, want 400", plugin.maxSummaryLength)
 	}
 }
 
 func TestHoroscopeSourceLinkIsReadableAndOneLine(t *testing.T) {
-	message := "Virgo: You are focused and practical today. Read more: " + horoscopeSourceURL("virgo")
-	if strings.ContainsAny(message, "\r\n") {
+	short := formatHoroscopeReply("Virgo", "virgo", "You are focused and practical today. Progress is available.", 360)
+	if strings.Contains(short, "Read more:") || !strings.Contains(short, "Progress is available.") {
+		t.Fatalf("short horoscope was not preserved without an unnecessary link: %q", short)
+	}
+
+	long := formatHoroscopeReply("Virgo", "virgo", strings.Repeat("A useful horoscope sentence. ", 20), 120)
+	if strings.ContainsAny(long, "\r\n") {
 		t.Fatal("horoscope message contains a line break")
 	}
-	if !strings.Contains(message, "Read more: https://astrology.com.au/horoscopes/daily-horoscopes/virgo") {
-		t.Fatal("horoscope message is missing its source link")
+	if !strings.Contains(long, "Read more: https://astrology.com.au/horoscopes/daily-horoscopes/virgo") {
+		t.Fatalf("long horoscope is missing its source link: %q", long)
+	}
+	if len([]byte(long)) > maxHoroscopeMessageBytes {
+		t.Fatalf("horoscope reply is %d bytes, want at most %d", len([]byte(long)), maxHoroscopeMessageBytes)
+	}
+
+	unicode := formatHoroscopeReply("Virgo", "virgo", strings.Repeat("é ", 300), 360)
+	if len([]byte(unicode)) > maxHoroscopeMessageBytes {
+		t.Fatalf("unicode horoscope reply is %d bytes, want at most %d", len([]byte(unicode)), maxHoroscopeMessageBytes)
 	}
 }
