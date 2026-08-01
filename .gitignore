@@ -3,6 +3,7 @@ bot.db
 data/*
 !data/foods/
 !data/foods/*.txt
+!data/sports.txt
 .env
 .env.bak
 .act-runner/

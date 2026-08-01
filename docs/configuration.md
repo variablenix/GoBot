@@ -67,13 +67,14 @@ plugins:
   calc: {enabled: true}
   reddit: {enabled: true, timeout_seconds: 8, max_length: 360}
   foods: {enabled: true, data_dir: "data/foods", max_length: 240}
+  sports: {enabled: true, data_file: "data/sports.txt", max_length: 200}
   horoscope: {enabled: true, max_summary_length: 360}
 ```
 
-`status` and `calc` are local. `define` uses the public English dictionary
+`status`, `calc`, `foods`, and `sports` are local. `define` uses the public English dictionary
 service, `reddit` uses Reddit's public post and subreddit JSON endpoints with
 an RSS fallback, and `horoscope` uses a public daily horoscope API. `foods`
-uses local text files only. Their timeout and output limits
+and `sports` use local text files only. Their timeout and output limits
 prevent a slow or unusually large response from holding up the bot or flooding
 IRC. Disable any of them with `enabled: false` if they are not wanted.
 
