@@ -1,0 +1,18 @@
+espresso
+double espresso
+Americano
+long black
+flat white
+cappuccino
+café latte
+cortado
+macchiato
+mocha
+cold brew
+nitro cold brew
+pour-over coffee
+French press coffee
+Turkish coffee
+Vietnamese iced coffee
+Irish coffee
+affogato

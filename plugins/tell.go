@@ -3,6 +3,7 @@ package plugins
 import (
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"strings"
 	"time"
 
@@ -21,8 +22,23 @@ type tellRecord struct {
 
 type Tell struct{ db *storage.DB }
 
+var selfTellResponses = []string{
+	"You don't need to tell me, I'm right here!",
+	"I'm already listening — no need to leave myself a note.",
+	"Plot twist: I'm the one you're trying to tell.",
+	"Message received before it was even queued. Efficient!",
+}
+
 func formatTellConfirmation(nick string) string {
 	return fmt.Sprintf("I'll tell %s the next time they speak.", nick)
+}
+
+func isSelfTellTarget(target, self string) bool {
+	return strings.TrimSpace(target) != "" && strings.EqualFold(strings.TrimSpace(target), strings.TrimSpace(self))
+}
+
+func selfTellResponse() string {
+	return selfTellResponses[rand.Intn(len(selfTellResponses))]
 }
 
 func (p *Tell) Name() string       { return "tell" }
@@ -53,11 +69,15 @@ func (p *Tell) Handle(b *bot.Bot, m bot.Message) bool {
 		b.Send(m.ReplyTarget(), "usage: !tell <nick> <message>")
 		return true
 	}
+	targetNick := parts[0]
+	if isSelfTellTarget(targetNick, b.Config.Identity.Nick) {
+		b.Send(m.ReplyTarget(), selfTellResponse())
+		return true
+	}
 	if p.db == nil {
 		b.Send(m.ReplyTarget(), "tell storage is unavailable")
 		return true
 	}
-	targetNick := parts[0]
 	message := strings.Join(parts[1:], " ")
 	key := tellKey(b.Config.NetworkName, targetNick)
 	var messages []tellRecord

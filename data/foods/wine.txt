@@ -1,0 +1,20 @@
+Pinot Noir
+Cabernet Sauvignon
+Merlot
+Malbec
+Syrah
+Zinfandel
+Sangiovese
+Tempranillo
+Riesling
+Sauvignon Blanc
+Chardonnay
+Pinot Grigio
+Gewürztraminer
+Viognier
+Chenin Blanc
+Prosecco
+Cava
+Champagne
+dry rosé
+orange wine

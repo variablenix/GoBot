@@ -1,6 +1,8 @@
 bin/
 bot.db
-data/
+data/*
+!data/foods/
+!data/foods/*.txt
 .env
 .env.bak
 .act-runner/

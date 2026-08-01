@@ -1,0 +1,195 @@
+# Pale ales and IPAs
+American pale ale
+English pale ale
+Belgian pale ale
+Australian pale ale
+New Zealand pale ale
+American IPA
+West Coast IPA
+East Coast IPA
+New England IPA
+Hazy IPA
+Double IPA
+Imperial IPA
+Triple IPA
+Session IPA
+Cold IPA
+Black IPA
+Red IPA
+White IPA
+Brut IPA
+Milkshake IPA
+New Zealand IPA
+English IPA
+Belgian IPA
+Rye IPA
+Oat IPA
+Saison IPA
+Farmhouse IPA
+Fresh hop IPA
+Wet hop IPA
+India pale lager
+American amber ale
+American red ale
+Irish red ale
+Flanders red ale
+English bitter
+Ordinary bitter
+Special bitter
+Best bitter
+Extra special bitter
+Golden ale
+Blonde ale
+Cream ale
+Kölsch
+Altbier
+California common
+Steam beer
+Braggot
+Barley wine
+American barleywine
+English barleywine
+Old ale
+Scotch ale
+Wee heavy
+Strong ale
+English strong ale
+Belgian strong ale
+American strong ale
+Brown ale
+American brown ale
+English brown ale
+Newcastle-style brown ale
+Mild ale
+Dark mild
+Burton ale
+Porter
+English porter
+American porter
+Baltic porter
+Robust porter
+Smoked porter
+Stout
+Dry stout
+Irish stout
+Milk stout
+Sweet stout
+Oatmeal stout
+Coffee stout
+Chocolate stout
+Imperial stout
+Russian imperial stout
+Foreign extra stout
+American stout
+Baltic stout
+White stout
+Pastry stout
+Barrel-aged stout
+Lager and pilsner
+American lager
+Premium American lager
+Light lager
+Pale lager
+Dark lager
+Vienna lager
+Munich dunkel
+Schwarzbier
+Helles
+Dortmunder export
+Kellerbier
+Zwickelbier
+Märzen
+Oktoberfestbier
+Bock
+Maibock
+Helles bock
+Doppelbock
+Eisbock
+Roggenbier
+Keller pils
+German pils
+Czech pilsner
+Polish pilsner
+Italian pilsner
+New Zealand pilsner
+American pilsner
+Rice lager
+Corn lager
+Japanese rice lager
+Mexican lager
+Vienna-style lager
+Sour, wild, and fruit beer
+Berliner Weisse
+Gose
+Leipzig-style gose
+Grodziskie
+Lichtenhainer
+Faro
+Lambic
+Fruit lambic
+Gueuze
+Kriek
+Framboise
+Flanders oud bruin
+Flanders red-brown ale
+American sour ale
+American wild ale
+Mixed fermentation ale
+Brett beer
+Kettle sour
+Fruited sour
+Pastry sour
+Berliner-style fruit weisse
+Sour IPA
+Sour stout
+Belgian and farmhouse beer
+Witbier
+Belgian white ale
+Belgian blond ale
+Belgian dubbel
+Belgian tripel
+Belgian quadrupel
+Belgian golden strong ale
+Belgian dark strong ale
+Belgian pale ale
+Belgian saison
+Saison
+Farmhouse ale
+Fruited saison
+Bière de garde
+Grisette
+Table beer
+Patersbier
+Trappist ale
+Abbey ale
+Monastic ale
+Dubbelbock
+Other and historical styles
+Hefeweizen
+Kristallweizen
+Dunkelweizen
+Weizenbock
+Witbier
+Roggenbier
+American wheat beer
+Wheat ale
+Cream ale
+Fruit ale
+Herb and spice ale
+Honey beer
+Maple beer
+Pumpkin ale
+Smoked beer
+Rauchbier
+Steinbier
+Kentucky common
+Gruit
+Kvass
+Sahti
+Kveik ale
+Japanese happoshu
+Shandy
+Radler
+Goze-style low alcohol beer
+Alcohol-free IPA
+Alcohol-free lager
