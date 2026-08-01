@@ -91,33 +91,33 @@ Example multi-network layout:
 
 ```yaml
 networks:
-  - name: ouch
+  - name: primary
     server:
-      host: irc.ouch.chat
+      host: irc.example.net
       port: 6697
       tls: true
       verify_cert: true
     identity:
-      nick: Echo
-      user: Echo
-      realname: I am a Go IRC Bot
-      sasl_user: "Echo"
+      nick: GoBot
+      user: gobot
+      realname: Go IRC Bot
+      sasl_user: ""
       sasl_pass: ""
     channels:
-      - "#test123"
+      - "#example"
       - "#bots"
 
-  - name: libera
+  - name: secondary
     server:
-      host: irc.libera.chat
+      host: irc.example.org
       port: 6697
       tls: true
       verify_cert: true
     identity:
-      nick: EchoLibera
-      user: echobot
-      realname: GoBot on Libera
-      sasl_user: "EchoLibera"
+      nick: GoBot2
+      user: gobot2
+      realname: GoBot on secondary network
+      sasl_user: ""
       sasl_pass: ""
     channels:
       - "#example"

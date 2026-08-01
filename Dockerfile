@@ -16,5 +16,5 @@ COPY --from=builder /irc-bot /irc-bot
 COPY config.yaml /app/config.yaml
 RUN chown -R gobot:gobot /app
 USER gobot
-EXPOSE 8080
+EXPOSE 8082
 ENTRYPOINT ["/irc-bot"]
