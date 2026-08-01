@@ -18,6 +18,29 @@ func TestRedditPostEndpoint(t *testing.T) {
 	}
 }
 
+func TestRedditSubredditEndpoint(t *testing.T) {
+	postURL, endpoint, ok := redditSubredditEndpoint("r/linux")
+	wantURL := "https://www.reddit.com/r/linux/"
+	wantEndpoint := "https://www.reddit.com/r/linux/new.json?raw_json=1&limit=1"
+	if !ok || postURL != wantURL || endpoint != wantEndpoint {
+		t.Fatalf("unexpected subreddit URLs: %q, %q, %v", postURL, endpoint, ok)
+	}
+	for _, raw := range []string{"linux", "r/", "r/linux/extra", "r/linux?sort=new", "r/linux!"} {
+		if _, _, ok := redditSubredditEndpoint(raw); ok {
+			t.Fatalf("invalid subreddit accepted: %q", raw)
+		}
+	}
+}
+
+func TestRedditLookupEndpointAcceptsPostsAndSubreddits(t *testing.T) {
+	if _, _, ok := redditLookupEndpoint("r/golang"); !ok {
+		t.Fatal("subreddit lookup was rejected")
+	}
+	if _, _, ok := redditLookupEndpoint("https://www.reddit.com/r/golang/comments/abc123/example"); !ok {
+		t.Fatal("post lookup was rejected")
+	}
+}
+
 func TestRedditCommands(t *testing.T) {
 	for _, command := range []string{"reddit", "r"} {
 		if !isRedditCommand(command) {

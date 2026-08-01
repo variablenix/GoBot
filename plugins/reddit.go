@@ -19,7 +19,7 @@ type Reddit struct{ cfg bot.PluginConfig }
 func (p *Reddit) Name() string       { return "reddit" }
 func (p *Reddit) Commands() []string { return []string{"reddit", "r"} }
 func (p *Reddit) Help() string {
-	return "!reddit <Reddit post URL> — show title, author, subreddit, score, and comments (alias: !r)"
+	return "!reddit <Reddit post URL|r/subreddit> — show one compact Reddit result (alias: !r)"
 }
 func (p *Reddit) Init(c bot.PluginConfig, _ *storage.DB) error { p.cfg = c; return nil }
 
@@ -28,9 +28,9 @@ func (p *Reddit) Handle(b *bot.Bot, m bot.Message) bool {
 	if !ok || !isRedditCommand(cmd) {
 		return false
 	}
-	postURL, endpoint, ok := redditPostEndpoint(strings.TrimSpace(arg))
+	postURL, endpoint, ok := redditLookupEndpoint(strings.TrimSpace(arg))
 	if !ok {
-		b.Send(m.ReplyTarget(), ircColor(ircYellow, "usage: !reddit <Reddit post URL>"))
+		b.Send(m.ReplyTarget(), ircColor(ircYellow, "usage: !reddit <Reddit post URL|r/subreddit>"))
 		return true
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), redditTimeout(p.cfg))
@@ -124,6 +124,48 @@ func redditPostEndpoint(raw string) (string, string, bool) {
 	postURL := strings.TrimSuffix(canonical.String(), "/") + "/"
 	endpointURL := &url.URL{Scheme: "https", Host: "www.reddit.com", Path: strings.TrimSuffix(parsed.Path, "/") + ".json", RawQuery: "raw_json=1"}
 	return postURL, endpointURL.String(), true
+}
+
+func redditLookupEndpoint(raw string) (string, string, bool) {
+	if postURL, endpoint, ok := redditPostEndpoint(raw); ok {
+		return postURL, endpoint, true
+	}
+	return redditSubredditEndpoint(raw)
+}
+
+func redditSubredditEndpoint(raw string) (string, string, bool) {
+	value := strings.TrimSpace(raw)
+	if len(value) < 4 || !strings.HasPrefix(strings.ToLower(value), "r/") {
+		return "", "", false
+	}
+	name := value[2:]
+	if strings.HasSuffix(name, "/") {
+		name = strings.TrimSuffix(name, "/")
+	}
+	if !validRedditSubreddit(name) {
+		return "", "", false
+	}
+
+	postURL := "https://www.reddit.com/r/" + name + "/"
+	endpointURL := &url.URL{
+		Scheme:   "https",
+		Host:     "www.reddit.com",
+		Path:     "/r/" + name + "/new.json",
+		RawQuery: "raw_json=1&limit=1",
+	}
+	return postURL, endpointURL.String(), true
+}
+
+func validRedditSubreddit(name string) bool {
+	if len(name) < 2 || len(name) > 21 {
+		return false
+	}
+	for _, r := range name {
+		if (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') && (r < '0' || r > '9') && r != '_' && r != '-' {
+			return false
+		}
+	}
+	return true
 }
 
 func validRedditID(id string) bool {
