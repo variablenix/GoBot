@@ -93,6 +93,10 @@ plugins:
   # Public GitHub lookups; token is optional and should be supplied out-of-band.
   github: {enabled: true, timeout_seconds: 8, max_length: 360, token: ""}
   reddit: {enabled: true, timeout_seconds: 8, max_length: 360}
+  # Save and search memorable channel lines; only explicit grabs are persisted.
+  grab: {enabled: true, max_length: 320, max_quotes_per_user: 20}
+  # Read-only current kernel release lookup from kernel.org.
+  linux: {enabled: true, timeout_seconds: 8, max_length: 260}
   # Local food and drink suggestions; add one item per line under data/foods.
   foods: {enabled: true, data_dir: "data/foods", max_length: 240}
   # Local sports suggestions; add one sport per line to data/sports.txt.

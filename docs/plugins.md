@@ -22,6 +22,8 @@ Plugins are enabled or disabled under plugins.<name>.enabled in config.yaml.
 - define: short English dictionary definitions
 - calc: safe local arithmetic and unit conversion
 - github: compact public GitHub repository, issue, release, user, commit, and search lookups
+- grab: save, replay, search, and randomly show memorable channel lines
+- linux: current Linux kernel release lines from kernel.org
 - weapons: high-level local firearm and weapons-name catalog
 - status: local connection, uptime, and counter status
 - xkcd: latest or numbered XKCD comics
@@ -334,6 +336,62 @@ BOT_GITHUB_TOKEN=your-optional-read-only-token
 
 The token is sent only to `api.github.com` over HTTPS. Leave it empty when the
 anonymous public API limit is sufficient.
+
+## Grabbed channel lines
+
+The `grab` plugin lets users save memorable lines without keeping a complete
+transcript of the channel in memory. GoBot remembers only the latest message
+from each nickname in the current channel; a line is written to BoltDB only
+when someone explicitly grabs it:
+
+~~~text
+!grab Alice
+!lgrab Alice
+!grabr
+!grabr Alice
+!grabs deployment
+~~~
+
+`!grab <nick>` saves that nickname's latest message. `!lgrab` repeats their
+most recently saved line, `!grabr` shows a random saved line, and `!grabs`
+searches saved nicknames and text. Search results are limited to three compact
+matches so the plugin cannot flood a channel. Duplicate lines are ignored and
+each nickname is limited to the configured number of saved lines. The plugin
+supports ordinary messages and `/me` actions, strips IRC control characters,
+and adds a zero-width separator after the first nickname character to avoid
+unwanted highlights.
+
+~~~yaml
+plugins:
+  grab:
+    enabled: true
+    max_length: 320
+    max_quotes_per_user: 20
+~~~
+
+The saved lines are scoped by network and channel and survive restarts. The
+plugin does not expose a command to dump the entire database.
+
+## Linux kernel versions
+
+`!linux` and `!kernel` fetch the current release-line summary from
+`kernel.org` and return it as one bounded IRC message:
+
+~~~text
+!linux
+!kernel
+~~~
+
+The lookup is read-only, has a short timeout, limits the response body, and
+does not accept arbitrary URLs. It requires no API key:
+
+~~~yaml
+plugins:
+  linux:
+    enabled: true
+    timeout_seconds: 8
+    max_length: 260
+~~~
 
 ## Foods and drinks
 
