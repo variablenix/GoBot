@@ -35,3 +35,43 @@ func TestCarFallback(t *testing.T) {
 		t.Fatal("expected fallback car entries")
 	}
 }
+
+func TestCarCatalogIncludesMajorSegmentsWithoutDuplicates(t *testing.T) {
+	items := readFoodList(filepath.Join("..", "data", "cars.txt"))
+	if len(items) < 600 {
+		t.Fatalf("expected expanded car catalog, got %d entries", len(items))
+	}
+
+	wanted := []string{
+		"Bugatti Chiron (2016-2024)",
+		"Lamborghini Urus (2018-present)",
+		"Range Rover", // checked below by prefix because the catalog includes multiple variants.
+		"Lucid Gravity (2024-present)",
+		"Toyota Sequoia (2000-present)",
+	}
+	seen := make(map[string]struct{}, len(items))
+	for _, item := range items {
+		if _, ok := seen[item]; ok {
+			t.Fatalf("duplicate catalog entry: %q", item)
+		}
+		seen[item] = struct{}{}
+	}
+	for _, want := range wanted {
+		if want == "Range Rover" {
+			found := false
+			for item := range seen {
+				if strings.HasPrefix(item, "Land Rover Range Rover ") || item == "Land Rover Range Rover (1970-present)" {
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Fatalf("catalog missing %q family", want)
+			}
+			continue
+		}
+		if _, ok := seen[want]; !ok {
+			t.Fatalf("catalog missing %q", want)
+		}
+	}
+}
