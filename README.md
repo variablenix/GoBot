@@ -234,6 +234,13 @@ GoBot ships with these plugins:
 - `weather`: current weather using Open-Meteo, no API key required; aliases: `!wx`, `!forecast`, and `!temp`
 - `news`: headlines and search using NewsAPI
 - `wikipedia`: article summaries from Wikipedia
+- `horoscope`: daily horoscope by zodiac sign, with a saved sign per nickname
+- `urban`: compact Urban Dictionary definitions; aliases: `!u` and `!ud`
+- `xkcd`: latest or numbered XKCD comics
+- `lastfm`: now-playing or last-played Last.fm tracks (requires an API key)
+- `cats`: short cat facts from a public API; aliases: `!cat` and `!cats`
+- `eightball`: colored Magic 8-Ball answers from a customizable response file; aliases: `!8` and `!eightball`
+- `cheer`: family-friendly cheers from a customizable response file; aliases: `!yay`, plus automatic replies to `\o/`
 - `seen`: records when a nick last spoke
 - `tell`: immediately relays a message to the current channel or conversation
 - `karma`: tracks `thing++` and `thing--`, and answers `!karma <thing>`
@@ -325,6 +332,105 @@ Weather uses Open-Meteo and does not require an API key:
 ```
 
 Set `default_units` to `metric` or `imperial` in `config.yaml`.
+
+### Horoscope
+
+Use a zodiac sign to fetch today's horoscope. The sign is saved for your nickname, so later requests can omit it:
+
+```text
+!horoscope aries
+!horoscope
+!zodiac
+```
+
+Horoscope data comes from a public daily horoscope API and does not require an API key. Responses are intentionally limited to one compact IRC message.
+
+### Urban Dictionary
+
+Look up a slang term. Add a result number to choose a different definition:
+
+```text
+!urban yeet
+!u yeet 2
+!ud doomscrolling
+```
+
+GoBot returns one shortened definition and its permalink. Urban Dictionary content is user-submitted, so treat it as untrusted text; GoBot strips IRC control characters and bounds the response length.
+
+### XKCD
+
+Fetch the latest comic or a specific comic number:
+
+```text
+!xkcd
+!xkcd latest
+!xkcd 353
+```
+
+GoBot uses XKCD's official JSON interface and returns the comic number, title, date, and link in one message. The official interface supports latest and numbered comics rather than full-text search.
+
+### Last.fm
+
+Last.fm requires a free API key. Add it to the plugin configuration, preferably through an environment-backed deployment secret if you maintain one:
+
+```yaml
+plugins:
+  lastfm:
+    enabled: true
+    api_key: ""
+```
+
+Then use a Last.fm username once; GoBot remembers it for your nickname:
+
+```text
+!lastfm username
+!lastfm
+!np
+```
+
+The response reports the current track when the user is listening, otherwise the most recently played track. Last.fm API keys are required for these lookups; GoBot does not collect passwords or OAuth credentials.
+
+### Cats
+
+Ask for a short cat fact:
+
+```text
+!cats
+!cat
+```
+
+The Cats plugin uses the public `catfact.ninja` endpoint and does not require an API key. It returns one cleaned, length-limited message and does not download images or execute external commands.
+
+### Magic 8-Ball
+
+Ask a question and GoBot returns one randomized answer:
+
+```text
+!8ball Will this deploy cleanly?
+!8 Should I order pizza?
+!eightball Is the channel ready?
+```
+
+Responses are kept in `quotes/eightball.txt`, one per line. Prefix a line with `green|`, `yellow|`, or `red|` to control its IRC color; unprefixed lines remain readable without color. The included file contains the familiar CloudBot-style answers plus additional lighthearted family-friendly responses. Each request produces one bounded IRC message.
+
+### Cheers
+
+Send an explicit cheer:
+
+```text
+!cheer
+!yay
+```
+
+GoBot also responds to a channel message containing `\o/`, with a short per-channel cooldown so repeated cheers do not flood the channel. Cheer text comes from `quotes/cheers.txt`, one response per line, and the included collection is intentionally family-friendly. Set `automatic_cooldown_seconds` higher if a busier channel needs fewer automatic replies:
+
+```yaml
+plugins:
+  cheer:
+    enabled: true
+    cheers_file: "quotes/cheers.txt"
+    automatic_cooldown_seconds: 15
+```
 
 ### Wikipedia
 
@@ -560,6 +666,7 @@ Example `.env`:
 BOT_SASL_USER=GoBot
 BOT_SASL_PASS=replace-with-your-nickserv-password
 BOT_NEWS_API_KEY=
+BOT_LASTFM_API_KEY=
 BOT_STORAGE_DB_PATH=./data/bot.db
 BOT_STATS_LISTEN_ADDRESS=127.0.0.1:8082
 ```
@@ -628,10 +735,11 @@ There is no setup wizard yet, so first run is configuration-first.
 3. Set at least one network, nick, and channel.
 4. If using NickServ, create `.env` and set `BOT_SASL_USER` / `BOT_SASL_PASS`.
 5. If using NewsAPI, set `BOT_NEWS_API_KEY`.
-6. Start the bot.
-7. Watch logs and confirm it joins the expected channels.
-8. Test a few commands such as `!help`, `!weather`, `!wiki`, and `!karma`.
-9. To add a temporary channel, invite the bot with `/invite <bot-nick> #channel`; add permanent channels to `config.yaml`.
+6. If using Last.fm, set `BOT_LASTFM_API_KEY`.
+7. Start the bot.
+8. Watch logs and confirm it joins the expected channels.
+9. Test a few commands such as `!help`, `!weather`, `!wiki`, and `!karma`.
+10. To add a temporary channel, invite the bot with `/invite <bot-nick> #channel`; add permanent channels to `config.yaml`.
 
 For direct binary use:
 
