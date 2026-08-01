@@ -5,14 +5,13 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-# Replace these with the user/group that should run the bot.
-User=gobot
-Group=gobot
+# These placeholders are filled by scripts/install-systemd.sh.
+User=@GOBOT_USER@
+Group=@GOBOT_GROUP@
 
-# Replace /opt/gobot with the directory where this repository is deployed.
-WorkingDirectory=/opt/gobot
-EnvironmentFile=/opt/gobot/.env
-ExecStart=/opt/gobot/bin/irc-bot
+WorkingDirectory=@GOBOT_DIR@
+EnvironmentFile=-@GOBOT_DIR@/.env
+ExecStart=@GOBOT_DIR@/bin/irc-bot
 
 Restart=on-failure
 RestartSec=10

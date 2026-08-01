@@ -57,6 +57,37 @@ make run
 make test
 ```
 
+## Systemd deployment
+
+For a manual binary deployment on a Linux host using systemd, run the installer from the repository directory:
+
+```sh
+sudo ./scripts/install-systemd.sh
+```
+
+The installer detects the repository directory and the invoking Linux user, installs `/etc/systemd/system/gobot.service`, reloads systemd, and enables the service at boot. It does not start GoBot.
+
+Before starting the service:
+
+1. Review and customize `config.yaml`.
+2. Copy `.env.example` to `.env`, add any secrets, and run `chmod 600 .env`.
+3. Build the binary with `./scripts/build.sh`.
+4. Start it when ready:
+
+```sh
+sudo systemctl start gobot.service
+sudo systemctl status gobot.service
+journalctl -u gobot.service -f
+```
+
+The installer supports a different deployment directory or service account when needed:
+
+```sh
+sudo ./scripts/install-systemd.sh --install-dir /opt/gobot --user gobot --group gobot
+```
+
+If the repository is moved, rerun the installer so the unit's paths are updated. Configuration changes require a service restart; code changes require rebuilding before restarting.
+
 ## Project layout
 
 - `cmd/irc-bot/`: main program entrypoint
@@ -64,7 +95,7 @@ make test
 - `plugins/`: built-in plugins, one plugin per file where practical
 - `storage/`: BoltDB wrapper used by stateful plugins
 - `quotes/`: local banter quote files
-- `scripts/`: helper scripts for build/publish and optional runner setup
+- `scripts/`: helper scripts for building, publishing, and installing systemd
 
 ## Configuration overview
 
