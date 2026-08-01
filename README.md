@@ -5,6 +5,11 @@ networks. It supports TLS/SASL authentication, multiple networks and
 channels, persistent plugin data, rate-limited responses, games, reminders,
 URL titles, and Prometheus metrics.
 
+[![GoBot CI](https://github.com/variablenix/GoBot/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/variablenix/GoBot/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/variablenix/GoBot/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/variablenix/GoBot/actions/workflows/codeql.yml)
+[![Go 1.25.12+](https://img.shields.io/badge/Go-1.25.12%2B-00ADD8?logo=go&logoColor=white)](go.mod)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 The repository contains example connection settings so you can see the
 configuration shape. Replace them with the networks, channels, identity, and
 secrets for your own deployment.
@@ -15,7 +20,7 @@ secrets for your own deployment.
 - [Quick start](#quick-start)
 - [Documentation map](#documentation-map)
 - [Project layout](#project-layout)
-- [Contributing and CI](docs/development.md)
+- [Contributing](CONTRIBUTING.md)
 - [License](#license)
 
 ## What GoBot does
@@ -79,6 +84,7 @@ quotes/            built-in quote and response files
 grafana/           importable Prometheus dashboard and preview
 scripts/            build, publishing, and systemd helpers
 deploy/systemd/    systemd unit template
+CONTRIBUTING.md    contribution workflow and local checks
 ```
 
 The binary is generated at `bin/irc-bot`; it is a build artifact, not source
