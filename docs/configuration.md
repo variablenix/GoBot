@@ -72,6 +72,8 @@ plugins:
   foods: {enabled: true, data_dir: "data/foods", max_length: 240}
   sports: {enabled: true, data_file: "data/sports.txt", max_length: 200}
   car: {enabled: true, data_file: "data/cars.txt", max_length: 240}
+  # Optional playful join greetings; disabled by default.
+  welcome: {enabled: false, probability: 0.15, cooldown_seconds: 120, messages_file: "data/welcome.txt"}
   # 65% is a balanced casual default; use 100% for deterministic testing.
   pool: {enabled: true, game_timeout_minutes: 30, turn_timeout_seconds: 120, shot_success_percent: 65}
   horoscope: {enabled: true, max_summary_length: 360}
@@ -87,6 +89,14 @@ instructions or tactical guidance. `github` uses read-only public GitHub API
 lookups. Their output limits
 prevent a slow or unusually large response from holding up the bot or flooding
 IRC. Disable any of them with `enabled: false` if they are not wanted.
+
+The optional `welcome` plugin listens for users joining a channel. It applies
+the configured probability to each join and then enforces a per-channel
+cooldown, so it can add personality without greeting every person in a busy
+room. Lines are read from `data/welcome.txt`; `{nick}` is replaced with the
+joining nickname. Keep each line short enough for one IRC message. The plugin
+also respects `join_warmup_seconds`, so replayed join events during startup do
+not cause a burst of greetings.
 
 For deployment secrets, use `.env` or the service manager's environment rather
 than committing them to the example configuration. `BOT_GITHUB_TOKEN` is

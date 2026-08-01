@@ -51,6 +51,9 @@ plugins:
   # Set fortune_dir to an explicit, curated fortune directory if desired.
   # Leave empty to avoid loading the entire system fortune collection.
   banter: {enabled: true, probability: 0.54, quotes_file: "quotes/banter.txt", fortune_dir: ""}
+  # Optional playful join greetings. The cooldown is per channel; placeholders
+  # such as {nick} are replaced with the joining nickname.
+  welcome: {enabled: false, probability: 0.15, cooldown_seconds: 120, messages_file: "data/welcome.txt"}
   # Optional YouTube Data API v3 key for reliable title/channel/duration data.
   # Without it, GoBot uses YouTube's public oEmbed/player fallbacks.
   urltitle: {enabled: true, max_title_length: 120, timeout_seconds: 5, youtube_api_key: ""}
