@@ -1,0 +1,23 @@
+sushi
+sashimi
+ramen
+udon
+soba
+tempura
+okonomiyaki
+takoyaki
+yakitori
+katsu curry
+tonkatsu
+shabu-shabu
+oyakodon
+gyudon
+donburi
+onigiri
+chawanmushi
+nikujaga
+tsukemono
+edamame
+inari sushi
+matcha mochi
+dorayaki
