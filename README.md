@@ -226,6 +226,7 @@ GoBot ships with these plugins:
 - `choose`: randomly choose between several options
 - `time`: show the current time in an IANA timezone
 - `channelstats`: persistent per-channel message and user statistics
+- `duckhunt`: optional activity-triggered duck hunt with persistent per-channel scores
 - `help`: lists commands and usage
 - `alias`: lists command aliases and supports per-command alias details
 
@@ -444,6 +445,39 @@ Use any of these aliases:
 ```
 
 The response reports message totals, distinct users, and the top five users for the current channel. HTTP `/stats`, `/metrics`, and `!stats` channel details persist in BoltDB and survive restarts.
+
+### Duck Hunt
+
+Duck Hunt is a lightweight channel activity event rather than a round-based game. It is disabled by default so enabling it is an intentional choice for channels that want occasional fun interruptions.
+
+Enable it in `config.yaml`:
+
+```yaml
+plugins:
+  duckhunt:
+    enabled: true
+    minimum_messages: 25
+    minimum_users: 2
+    min_delay_seconds: 60
+    max_delay_seconds: 300
+    timeout_seconds: 30
+```
+
+After the channel reaches the configured activity threshold, GoBot waits a random amount of time and announces a duck. The first person to send `!bang` wins:
+
+```text
+A wild duck appeared: \_o< quack! Type !bang to shoot it!
+username shot a duck in 2.137 seconds! You have killed 1 ducks in #example.
+```
+
+Use `!ducks` to see your score or `!ducks nickname` to check another participant's score. Scores are stored in BoltDB and survive restarts. There are no wagers, virtual currency, or real-money mechanics. Normal command rate limiting applies to `!bang` and `!ducks`.
+
+The activity settings control how often the event can occur:
+
+- `minimum_messages`: messages required before a spawn can be scheduled
+- `minimum_users`: distinct nicknames required before a spawn can be scheduled
+- `min_delay_seconds` and `max_delay_seconds`: random wait after the activity threshold
+- `timeout_seconds`: how long the duck remains available
 
 ## NickServ registration and SASL authentication
 

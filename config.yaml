@@ -68,6 +68,8 @@ plugins:
   choose: {enabled: true}
   time: {enabled: true}
   channelstats: {enabled: true}
+  # Optional activity-triggered duck hunt. Scores persist in BoltDB.
+  duckhunt: {enabled: false, minimum_messages: 25, minimum_users: 2, min_delay_seconds: 60, max_delay_seconds: 300, timeout_seconds: 30}
 stats:
   enabled: true
   http_port: 8082
