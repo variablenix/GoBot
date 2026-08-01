@@ -83,6 +83,9 @@ func (b *Bot) connect(ctx context.Context) error {
 		if m.Command == "INVITE" {
 			b.handleInvite(m)
 		}
+		if m.Command == "JOIN" {
+			b.dispatchEvent(ParseMessage(m))
+		}
 		if m.Command == "001" {
 			actualNick := ""
 			if len(m.Params) > 0 {
@@ -195,6 +198,13 @@ func (b *Bot) channelWarming(channel string) bool {
 	until := b.warmupUntil[strings.ToLower(channel)]
 	b.warmupMu.RUnlock()
 	return !until.IsZero() && time.Now().Before(until)
+}
+
+// ChannelWarming reports whether a channel is still inside the post-join
+// backlog protection window. Event-driven plugins can use this to avoid
+// reacting to replayed join/activity events during startup.
+func (b *Bot) ChannelWarming(channel string) bool {
+	return b.channelWarming(channel)
 }
 
 func validChannelName(channel string) bool {
@@ -422,6 +432,23 @@ func (b *Bot) dispatch(msg Message) {
 		if _, _, ok := IsCommand(msg, b.Config.CommandPrefix); ok {
 			command = true
 		}
+	}
+}
+
+func (b *Bot) dispatchEvent(msg Message) {
+	for _, p := range b.Plugins {
+		handler, ok := p.(EventHandler)
+		if !ok {
+			continue
+		}
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					b.Log.Error("plugin event panic", zap.String("plugin", p.Name()), zap.Any("panic", r))
+				}
+			}()
+			handler.HandleEvent(b, msg)
+		}()
 	}
 }
 func (b *Bot) Run(ctx context.Context) error {

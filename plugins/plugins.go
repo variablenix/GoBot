@@ -6,6 +6,7 @@ func All() []bot.Plugin {
 	return []bot.Plugin{
 		&Correction{},
 		&Banter{},
+		&Welcome{},
 		&URLTitle{},
 		&Weather{},
 		&News{},

@@ -13,3 +13,9 @@ type Plugin interface {
 type Starter interface {
 	Start(*Bot)
 }
+
+// EventHandler lets a plugin observe non-message IRC events without making
+// every command plugin inspect the raw event stream.
+type EventHandler interface {
+	HandleEvent(*Bot, Message) bool
+}
