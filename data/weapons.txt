@@ -1,0 +1,343 @@
+# High-level reference catalog only. One category and item per line.
+# This file intentionally contains names and broad types, not instructions.
+pistol|.22 rimfire target pistol
+pistol|Beretta 21A Bobcat
+pistol|Beretta 92
+pistol|Beretta APX
+pistol|Browning Buck Mark
+pistol|Colt M1911
+pistol|CZ 75
+pistol|CZ P-10
+pistol|FN Five-seveN
+pistol|FN Five-seveN MRD
+pistol|FN FNP
+pistol|FN FNS
+pistol|Glock 17
+pistol|Glock 19
+pistol|Glock 26
+pistol|Glock 34
+pistol|Glock 43
+pistol|Glock 48
+pistol|Heckler & Koch VP9
+pistol|Heckler & Koch USP
+pistol|Heckler & Koch P30
+pistol|IWI Jericho 941
+pistol|Kimber Custom II
+pistol|SIG Sauer P220
+pistol|SIG Sauer P226
+pistol|SIG Sauer P320
+pistol|SIG Sauer P365
+pistol|SIG Sauer P938
+pistol|Smith & Wesson M&P9
+pistol|Smith & Wesson Shield
+pistol|Springfield Armory XD
+pistol|Springfield Armory Hellcat
+pistol|Steyr M9-A1
+pistol|Taurus G3
+pistol|Walther PPQ
+pistol|Walther PPK
+pistol|Walther PDP
+pistol|Ruger Mark IV
+pistol|Ruger Security-9
+pistol|Ruger LCP
+pistol|Desert Eagle
+pistol|Browning Hi-Power
+pistol|Tokarev TT-33
+pistol|Makarov PM
+pistol|Webley Self-Loading Pistol
+revolver|Colt Python
+revolver|Colt Detective Special
+revolver|Colt Single Action Army
+revolver|Colt Anaconda
+revolver|Smith & Wesson Model 10
+revolver|Smith & Wesson Model 29
+revolver|Smith & Wesson Model 60
+revolver|Smith & Wesson Model 686
+revolver|Smith & Wesson Model 500
+revolver|Ruger GP100
+revolver|Ruger Blackhawk
+revolver|Ruger Redhawk
+revolver|Ruger Super Redhawk
+revolver|Ruger LCR
+revolver|Taurus Judge
+revolver|Manurhin MR 73
+revolver|Nagant M1895
+revolver|Webley Mk VI
+revolver|Schofield revolver
+revolver|Remington Model 1858
+revolver|LeMat revolver
+handgun|derringer
+handgun|pepperbox pistol
+handgun|single-shot hunting pistol
+handgun|target pistol
+handgun|service pistol
+handgun|compact defensive pistol
+handgun|competition pistol
+handgun|flintlock pistol
+handgun|percussion-cap pistol
+rifle|.22 rimfire sporting rifle
+rifle|AR-15 pattern rifle
+rifle|AKM
+rifle|AK-47
+rifle|AK-74
+rifle|AK-103
+rifle|AK-12
+rifle|AR-10 pattern rifle
+rifle|AUG
+rifle|Barrett REC7
+rifle|Beretta ARX160
+rifle|Browning BAR
+rifle|Browning BLR
+rifle|Colt M16
+rifle|Colt M4
+rifle|CZ Bren 2
+rifle|Daewoo K2
+rifle|FN FAL
+rifle|FN SCAR-L
+rifle|FN SCAR-H
+rifle|FN FNC
+rifle|FAMAS
+rifle|Galil ACE
+rifle|Galil ARM
+rifle|G3
+rifle|HK 416
+rifle|HK 417
+rifle|HK G36
+rifle|HK G3
+rifle|IWI Tavor X95
+rifle|IWI Galil
+rifle|Keltec SU-16
+rifle|L85A2
+rifle|Lee-Enfield
+rifle|M1 Garand
+rifle|M14
+rifle|M1 Carbine
+rifle|MAS-49
+rifle|Mosin-Nagant
+rifle|PTR-91
+rifle|Remington 700
+rifle|Ruger American Rifle
+rifle|Ruger 10/22
+rifle|Ruger Mini-14
+rifle|Ruger Precision Rifle
+rifle|Savage Model 110
+rifle|SKS
+rifle|SIG SG 550
+rifle|SIG MCX
+rifle|SIG 516
+rifle|Springfield M1903
+rifle|Steyr AUG
+rifle|StG 44
+rifle|Tikka T3x
+rifle|Type 56
+rifle|VZ. 58
+rifle|Winchester Model 70
+rifle|Winchester 1894
+rifle|Winchester 1907
+rifle|Weatherby Mark V
+rifle|Zastava M70
+carbine|M1 Carbine
+carbine|M4 Carbine
+carbine|M4A1
+carbine|HK 416C
+carbine|HK 53
+carbine|SIG MCX Rattler
+carbine|SIG SG 553
+carbine|Kel-Tec SUB-2000
+carbine|Ruger PC Carbine
+carbine|Marlin Camp Carbine
+carbine|Beretta Cx4 Storm
+carbine|CZ Scorpion Carbine
+carbine|Kel-Tec SU-16
+carbine|Hi-Point 995TS
+carbine|M1A SOCOM
+carbine|Mosin-Nagant carbine
+shotgun|12-gauge sporting shotgun
+shotgun|20-gauge field shotgun
+shotgun|Beretta 1301
+shotgun|Benelli M2
+shotgun|Benelli M4
+shotgun|Benelli Super Black Eagle
+shotgun|Browning Auto-5
+shotgun|Browning Citori
+shotgun|Browning BPS
+shotgun|CZ Drake
+shotgun|Franchi Affinity
+shotgun|Ithaca 37
+shotgun|Mossberg 500
+shotgun|Mossberg 590
+shotgun|Mossberg 930
+shotgun|Mossberg 940
+shotgun|Mossberg Maverick 88
+shotgun|Remington 870
+shotgun|Remington 1100
+shotgun|Remington V3
+shotgun|Saiga-12
+shotgun|Stoeger Coach Gun
+shotgun|Winchester Model 12
+shotgun|Winchester SXP
+shotgun|Winchester 101
+shotgun|Keltec KS7
+shotgun|Keltec KSG
+shotgun|SPAS-12
+shotgun|Blaser F3
+shotgun|Darne side-by-side
+shotgun|drilling combination gun
+shotgun|double-barrel shotgun
+shotgun|lever-action shotgun
+shotgun|pump-action shotgun
+shotgun|semi-automatic shotgun
+smg|Beretta PM12
+smg|B&T APC9
+smg|B&T MP9
+smg|CZ Scorpion EVO 3
+smg|FN P90
+smg|FN PS90
+smg|HK MP5
+smg|HK MP7
+smg|HK UMP
+smg|HK Uzi
+smg|Ingram MAC-10
+smg|Ingram MAC-11
+smg|KRISS Vector
+smg|PPSh-41
+smg|PPS-43
+smg|Sa vz. 23
+smg|Sterling submachine gun
+smg|Sten gun
+smg|Steyr TMP
+smg|SIG MPX
+smg|Thompson submachine gun
+smg|Uzi
+smg|Vigneron M2
+smg|Škorpion vz. 61
+machine-gun|Browning M2
+machine-gun|Browning M1919
+machine-gun|Bren light machine gun
+machine-gun|DShK
+machine-gun|FN MAG
+machine-gun|FN Minimi
+machine-gun|HK21
+machine-gun|HK MG4
+machine-gun|HK MG5
+machine-gun|M60
+machine-gun|M240
+machine-gun|M249
+machine-gun|MG 08
+machine-gun|MG 34
+machine-gun|MG 42
+machine-gun|PK machine gun
+machine-gun|RPD
+machine-gun|RPK
+machine-gun|RPK-74
+machine-gun|Vickers machine gun
+machine-gun|Ultimax 100
+machine-gun|Negev
+machine-gun|Kord machine gun
+sniper|Accuracy International Arctic Warfare
+sniper|Accuracy International AWM
+sniper|Accuracy International AXMC
+sniper|Barrett M82
+sniper|Barrett M107
+sniper|Barrett MRAD
+sniper|CheyTac M200 Intervention
+sniper|Dragunov SVD
+sniper|FN Ballista
+sniper|HK PSG1
+sniper|M24 Sniper Weapon System
+sniper|M40 rifle
+sniper|M2010 Enhanced Sniper Rifle
+sniper|M110 Semi-Automatic Sniper System
+sniper|McMillan TAC-50
+sniper|Remington MSR
+sniper|Ruger Precision Rifle
+sniper|Savage 110 BA
+sniper|Steyr SSG 69
+sniper|SV-98
+sniper|Tikka T3x TAC A1
+sniper|Walther WA 2000
+sniper|Zastava M93
+launcher|M79 grenade launcher
+launcher|M203 grenade launcher
+launcher|M320 grenade launcher
+launcher|Milkor MGL
+launcher|Mk 19 grenade launcher
+launcher|Panzerfaust
+launcher|RPG-7
+launcher|Carl Gustaf recoilless rifle
+launcher|AT4
+launcher|M72 LAW
+launcher|Javelin
+launcher|NLAW
+launcher|Stinger
+launcher|FIM-92 Stinger
+launcher|FGM-148 Javelin
+launcher|TOW missile system
+launcher|Bofors 40 mm gun
+launcher|M134D Minigun
+launcher|XM25 CDTE
+launcher|flare gun
+launcher|signal pistol
+historical|Brown Bess musket
+historical|Charleville musket
+historical|Springfield Model 1861
+historical|Whitworth rifle
+historical|Henry rifle
+historical|Spencer repeating rifle
+historical|Sharps rifle
+historical|Winchester 1873
+historical|Colt Walker
+historical|Colt Navy 1851
+historical|Mauser C96
+historical|Luger P08
+historical|Walther P38
+historical|Browning Hi-Power
+historical|M1 Garand
+historical|M3 Grease Gun
+historical|Sten Mk II
+historical|MP 40
+historical|PPSh-41
+historical|Type 100 submachine gun
+historical|Johnson rifle
+historical|FG 42
+historical|Gewehr 98
+historical|Karabiner 98k
+historical|Lee-Metford
+historical|Arisaka Type 99
+historical|Mosin-Nagant
+historical|Vetterli rifle
+grenade|M67 fragmentation grenade
+grenade|M18 smoke grenade
+grenade|M84 stun grenade
+grenade|RGD-5 hand grenade
+grenade|F1 hand grenade
+grenade|Mk 2 grenade
+grenade|RGO hand grenade
+grenade|RKG-3 anti-tank grenade
+grenade|M24 stick grenade
+grenade|No. 36 Mills bomb
+grenade|Type 97 grenade
+grenade|DM51 grenade
+grenade|V40 miniature grenade
+grenade|incendiary grenade
+grenade|smoke grenade
+grenade|stun grenade
+grenade|training grenade
+grenade|riot-control gas grenade
+grenade|rifle grenade
+explosive|dynamite — historical term
+explosive|TNT — historical explosive compound
+explosive|plastic explosive — high-level term
+explosive|demolition charge — high-level term
+explosive|shaped charge — high-level term
+explosive|depth charge
+explosive|aerial bomb
+explosive|general-purpose bomb
+explosive|guided bomb
+explosive|cluster munition — historical term
+explosive|land mine
+explosive|naval mine
+explosive|improvised explosive device — reference term only
+explosive|firecracker
+explosive|signal flare
+explosive|vehicle-borne explosive device — reference term only
