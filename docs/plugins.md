@@ -62,6 +62,11 @@ GoBot confirms that it will tell GoBot the next time they speak. When GoBot
 next sends a message, the pending message is delivered in that channel or
 conversation. Pending messages are stored in BoltDB and survive restarts.
 
+If the addressed nickname is GoBot's own configured nickname, it replies with
+a short humorous message instead of queueing a message for itself. A queued
+tell is delivered when that nickname next sends either a channel message or a
+private message to GoBot.
+
 ## Correction
 
 Use familiar IRC correction syntax immediately after the message to correct:
@@ -375,6 +380,9 @@ project--
   BoltDB.
 - tell queues a message and delivers it when the addressed nickname next speaks.
 - karma tracks case-insensitive thing++ and thing-- changes.
+- thing++ and thing-- also work as standalone ordinary chat messages. GoBot
+  confirms each update in one compact line, such as `karma updated: thing=+2`;
+  command messages are not treated as karma changes.
 - dice accepts NdN notation or a single number such as !roll 20, meaning 1d20.
   It allows up to 100 dice and 10,000 sides per die and uses secure random
   values.
