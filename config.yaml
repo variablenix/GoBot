@@ -57,6 +57,14 @@ plugins:
   weather: {enabled: true, default_units: imperial}
   news: {enabled: true, api_key: "", max_results: 3}
   wikipedia: {enabled: true, max_summary_length: 300}
+  horoscope: {enabled: true}
+  urban: {enabled: true}
+  xkcd: {enabled: true}
+  # Requires a free Last.fm API key; leave empty to disable lookups.
+  lastfm: {enabled: true, api_key: ""}
+  cats: {enabled: true}
+  eightball: {enabled: true, responses_file: "quotes/eightball.txt"}
+  cheer: {enabled: true, cheers_file: "quotes/cheers.txt", automatic_cooldown_seconds: 15}
   seen: {enabled: true}
   tell: {enabled: true}
   karma: {enabled: true}
