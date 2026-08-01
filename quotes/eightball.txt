@@ -31,3 +31,32 @@ red|Very doubtful
 red|Not today, cosmic traveler
 red|The odds are not on your side
 red|That sounds like a no to me
+green|The path ahead looks promising
+green|You are on the right track
+green|The answer is brighter than expected
+green|Absolutely, give it a try
+green|Good things are lining up
+green|The odds favor a cheerful yes
+green|Proceed with confidence
+green|That plan has excellent energy
+green|The future gives a friendly thumbs-up
+yellow|The answer is taking a coffee break
+yellow|Check the details, then ask again
+yellow|The crystal ball needs a moment
+yellow|Possibly, with a little patience
+yellow|The signal is fuzzy but hopeful
+yellow|A curious maybe is the best I can do
+yellow|The universe requests more information
+yellow|Let us call that an optimistic maybe
+yellow|The answer depends on the snacks
+yellow|Ask again after the next plot twist
+red|The cosmic paperwork says no
+red|That idea needs another rehearsal
+red|The answer took a wrong turn
+red|Not impossible, but not looking likely
+red|The magic 8-ball recommends a graceful retreat
+red|The outlook is cloudy with a chance of nope
+red|Today is better suited to a different plan
+red|The answer is hiding under the couch
+red|I would not bet the last cookie on it
+red|The stars politely disagree
