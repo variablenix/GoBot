@@ -186,7 +186,7 @@ invites:
 From an IRC client:
 
 ```text
-/invite Echo #new-channel
+/invite GoBot #new-channel
 ```
 
 GoBot joins the invited channel after validating the channel name. Invitations are rate-limited globally per bot/network and per channel. Invited channels are temporary and are not written to `config.yaml`; add a channel to the network's `channels` list if it should be rejoined after a restart.
@@ -239,8 +239,8 @@ Use `!alias` for a compact grouped alias list, or `!alias wiki` to inspect one c
 With the optional banter plugin enabled, address the bot in a channel:
 
 ```text
-Echo hello, how are you?
-@Echo hello
+GoBot hello, how are you?
+@GoBot hello
 ```
 
 Banter replies are intentionally random and may not respond to every message. Commands can be sent in a channel or by direct message where the command supports it:
@@ -256,10 +256,10 @@ Banter replies are intentionally random and may not respond to every message. Co
 `!tell` immediately relays a message to the current channel or conversation:
 
 ```text
-!tell Echo you are awesome
+!tell GoBot you are awesome
 ```
 
-GoBot posts `Echo: you are awesome` immediately. `owner_accounts` is reserved for future owner-only features.
+GoBot posts `GoBot: you are awesome` immediately. `owner_accounts` is reserved for future owner-only features.
 
 ### Correction
 
@@ -480,7 +480,7 @@ Recommended split for a one-network deployment:
 Example `.env`:
 
 ```env
-BOT_SASL_USER=Echo
+BOT_SASL_USER=GoBot
 BOT_SASL_PASS=replace-with-your-nickserv-password
 BOT_NEWS_API_KEY=
 BOT_STORAGE_DB_PATH=./data/bot.db
