@@ -66,13 +66,14 @@ plugins:
   define: {enabled: true, timeout_seconds: 8, max_length: 240}
   calc: {enabled: true}
   reddit: {enabled: true, timeout_seconds: 8, max_length: 360}
+  horoscope: {enabled: true, max_summary_length: 360}
 ```
 
 `status` and `calc` are local. `define` uses the public English dictionary
-service, and `reddit` uses Reddit's public post JSON endpoint. Their timeout
-and output limits prevent a slow or unusually large response from holding up
-the bot or flooding IRC. Disable any of them with `enabled: false` if they are
-not wanted.
+service, `reddit` uses Reddit's public post and subreddit JSON endpoints, and
+`horoscope` uses a public daily horoscope API. Their timeout and output limits
+prevent a slow or unusually large response from holding up the bot or flooding
+IRC. Disable any of them with `enabled: false` if they are not wanted.
 
 ## Owners and invitations
 

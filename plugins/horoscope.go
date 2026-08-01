@@ -3,7 +3,6 @@ package plugins
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -19,7 +18,10 @@ var horoscopeSigns = map[string]string{
 	"sagittarius": "Sagittarius", "capricorn": "Capricorn", "aquarius": "Aquarius", "pisces": "Pisces",
 }
 
-const defaultHoroscopeSummaryLength = 220
+const (
+	defaultHoroscopeSummaryLength = 360
+	maxHoroscopeMessageBytes      = 450
+)
 
 type Horoscope struct {
 	db               *storage.DB
@@ -37,8 +39,8 @@ func (p *Horoscope) Init(c bot.PluginConfig, db *storage.DB) error {
 	if p.maxSummaryLength < 120 {
 		p.maxSummaryLength = 120
 	}
-	if p.maxSummaryLength > 260 {
-		p.maxSummaryLength = 260
+	if p.maxSummaryLength > 400 {
+		p.maxSummaryLength = 400
 	}
 	return nil
 }
@@ -93,9 +95,55 @@ func (p *Horoscope) Handle(b *bot.Bot, m bot.Message) bool {
 	if maxSummaryLength == 0 {
 		maxSummaryLength = defaultHoroscopeSummaryLength
 	}
-	text = truncateRunes(text, maxSummaryLength)
-	b.Send(m.ReplyTarget(), fmt.Sprintf("%s: %s Read more: %s", canonical, text, horoscopeSourceURL(sign)))
+	b.Send(m.ReplyTarget(), formatHoroscopeReply(canonical, sign, text, maxSummaryLength))
 	return true
+}
+
+func formatHoroscopeReply(canonical, sign, text string, maxSummaryLength int) string {
+	text = cleanExternalText(text)
+	if maxSummaryLength <= 0 {
+		maxSummaryLength = defaultHoroscopeSummaryLength
+	}
+	wasTruncated := len([]rune(text)) > maxSummaryLength
+	text = truncateRunes(text, maxSummaryLength)
+	prefix := canonical + ": "
+	result := prefix + text
+	if !wasTruncated && len([]byte(result)) <= maxHoroscopeMessageBytes {
+		return result
+	}
+
+	suffix := " Read more: " + horoscopeSourceURL(sign)
+	available := maxHoroscopeMessageBytes - len([]byte(prefix)) - len([]byte(suffix))
+	if available < 2 {
+		return truncateBytes(prefix+text, maxHoroscopeMessageBytes)
+	}
+	text = truncateBytes(text, available)
+	if wasTruncated {
+		return prefix + text + suffix
+	}
+	return prefix + text + suffix
+}
+
+func truncateBytes(text string, max int) string {
+	if max <= 0 {
+		return ""
+	}
+	if len([]byte(text)) <= max {
+		return text
+	}
+	if max <= len([]byte("…")) {
+		return "…"
+	}
+
+	var result strings.Builder
+	for _, r := range text {
+		next := string(r)
+		if result.Len()+len([]byte(next))+len([]byte("…")) > max {
+			break
+		}
+		result.WriteString(next)
+	}
+	return result.String() + "…"
 }
 
 // horoscopeSourceURL points users to a readable daily horoscope page rather

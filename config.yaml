@@ -57,8 +57,8 @@ plugins:
   weather: {enabled: true, default_units: imperial}
   news: {enabled: true, api_key: "", max_results: 3}
   wikipedia: {enabled: true, max_summary_length: 300}
-  # Responses stay on one IRC line; the rest is available from the readable source link.
-  horoscope: {enabled: true, max_summary_length: 220}
+  # Longer paragraphs remain one IRC message; truncated replies include a readable source link.
+  horoscope: {enabled: true, max_summary_length: 360}
   urban: {enabled: true}
   xkcd: {enabled: true}
   # Requires a free Last.fm API key; leave empty to disable lookups.
