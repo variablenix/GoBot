@@ -1,6 +1,7 @@
 package plugins
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -130,5 +131,18 @@ func TestDuckHuntHitChanceProtectsAgainstInstantShots(t *testing.T) {
 	}
 	if got := hitChance(7 * time.Second); got != 1 {
 		t.Fatalf("late shot chance = %v, want 1", got)
+	}
+}
+
+func TestDuckHuntAnnouncementIncludesColorDuckAndQuack(t *testing.T) {
+	announcement := randomDuckAnnouncement()
+	if !strings.Contains(announcement, "\x03") {
+		t.Fatal("expected mIRC color formatting in Duck Hunt announcement")
+	}
+	if !strings.Contains(announcement, "[Duck Hunt]") {
+		t.Fatal("expected Duck Hunt label in announcement")
+	}
+	if !strings.Contains(strings.ToLower(announcement), "quack") {
+		t.Fatal("expected quack text in announcement")
 	}
 }

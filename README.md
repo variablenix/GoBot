@@ -491,6 +491,8 @@ Commands:
 
 Shots taken instantly are treated as likely scripted input and miss. Shots taken during the early reaction window have a probability of success, while slower shots succeed. A user gets a short retry cooldown after an attempt. Invalid shots when no duck is active are ignored, which keeps the feature quiet and prevents command flooding.
 
+Duck Hunt announcements and results use standard mIRC IRC colors for the Duck Hunt label, duck, quack, misses, and successful interactions. Clients that do not render IRC colors still receive the same readable text and ASCII duck.
+
 The activity settings control how often the event can occur:
 
 - `minimum_messages`: messages required before a spawn can be scheduled

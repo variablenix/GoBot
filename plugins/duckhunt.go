@@ -196,7 +196,7 @@ func (p *DuckHunt) tick(b *bot.Bot) {
 			state.users = make(map[string]struct{})
 			messages = append(messages, outgoing{
 				target: state.channel,
-				text:   "The duck flew away—too slow!",
+				text:   ircColor(ircYellow, "The duck flew away—too slow!"),
 			})
 			continue
 		}
@@ -241,10 +241,10 @@ func (p *DuckHunt) control(b *bot.Bot, m bot.Message, arg string) {
 		if active {
 			duckStatus = "a duck is active"
 		}
-		b.Send(m.ReplyTarget(), fmt.Sprintf("Duck Hunt is %s in %s; %s.", status, m.Target, duckStatus))
+		b.Send(m.ReplyTarget(), fmt.Sprintf("%s is %s in %s; %s.", ircColor(ircGreen, "Duck Hunt"), status, m.Target, duckStatus))
 	case "start":
 		if !b.IsOwner(m) {
-			b.Send(m.ReplyTarget(), "only a configured owner can start or stop Duck Hunt")
+			b.Send(m.ReplyTarget(), ircColor(ircRed, "only a configured owner can start or stop Duck Hunt"))
 			return
 		}
 		p.mu.Lock()
@@ -254,10 +254,10 @@ func (p *DuckHunt) control(b *bot.Bot, m bot.Message, arg string) {
 		state.messages = 0
 		state.users = make(map[string]struct{})
 		p.mu.Unlock()
-		b.Send(m.ReplyTarget(), "Duck Hunt enabled in "+m.Target+".")
+		b.Send(m.ReplyTarget(), ircColor(ircGreen, "Duck Hunt enabled in "+m.Target+"."))
 	case "stop":
 		if !b.IsOwner(m) {
-			b.Send(m.ReplyTarget(), "only a configured owner can start or stop Duck Hunt")
+			b.Send(m.ReplyTarget(), ircColor(ircRed, "only a configured owner can start or stop Duck Hunt"))
 			return
 		}
 		p.mu.Lock()
@@ -269,9 +269,9 @@ func (p *DuckHunt) control(b *bot.Bot, m bot.Message, arg string) {
 		state.messages = 0
 		state.users = make(map[string]struct{})
 		p.mu.Unlock()
-		b.Send(m.ReplyTarget(), "Duck Hunt stopped in "+m.Target+".")
+		b.Send(m.ReplyTarget(), ircColor(ircYellow, "Duck Hunt stopped in "+m.Target+"."))
 	default:
-		b.Send(m.ReplyTarget(), "usage: !dh [start|stop|status]")
+		b.Send(m.ReplyTarget(), ircColor(ircCyan, "usage: !dh [start|stop|status]"))
 	}
 }
 
@@ -297,7 +297,7 @@ func (p *DuckHunt) interact(b *bot.Bot, m bot.Message, befriend bool) {
 	}
 	if elapsed < p.cfg.minReaction || (elapsed < 7*time.Second && rand.Float64() > hitChance(elapsed)) {
 		p.mu.Unlock()
-		b.Send(m.ReplyTarget(), fmt.Sprintf("%s missed the duck! Try again in %d seconds.", m.Nick, int(p.cfg.retryCooldown/time.Second)))
+		b.Send(m.ReplyTarget(), fmt.Sprintf("%s %s missed the duck! Try again in %d seconds.", ircColor(ircRed, "*BANG*"), m.Nick, int(p.cfg.retryCooldown/time.Second)))
 		return
 	}
 
@@ -309,13 +309,13 @@ func (p *DuckHunt) interact(b *bot.Bot, m bot.Message, befriend bool) {
 	if befriend {
 		friends := p.incrementFriends(b.Config.NetworkName, m.Target, m.Nick)
 		p.mu.Unlock()
-		b.Send(m.ReplyTarget(), fmt.Sprintf("%s befriended the duck in %.3f seconds! You have befriended %d duck%s in %s.", m.Nick, elapsed.Seconds(), friends, duckPlural(friends), m.Target))
+		b.Send(m.ReplyTarget(), fmt.Sprintf("%s %s befriended the duck in %.3f seconds! You have befriended %d duck%s in %s.", ircColor(ircCyan, "*FRIEND*"), m.Nick, elapsed.Seconds(), friends, duckPlural(friends), m.Target))
 		return
 	}
 	kills := p.incrementScore(b.Config.NetworkName, m.Target, m.Nick)
 	p.mu.Unlock()
 
-	b.Send(m.ReplyTarget(), fmt.Sprintf("%s shot a duck in %.3f seconds! You have killed %d duck%s in %s.", m.Nick, elapsed.Seconds(), kills, duckPlural(kills), m.Target))
+	b.Send(m.ReplyTarget(), fmt.Sprintf("%s %s shot a duck in %.3f seconds! You have killed %d duck%s in %s.", ircColor(ircGreen, "*BANG*"), m.Nick, elapsed.Seconds(), kills, duckPlural(kills), m.Target))
 }
 
 func (p *DuckHunt) ducks(b *bot.Bot, m bot.Message, arg string) {
@@ -324,7 +324,7 @@ func (p *DuckHunt) ducks(b *bot.Bot, m bot.Message, arg string) {
 		nick = m.Nick
 	}
 	if strings.ContainsAny(nick, " \r\n\t") || len([]rune(nick)) > 64 {
-		b.Send(m.ReplyTarget(), "usage: !ducks [nick]")
+		b.Send(m.ReplyTarget(), ircColor(ircCyan, "usage: !ducks [nick]"))
 		return
 	}
 
@@ -395,8 +395,10 @@ func randomDuckDelay(c duckHuntConfig) time.Duration {
 
 func randomDuckAnnouncement() string {
 	ducks := []string{`\_o<`, `\_O<`, `\_0<`, `\_ö<`}
-	noises := []string{"quack!", "QUACK!", "flap flap!"}
-	return fmt.Sprintf("A wild duck appeared: %s %s Type !bang to shoot it!", ducks[rand.Intn(len(ducks))], noises[rand.Intn(len(noises))])
+	noises := []string{"quack!", "QUACK!", "QUACK! QUACK!", "QUACK! flap flap!"}
+	duck := ducks[rand.Intn(len(ducks))]
+	noise := noises[rand.Intn(len(noises))]
+	return fmt.Sprintf("%s %s %s Type %s to shoot it!", ircColor(ircGreen, "[Duck Hunt]"), ircColor(ircYellow, duck), ircColor(ircCyan, noise), ircColor(ircBold, "!bang"))
 }
 
 func duckPlural(count uint64) string {
