@@ -2,6 +2,26 @@ tiramisu
 mochi
 crème brûlée
 frozen yogurt
+apple pie
+cheesecake
+chocolate cake
+carrot cake
+red velvet cake
+ice cream sundae
+banana split
+chocolate chip cookies
+brownies
+fudge
+peach cobbler
+bread pudding
+rice pudding
+flan
+baklava
+gulab jamun
+mochi ice cream
+churros
+macarons
+fruit tart
 cheesecake
 chocolate cake
 apple pie

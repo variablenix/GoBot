@@ -7,6 +7,25 @@ Neapolitan pizza
 Sicilian pizza
 Chicago deep-dish pizza
 white pizza
+New York-style pizza
+Chicago deep-dish pizza
+Chicago tavern-style pizza
+Detroit-style pizza
+Sicilian pizza
+Roman al taglio
+Neapolitan pizza
+Marinara pizza
+quattro formaggi pizza
+prosciutto and arugula pizza
+sausage and peppers pizza
+pepperoni pizza
+anchovy pizza
+Hawaiian pizza
+Greek pizza
+grandma pizza
+calzone
+stromboli
+Mushroom and spinach pizza
 four cheese pizza
 prosciutto and arugula pizza
 vegetable pizza

@@ -8,3 +8,23 @@ teriyaki burger
 chicken burger
 turkey burger
 falafel burger
+double cheeseburger
+triple cheeseburger
+bacon double cheeseburger
+smashburger
+classic hamburger
+patty melt
+slider
+western BBQ burger
+jalapeño popper burger
+blue cheese burger
+avocado burger
+guacamole burger
+chili burger
+green chile cheeseburger
+Hawaiian burger
+California burger
+olive burger
+black bean cheeseburger
+portobello burger
+crispy fish burger
