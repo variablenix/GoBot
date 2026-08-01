@@ -50,11 +50,16 @@ or real-money mechanics.
 Challenge another nickname and have them accept:
 
 ~~~text
-!8ball Alex
-!9ball Alex
+!pool 8 Alex
+!pool 9 Alex
 !pool accept
 !pool decline
 ~~~
+
+Pool commands are intentionally separate from the magic 8-ball plugin. Use
+`!pool 8 <nick>`, `!pool8 <nick>`, or `!8pool <nick>` for 8-ball pool. Use
+`!pool 9 <nick>`, `!pool9 <nick>`, or `!9ball <nick>` for 9-ball. Use
+`!8ball <question>`, `!8`, or `!eightball` for a magic 8-ball answer.
 
 During a game, the player whose turn it is shoots one numbered ball:
 
@@ -70,7 +75,8 @@ legal only after the player's assigned group is cleared. In 9-ball, the lowest
 remaining ball must be selected first; pocketing the 9-ball wins. A successful
 shot keeps the turn, while a miss passes it to the other player.
 
-Aliases include `!8`, `!9ball`, `!9`, `!pool break`, and `!shoot <ball>`.
+Aliases include `!pool8`, `!8pool`, `!pool9`, `!9ball`, `!9`, `!pool break`,
+and `!shoot <ball>`.
 The invited player can use `!pool decline` if they do not want to play.
 Use `!poolstats [nick]` for persistent wins and losses or
 `!poolleaderboard` for the top five players. Active games are held in memory

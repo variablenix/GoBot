@@ -555,6 +555,9 @@ Responses come from quotes/eightball.txt, one per line. Prefix a response with
 green|, yellow|, or red| to control its IRC color. Unprefixed responses remain
 readable without color. Each request produces one bounded message.
 
+Pool's separate 8-ball mode uses `!pool 8 <nick>`, `!pool8 <nick>`, or
+`!8pool <nick>`; `!8ball` is reserved for questions to the magic 8-ball.
+
 ## Fun text catalogs
 
 The `fun` plugin provides local text without making an external request. Each

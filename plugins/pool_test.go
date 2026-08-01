@@ -19,10 +19,16 @@ func TestPoolDefaultsAndCommands(t *testing.T) {
 		t.Fatalf("unexpected pool defaults: %+v", plugin.cfg)
 	}
 	commands := strings.Join(plugin.Commands(), " ")
-	for _, command := range []string{"pool", "8ball", "8", "9ball", "9", "shoot", "forfeit", "poolstats"} {
+	for _, command := range []string{"pool", "pool8", "8pool", "pool9", "9ball", "9", "shoot", "forfeit", "poolstats"} {
 		if !strings.Contains(commands, command) {
 			t.Fatalf("command %q missing from %q", command, commands)
 		}
+	}
+	if poolCommand("8ball") || poolCommand("8") {
+		t.Fatal("pool must not claim the magic 8-ball commands")
+	}
+	if !poolCommand("pool8") || !poolCommand("8pool") {
+		t.Fatal("pool 8 aliases are not registered correctly")
 	}
 }
 
