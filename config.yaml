@@ -72,6 +72,7 @@ plugins:
   dice: {enabled: true}
   blackjack: {enabled: true}
   # Optional turn-based 8-ball and 9-ball games; no wagers or virtual currency.
+  # 65% is a balanced casual default; use 100% for deterministic testing.
   pool: {enabled: true, game_timeout_minutes: 30, turn_timeout_seconds: 120, shot_success_percent: 65}
   poll: {enabled: true}
   remind: {enabled: true}
