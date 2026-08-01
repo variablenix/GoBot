@@ -374,7 +374,9 @@ GoBot starts. Every response is bounded to one IRC message.
 `!car` returns one random entry from the local car catalog; `!cars` is an
 alias. Entries cover affordable daily drivers, trucks, SUVs, EVs, luxury cars,
 classics, and sports and supercars. Each entry includes an approximate
-production span:
+production span. The bundled catalog includes hundreds of entries from brands
+such as Bugatti, Ferrari, Lamborghini, McLaren, Pagani, Porsche, Rolls-Royce,
+Koenigsegg, Rimac, Lucid, and major international manufacturers:
 
 ~~~text
 !car
