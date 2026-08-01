@@ -69,6 +69,8 @@ plugins:
   weapons: {enabled: true, data_file: "data/weapons.txt", max_length: 240}
   github: {enabled: true, timeout_seconds: 8, max_length: 360, token: ""}
   reddit: {enabled: true, timeout_seconds: 8, max_length: 360}
+  grab: {enabled: true, max_length: 320, max_quotes_per_user: 20}
+  linux: {enabled: true, timeout_seconds: 8, max_length: 260}
   foods: {enabled: true, data_dir: "data/foods", max_length: 240}
   sports: {enabled: true, data_file: "data/sports.txt", max_length: 200}
   car: {enabled: true, data_file: "data/cars.txt", max_length: 240}
