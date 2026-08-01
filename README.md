@@ -61,7 +61,7 @@ make test
 
 GitHub Actions runs verification on pushes and pull requests targeting `main` or `dev`. It checks Go formatting, `go vet`, race-enabled tests, the production build, and known vulnerabilities with `govulncheck`. A separate CodeQL workflow performs source-level security analysis and publishes findings to GitHub code scanning.
 
-The workflow also runs weekly on Monday at `03:17 UTC`. Dependabot checks Go modules and GitHub Actions weekly and opens update pull requests labeled `dependencies` and `security`. Review those updates before deploying them.
+The workflow also runs weekly on Monday at `03:17 UTC`. Dependabot checks Go modules and GitHub Actions weekly and opens update pull requests labeled `dependencies` and `security`. If you fork GoBot, review these updates before merging or deploying them.
 
 ## Systemd deployment
 
