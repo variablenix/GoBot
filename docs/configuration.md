@@ -74,7 +74,7 @@ plugins:
 `status`, `calc`, `foods`, and `sports` are local. `define` uses the public English dictionary
 service, `reddit` uses Reddit's public post and subreddit JSON endpoints with
 an RSS fallback, and `horoscope` uses a public daily horoscope API. `foods`
-and `sports` use local text files only. Their timeout and output limits
+and `sports` use local text files only. Their output limits
 prevent a slow or unusually large response from holding up the bot or flooding
 IRC. Disable any of them with `enabled: false` if they are not wanted.
 

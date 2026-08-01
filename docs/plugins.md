@@ -291,6 +291,17 @@ IRC message:
 !spanish
 !turkish
 !middle-eastern
+!german
+!british
+!irish
+!polish
+!portuguese
+!greek
+!soda
+!juice
+!water
+!smoothie
+!mocktail
 !pizza
 !tea nickname
 ~~~
@@ -301,15 +312,34 @@ styles, plus Korean, Japanese, sushi, ramen, Chinese, Indian, Thai, Mexican,
 Italian, Mediterranean, American, pizza, taco, burrito, burger, pasta, dessert,
 snack, coffee, tea, wine, Vietnamese, Filipino, French, Spanish, Turkish,
 Ethiopian, Brazilian, Caribbean, Indonesian, Persian, and Middle Eastern
-categories. `!foods` is an alias for `!food`; `!java`, `!kr`, `!japan`, `!jp`,
-`!vn`, `!ph`, `!fr`, `!es`, `!tr`, `!br`, `!id`, `!iranian`, and
-`!middleeastern` are convenience aliases.
+categories. European lists include German, British, Irish, Scottish, Welsh,
+Portuguese, Greek, Polish, Ukrainian, Russian, Swedish, Norwegian, Danish,
+Finnish, Dutch, Belgian, Austrian, Swiss, Czech, Hungarian, Romanian, and
+Georgian dishes. The catalog also includes Moroccan, Nigerian, South African,
+Peruvian, Argentinian, Chilean, Colombian, Venezuelan, Cuban, Canadian,
+Australian, New Zealand, Malaysian, Pakistani, Bangladeshi, Sri Lankan, and
+Nepalese dishes. `!foods` is an alias for `!food`; country and regional aliases
+such as `!de`, `!uk`, `!ie`, `!pt`, `!gr`, `!pl`, `!ua`, `!ru`, `!se`, `!no`,
+`!dk`, `!fi`, `!nl`, `!be`, `!at`, `!ch`, `!cz`, `!hu`, `!ro`, `!br`, `!pe`,
+`!ar`, `!cl`, `!co`, `!ve`, and `!nz` are also available.
 
 The cuisine lists are intentionally broad and easy to extend. They include
 common dishes, regional specialties, street food, desserts, and familiar
 variants such as `double cheeseburger`, `triple cheeseburger`, and several
 burrito styles. Add one dish per line to a list in `data/foods/`; changes are
 loaded when GoBot starts.
+
+### Non-alcoholic drinks
+
+Drink lists are local and include everyday beverages as well as international
+styles. Use `!drinks` for a general suggestion or a focused command such as
+`!soda`, `!juice`, `!water`, `!smoothie`, `!milkshake`, `!lemonade`,
+`!mocktail`, `!energy-drink`, `!sports-drink`, `!hot-chocolate`, `!kombucha`,
+or `!bubble-tea`. Coffee and tea remain available through `!coffee` and
+`!tea`, while alcoholic suggestions remain under `!beer` and `!wine`.
+
+Each drink list is one item per line under `data/foods/`, and the output is
+bounded to one IRC message just like the cuisine lists.
 
 ## Sports
 
