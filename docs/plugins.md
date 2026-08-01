@@ -14,6 +14,10 @@ Plugins are enabled or disabled under plugins.<name>.enabled in config.yaml.
 - wikipedia: English Wikipedia summaries
 - horoscope: daily zodiac horoscopes
 - urban: Urban Dictionary definitions
+- reddit: compact Reddit post metadata
+- define: short English dictionary definitions
+- calc: safe local arithmetic and unit conversion
+- status: local connection, uptime, and counter status
 - xkcd: latest or numbered XKCD comics
 - lastfm: current or recently played Last.fm tracks
 - cats: short cat facts
@@ -183,6 +187,64 @@ GoBot does not collect passwords or OAuth credentials.
 The Cats plugin uses the public catfact.ninja endpoint, requires no key,
 returns one cleaned and length-limited message, and does not download images.
 
+## Status and uptime
+
+These commands use only GoBot's local state and do not call an external
+service:
+
+~~~text
+!status
+!uptime
+!ping
+~~~
+
+The response includes connection state, process uptime, configured network, and
+message/command counters. It is useful for a quick IRC-side health check.
+
+## Definitions
+
+Look up one English word using the public Free Dictionary API:
+
+~~~text
+!define resilient
+!def resilient
+!dictionary resilient
+~~~
+
+GoBot returns the first concise definition and part of speech in one bounded
+message. No API key is required. The lookup is English-only and third-party
+text is cleaned before it is sent to IRC.
+
+## Calculator and unit conversion
+
+Calculator expressions are evaluated locally with a small parser; GoBot never
+executes shell commands or arbitrary code:
+
+~~~text
+!calc 2*(3+4)
+!math 100 / 4
+!convert 10 km to mi
+!convert 32 f to c
+~~~
+
+Supported conversions include temperature, length, mass, and volume. Keep
+expressions short and use `+`, `-`, `*`, `/`, and parentheses.
+
+## Reddit lookup
+
+Posting a Reddit URL still uses the automatic URL-title plugin. Use `!reddit`
+when you want Reddit-specific metadata for a particular post:
+
+~~~text
+!reddit https://www.reddit.com/r/golang/comments/example/post-title/
+!r https://www.reddit.com/r/golang/comments/example/post-title/
+~~~
+
+The response contains the post title, author, subreddit, score, comment count,
+and canonical Reddit URL in one compact message. Only recognized Reddit post
+URLs are accepted; subreddit browsing and arbitrary URL fetching are not
+performed by this command.
+
 ## Magic 8-Ball
 
 ~~~text
@@ -242,6 +304,11 @@ project--
 !stats
 !chanstats
 !channelstats
+!status
+!define resilient
+!calc 2+2
+!convert 10 km to mi
+!reddit https://www.reddit.com/r/example/comments/abc123/post/
 ~~~
 
 - seen reports where and when a nickname last spoke. Records are stored in
