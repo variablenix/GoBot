@@ -83,6 +83,10 @@ plugins:
   status: {enabled: true}
   define: {enabled: true, timeout_seconds: 8, max_length: 240}
   calc: {enabled: true}
+  # Local, family-friendly text catalogs; one line per entry under data/fun.
+  fun: {enabled: true, data_dir: "data/fun", max_length: 240}
+  # Public GitHub lookups; token is optional and should be supplied out-of-band.
+  github: {enabled: true, timeout_seconds: 8, max_length: 360, token: ""}
   reddit: {enabled: true, timeout_seconds: 8, max_length: 360}
   # Local food and drink suggestions; add one item per line under data/foods.
   foods: {enabled: true, data_dir: "data/foods", max_length: 240}

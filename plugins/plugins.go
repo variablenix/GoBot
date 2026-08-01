@@ -33,11 +33,13 @@ func All() []bot.Plugin {
 		&Status{},
 		&Define{},
 		&Calculator{},
+		&GitHub{},
 		&Reddit{},
 		&Foods{},
 		&Sports{},
 		&Car{},
 		&Help{},
 		&Alias{},
+		&Fun{},
 	}
 }

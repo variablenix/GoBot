@@ -65,6 +65,8 @@ plugins:
   status: {enabled: true}
   define: {enabled: true, timeout_seconds: 8, max_length: 240}
   calc: {enabled: true}
+  fun: {enabled: true, data_dir: "data/fun", max_length: 240}
+  github: {enabled: true, timeout_seconds: 8, max_length: 360, token: ""}
   reddit: {enabled: true, timeout_seconds: 8, max_length: 360}
   foods: {enabled: true, data_dir: "data/foods", max_length: 240}
   sports: {enabled: true, data_file: "data/sports.txt", max_length: 200}
@@ -77,9 +79,15 @@ plugins:
 `status`, `calc`, `foods`, `sports`, and `car` are local. `define` uses the public English dictionary
 service, `reddit` uses Reddit's public post and subreddit JSON endpoints with
 an RSS fallback, and `horoscope` uses a public daily horoscope API. `foods`
-and `sports` use local text files only. Their output limits
+and `sports` use local text files only. `fun` uses local family-friendly text
+catalogs under `data/fun`, while `github` uses read-only public GitHub API
+lookups. Their output limits
 prevent a slow or unusually large response from holding up the bot or flooding
 IRC. Disable any of them with `enabled: false` if they are not wanted.
+
+For deployment secrets, use `.env` or the service manager's environment rather
+than committing them to the example configuration. `BOT_GITHUB_TOKEN` is
+optional and is only needed when the anonymous GitHub API limit is not enough.
 
 ## Owners and invitations
 

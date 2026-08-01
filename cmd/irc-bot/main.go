@@ -27,6 +27,7 @@ func main() {
 	viper.BindEnv("identity.sasl_pass", "BOT_SASL_PASS")
 	viper.BindEnv("plugins.news.api_key", "BOT_NEWS_API_KEY")
 	viper.BindEnv("plugins.lastfm.api_key", "BOT_LASTFM_API_KEY")
+	viper.BindEnv("plugins.github.token", "BOT_GITHUB_TOKEN")
 	viper.BindEnv("plugins.urltitle.youtube_api_key", "BOT_YOUTUBE_API_KEY")
 	viper.BindEnv("storage.db_path", "BOT_STORAGE_DB_PATH")
 	viper.BindEnv("stats.listen_address", "BOT_STATS_LISTEN_ADDRESS")
