@@ -126,8 +126,12 @@ Fetch today's horoscope by zodiac sign. The sign is saved for your nickname:
 !zodiac
 ~~~
 
-The public daily horoscope API requires no key. Responses are limited to one
-compact IRC message.
+The public daily horoscope API requires no key. GoBot keeps the response to one
+compact IRC message: it posts a short preview followed by a readable `Read
+more` link for the sign's daily horoscope page. The preview length defaults to
+220 characters and can be changed with `plugins.horoscope.max_summary_length`
+(120–260 characters). For example, a Virgo response links to the [Virgo daily
+horoscope page](https://astrology.com.au/horoscopes/daily-horoscopes/virgo).
 
 ## Urban Dictionary
 
