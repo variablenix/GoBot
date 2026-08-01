@@ -10,7 +10,7 @@ import (
 	"github.com/variablenix/GoBot/storage"
 )
 
-// Fun serves short, local, family-friendly text from operator-editable files.
+// Fun serves short, local text from operator-editable files.
 // Keeping these catalogs local avoids external API failures and lets operators
 // curate the tone for their own channels.
 type Fun struct {
@@ -34,7 +34,7 @@ func (p *Fun) Commands() []string {
 }
 
 func (p *Fun) Help() string {
-	return "!yomomma/!yo — family-friendly joke; !oneliner/!one — random one-liner; !pun — random pun; !wisdom/!wise — short wisdom line"
+	return "!yomomma/!yo — random yo-momma joke; !oneliner/!one — random one-liner; !pun — random pun; !wisdom/!wise — short wisdom line"
 }
 
 func (p *Fun) Init(c bot.PluginConfig, _ *storage.DB) error {

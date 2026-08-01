@@ -175,3 +175,142 @@ is so good at leaving notes, the sticky notes stick around for the story.
 is so good at spotting a shortcut, the map folds itself to the right page.
 is so good at making a deadline, tomorrow asks for a head start.
 is so good at finding a calm answer, the argument runs out of batteries.
+
+# Size and shape
+is so big, her smartwatch asks whether it should track miles or square miles.
+is so skinny, her shadow looks like it missed lunch.
+is so tall, she uses the clouds as sticky notes.
+is so short, she uses a thimble as a hot tub.
+is so big, the family photo needs panorama mode.
+is so big, her shadow has its own zip code.
+is so big, the scale says, "Please enter a number."
+is so skinny, she can hide behind a bookmark.
+is so skinny, her belt has more holes than belt.
+is so skinny, she uses a ruler as a full-length mirror.
+is so tall, she has to duck under the weather forecast.
+is so tall, her selfies need a scroll bar.
+is so short, she can limbo under a speed bump.
+is so short, her driver's license says, "See reverse side."
+
+# Age and experience
+is so old, her first selfie was cave art.
+is so old, she remembers when the Dead Sea was only sick.
+is so old, her birth certificate is written on a scroll.
+is so old, her password hint is "the first password."
+is so old, she knew the dinosaurs by their usernames.
+is so experienced, the instruction manual asks her for advice.
+is so experienced, she can tell an update is coming by the way the printer sighs.
+
+# Smell and cleanliness
+is so smelly, the air freshener filed for remote work.
+is so smelly, skunks spray themselves before visiting.
+is so smelly, her socks have their own weather system.
+is so smelly, the garbage truck takes the long way around.
+is so smelly, the nose on the emoji turns itself off.
+is so clean, dust bunnies bring lint rollers when they visit.
+is so clean, the soap asks her for a demonstration.
+is so clean, the mop has nothing left to do but update its résumé.
+
+# Silly, forgetful, and confused
+is so stupid, she stared at the orange juice because it said, "concentrate."
+is so silly, she brought a ladder to a low point in the conversation.
+is so confused, she tried to charge her phone with a bookmark.
+is so forgetful, she put her phone in the fridge so she would not lose it.
+is so forgetful, she set a reminder to remember where the reminders are.
+is so confused, she returned a library book to the grocery store.
+is so silly, she tried to catch a cloud for her weather app.
+is so confused, she asked the keyboard where the space bar was.
+is so silly, she brought a map to the internet.
+is so forgetful, she made a to-do list and forgot where she put it.
+is so confused, she thought a shortcut was a smaller jacket.
+is so silly, she tried to alphabetize the alphabet.
+is so forgetful, she lost her place in a one-page document.
+is so confused, she thought the recycle bin was a trash can with a second chance.
+is so silly, she asked the elevator what floor it was on.
+
+# Loud, quiet, and messy
+is so loud, the mute button asks for ear protection.
+is so loud, her whisper needs a microphone.
+is so loud, the echo asks her to lower the volume.
+is so loud, noise-canceling headphones call her for backup.
+is so quiet, even her footsteps use indoor voices.
+is so quiet, the echo has to start the conversation.
+is so messy, the lost-and-found is just her bedroom.
+is so messy, the vacuum cleaner needs a map.
+is so clumsy, she tripped over a wireless connection.
+is so clumsy, she drops a pillow on the floor and misses.
+
+# Money, work, and habits
+is so broke, she checks the couch cushions for a coupon code.
+is so broke, she puts an IOU in the tip jar and asks for change.
+is so broke, her piggy bank sends her a payment reminder.
+is so broke, the penny makes the decisions.
+is so busy, her calendar needs a calendar.
+is so lazy, she waits for the remote to walk back.
+is so lazy, she orders takeout from the kitchen.
+is so hardworking, the coffee machine clocks in early for her.
+is so good at work, the deadline asks for an extension.
+is so bad at work, her out-of-office message takes a personal day.
+
+# Hair and appearance
+is so hairy, the barber uses hedge clippers and still needs a lunch break.
+is so hairy, the sweater asks her for knitting advice.
+is so bald, the sun uses her head as a charging pad.
+is so stylish, the mannequins ask her what is trending.
+is so fashionable, the closet has a waiting list.
+is so graceful, the furniture moves out of her way.
+
+# Food and cooking
+is so hungry, the menu asks her what it can do to help.
+is so hungry, she reads a cookbook with a fork.
+is so hungry, the snack drawer keeps emergency snacks for her emergencies.
+is so good at cooking, the timer asks her for the recipe.
+is so bad at cooking, the smoke alarm has a reserved seat.
+is so bad at cooking, the leftovers file a missing-person report.
+is so good at baking, the cookies line up for photographs.
+is so picky, the menu needs a version history.
+is so spicy, the hot sauce wears oven mitts around her.
+is so sweet, the dessert asks her to tone it down.
+is so bad at making toast, the bread applies for witness protection.
+
+# School, sports, and travel
+is so smart, the answer key checks her work.
+is so smart, the quiz asks her to write the questions.
+is so bad at math, her calculator rounds up out of sympathy.
+is so good at sports, the scoreboard keeps her autograph.
+is so bad at sports, the participation trophy asks for a rematch.
+is so competitive, she races the microwave countdown.
+is so good at directions, the compass follows her.
+is so bad at directions, the GPS says, "I believe in you, but turn around."
+is so well-traveled, the airport announces her layovers personally.
+is so bad at packing, the suitcase checks her luggage.
+
+# Technology and modern life
+is so bad with technology, her calculator asks for tech support.
+is so good with technology, the update waits for her approval.
+is so online, the loading spinner knows her by name.
+is so offline, the Wi-Fi sends a wellness check.
+is so good at passwords, the password manager takes notes.
+is so bad at texting, autocorrect requests a second opinion.
+is so good at troubleshooting, the bug closes its own ticket.
+is so bad at video calls, the mute button files a complaint.
+is so good at taking selfies, the camera asks her to choose a favorite.
+
+# Personality and everyday chaos
+is so dramatic, the weather app adds a plot twist.
+is so patient, the loading bar asks her to wait for it.
+is so impatient, she refreshes the clock.
+is so lucky, the coin lands on both sides for her.
+is so unlucky, her four-leaf clover has a bad day.
+is so generous, the last slice volunteers itself.
+is so nosy, the privacy policy asks her to look away.
+is so polite, the automatic door opens before she reaches it.
+is so stubborn, the GPS reroutes itself around the argument.
+is so optimistic, even the error message says, "Try again!"
+is so pessimistic, the loading bar starts at ninety-nine percent just to disappoint her.
+is so competitive, she argues with the autocorrect suggestion and wins.
+is so curious, the question mark follows her home.
+is so organized, her junk drawer has an org chart.
+is so chaotic, the calendar asks for a seat belt.
+is so friendly, the waiting room starts a group chat.
+is so persuasive, the vending machine gives her two snacks.

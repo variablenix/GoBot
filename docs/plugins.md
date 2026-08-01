@@ -27,7 +27,7 @@ Plugins are enabled or disabled under plugins.<name>.enabled in config.yaml.
 - lastfm: current or recently played Last.fm tracks
 - cats: short cat facts
 - eightball: customizable Magic 8-Ball answers
-- fun: local family-friendly yo-momma jokes, one-liners, puns, and wisdom
+- fun: local yo-momma jokes, one-liners, puns, and wisdom
 - cheer: family-friendly cheers
 - seen, tell, karma, and dice: channel utilities
 - quote, choose, and time: lightweight utilities
@@ -461,8 +461,11 @@ readable without color. Each request produces one bounded message.
 
 ## Fun text catalogs
 
-The `fun` plugin provides local, family-friendly text without making an
-external request. Each command returns one randomly selected, bounded line:
+The `fun` plugin provides local text without making an external request. Each
+command returns one randomly selected, bounded line. The yo-momma catalog is
+organized around classic joke categories such as size, age, smell, silliness,
+work, food, technology, and everyday mishaps. It is playful and non-targeted:
+operators should remove any entries that do not fit their channel's tone.
 
 ~~~text
 !yomomma
@@ -477,7 +480,9 @@ external request. Each command returns one randomly selected, bounded line:
 
 The catalogs are stored under `data/fun/`:
 
-- `yo_momma.txt`: light, non-abusive “yo momma” jokes
+- `yo_momma.txt`: categorized yo-momma jokes, including fat, skinny, tall,
+  short, old, smelly, stupid/silly, loud, broke, clumsy, food, technology,
+  school, sports, and other classic joke themes
 - `one_liners.txt`: short original one-liners
 - `puns.txt`: short original puns
 - `wisdom.txt`: original/adapted wisdom lines without questionable attribution

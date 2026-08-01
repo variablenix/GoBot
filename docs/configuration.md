@@ -81,7 +81,7 @@ plugins:
 the public English dictionary service, `reddit` uses Reddit's public post and
 subreddit JSON endpoints with an RSS fallback, and `horoscope` uses a public
 daily horoscope API. `foods` and `sports` use local text files only. `fun` uses
-local family-friendly text catalogs under `data/fun`, and `weapons` uses the
+local operator-editable text catalogs under `data/fun`, and `weapons` uses the
 high-level reference catalog under `data/weapons.txt`; it does not provide
 instructions or tactical guidance. `github` uses read-only public GitHub API
 lookups. Their output limits
