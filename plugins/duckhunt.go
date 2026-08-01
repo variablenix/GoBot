@@ -19,6 +19,9 @@ type duckHuntConfig struct {
 	minDelay        time.Duration
 	maxDelay        time.Duration
 	timeout         time.Duration
+	befriendEnabled bool
+	minReaction     time.Duration
+	retryCooldown   time.Duration
 }
 
 type duckHuntState struct {
@@ -28,26 +31,31 @@ type duckHuntState struct {
 	nextSpawn time.Time
 	spawnedAt time.Time
 	active    bool
+	stopped   bool
 }
 
 type duckScore struct {
-	Ducks uint64 `json:"ducks"`
+	Ducks   uint64 `json:"ducks"`
+	Friends uint64 `json:"friends"`
 }
 
 // DuckHunt is an optional channel activity event. It does not have rounds or
-// wagers: a duck appears after enough activity, and the first !bang records a
-// persistent per-channel score for the shooter.
+// wagers: a duck appears after enough activity, and the first successful
+// interaction records a persistent per-channel score.
 type DuckHunt struct {
-	mu     sync.Mutex
-	db     *storage.DB
-	cfg    duckHuntConfig
-	states map[string]*duckHuntState
+	mu       sync.Mutex
+	db       *storage.DB
+	cfg      duckHuntConfig
+	states   map[string]*duckHuntState
+	attempts map[string]time.Time
 }
 
-func (p *DuckHunt) Name() string       { return "duckhunt" }
-func (p *DuckHunt) Commands() []string { return []string{"bang", "ducks"} }
+func (p *DuckHunt) Name() string { return "duckhunt" }
+func (p *DuckHunt) Commands() []string {
+	return []string{"duckhunt", "dh", "bang", "befriend", "ducks"}
+}
 func (p *DuckHunt) Help() string {
-	return "!bang — shoot a duck when one appears; !ducks [nick] — show persistent duck kills"
+	return "!bang or !befriend — interact with an active duck; !dh start|stop|status — owner controls; !ducks [nick] — show scores"
 }
 
 func (p *DuckHunt) Init(c bot.PluginConfig, db *storage.DB) error {
@@ -56,6 +64,9 @@ func (p *DuckHunt) Init(c bot.PluginConfig, db *storage.DB) error {
 	minDelay := c.Int("min_delay_seconds", 60)
 	maxDelay := c.Int("max_delay_seconds", 300)
 	timeout := c.Int("timeout_seconds", 30)
+	befriendEnabled := c.Bool("befriend_enabled", true)
+	minReaction := c.Int("min_reaction_seconds", 1)
+	retryCooldown := c.Int("retry_cooldown_seconds", 7)
 
 	if minimumMessages < 1 {
 		minimumMessages = 1
@@ -72,6 +83,12 @@ func (p *DuckHunt) Init(c bot.PluginConfig, db *storage.DB) error {
 	if timeout < 1 {
 		timeout = 1
 	}
+	if minReaction < 0 {
+		minReaction = 0
+	}
+	if retryCooldown < 1 {
+		retryCooldown = 1
+	}
 
 	p.db = db
 	p.cfg = duckHuntConfig{
@@ -80,8 +97,12 @@ func (p *DuckHunt) Init(c bot.PluginConfig, db *storage.DB) error {
 		minDelay:        time.Duration(minDelay) * time.Second,
 		maxDelay:        time.Duration(maxDelay) * time.Second,
 		timeout:         time.Duration(timeout) * time.Second,
+		befriendEnabled: befriendEnabled,
+		minReaction:     time.Duration(minReaction) * time.Second,
+		retryCooldown:   time.Duration(retryCooldown) * time.Second,
 	}
 	p.states = make(map[string]*duckHuntState)
+	p.attempts = make(map[string]time.Time)
 	return nil
 }
 
@@ -110,8 +131,18 @@ func (p *DuckHunt) Handle(b *bot.Bot, m bot.Message) bool {
 	}
 
 	switch strings.ToLower(cmd) {
+	case "duckhunt", "dh":
+		p.control(b, m, arg)
+		return true
 	case "bang":
-		p.bang(b, m)
+		p.interact(b, m, false)
+		return true
+	case "befriend":
+		if p.cfg.befriendEnabled {
+			p.interact(b, m, true)
+		} else {
+			b.Send(m.ReplyTarget(), "befriending is disabled")
+		}
 		return true
 	case "ducks":
 		p.ducks(b, m, arg)
@@ -132,7 +163,7 @@ func (p *DuckHunt) recordActivity(network, channel, nick string) {
 		state = &duckHuntState{channel: channel, users: make(map[string]struct{})}
 		p.states[key] = state
 	}
-	if state.active {
+	if state.stopped || state.active {
 		return
 	}
 	state.messages++
@@ -152,6 +183,9 @@ func (p *DuckHunt) tick(b *bot.Bot) {
 
 	p.mu.Lock()
 	for _, state := range p.states {
+		if state.stopped {
+			continue
+		}
 		if state.active {
 			if now.Sub(state.spawnedAt) < p.cfg.timeout {
 				continue
@@ -186,26 +220,98 @@ func (p *DuckHunt) tick(b *bot.Bot) {
 	}
 }
 
-func (p *DuckHunt) bang(b *bot.Bot, m bot.Message) {
+func (p *DuckHunt) control(b *bot.Bot, m bot.Message, arg string) {
+	action := strings.ToLower(strings.TrimSpace(arg))
+	key := duckHuntStateKey(b.Config.NetworkName, m.Target)
+
+	switch action {
+	case "", "status":
+		p.mu.Lock()
+		state := p.states[key]
+		active, stopped := false, false
+		if state != nil {
+			active, stopped = state.active, state.stopped
+		}
+		p.mu.Unlock()
+		status := "enabled"
+		if stopped {
+			status = "stopped"
+		}
+		duckStatus := "no duck is active"
+		if active {
+			duckStatus = "a duck is active"
+		}
+		b.Send(m.ReplyTarget(), fmt.Sprintf("Duck Hunt is %s in %s; %s.", status, m.Target, duckStatus))
+	case "start":
+		if !b.IsOwner(m) {
+			b.Send(m.ReplyTarget(), "only a configured owner can start or stop Duck Hunt")
+			return
+		}
+		p.mu.Lock()
+		state := p.stateLocked(b.Config.NetworkName, m.Target)
+		state.stopped = false
+		state.nextSpawn = time.Time{}
+		state.messages = 0
+		state.users = make(map[string]struct{})
+		p.mu.Unlock()
+		b.Send(m.ReplyTarget(), "Duck Hunt enabled in "+m.Target+".")
+	case "stop":
+		if !b.IsOwner(m) {
+			b.Send(m.ReplyTarget(), "only a configured owner can start or stop Duck Hunt")
+			return
+		}
+		p.mu.Lock()
+		state := p.stateLocked(b.Config.NetworkName, m.Target)
+		state.stopped = true
+		state.active = false
+		state.spawnedAt = time.Time{}
+		state.nextSpawn = time.Time{}
+		state.messages = 0
+		state.users = make(map[string]struct{})
+		p.mu.Unlock()
+		b.Send(m.ReplyTarget(), "Duck Hunt stopped in "+m.Target+".")
+	default:
+		b.Send(m.ReplyTarget(), "usage: !dh [start|stop|status]")
+	}
+}
+
+func (p *DuckHunt) interact(b *bot.Bot, m bot.Message, befriend bool) {
 	key := duckHuntStateKey(b.Config.NetworkName, m.Target)
 	now := time.Now()
 	p.mu.Lock()
 	state := p.states[key]
 	if state == nil || !state.active {
 		p.mu.Unlock()
-		b.Send(m.ReplyTarget(), "There is no duck right now.")
 		return
 	}
+	attemptKey := key + "\x00" + strings.ToLower(m.Nick)
+	if last, ok := p.attempts[attemptKey]; ok && now.Sub(last) < p.cfg.retryCooldown {
+		p.mu.Unlock()
+		return
+	}
+	p.attempts[attemptKey] = now
 
 	elapsed := now.Sub(state.spawnedAt)
 	if elapsed < 0 {
 		elapsed = 0
 	}
+	if elapsed < p.cfg.minReaction || (elapsed < 7*time.Second && rand.Float64() > hitChance(elapsed)) {
+		p.mu.Unlock()
+		b.Send(m.ReplyTarget(), fmt.Sprintf("%s missed the duck! Try again in %d seconds.", m.Nick, int(p.cfg.retryCooldown/time.Second)))
+		return
+	}
+
 	state.active = false
 	state.spawnedAt = time.Time{}
 	state.nextSpawn = time.Time{}
 	state.messages = 0
 	state.users = make(map[string]struct{})
+	if befriend {
+		friends := p.incrementFriends(b.Config.NetworkName, m.Target, m.Nick)
+		p.mu.Unlock()
+		b.Send(m.ReplyTarget(), fmt.Sprintf("%s befriended the duck in %.3f seconds! You have befriended %d duck%s in %s.", m.Nick, elapsed.Seconds(), friends, duckPlural(friends), m.Target))
+		return
+	}
 	kills := p.incrementScore(b.Config.NetworkName, m.Target, m.Nick)
 	p.mu.Unlock()
 
@@ -222,32 +328,61 @@ func (p *DuckHunt) ducks(b *bot.Bot, m bot.Message, arg string) {
 		return
 	}
 
-	kills := p.score(b.Config.NetworkName, m.Target, nick)
-	b.Send(m.ReplyTarget(), fmt.Sprintf("%s has killed %d duck%s in %s.", nick, kills, duckPlural(kills), m.Target))
+	score := p.readScore(b.Config.NetworkName, m.Target, nick)
+	b.Send(m.ReplyTarget(), fmt.Sprintf("%s has killed %d duck%s and befriended %d duck%s in %s.", nick, score.Ducks, duckPlural(score.Ducks), score.Friends, duckPlural(score.Friends), m.Target))
 }
 
 func (p *DuckHunt) incrementScore(network, channel, nick string) uint64 {
-	score := p.score(network, channel, nick)
-	score++
+	score := p.readScore(network, channel, nick)
+	score.Ducks++
 	if p.db != nil {
-		_ = p.db.Set(duckHuntBucket, duckHuntScoreKey(network, channel, nick), duckScore{Ducks: score})
+		_ = p.db.Set(duckHuntBucket, duckHuntScoreKey(network, channel, nick), score)
 	}
-	return score
+	return score.Ducks
 }
 
-func (p *DuckHunt) score(network, channel, nick string) uint64 {
+func (p *DuckHunt) incrementFriends(network, channel, nick string) uint64 {
+	score := p.readScore(network, channel, nick)
+	score.Friends++
+	if p.db != nil {
+		_ = p.db.Set(duckHuntBucket, duckHuntScoreKey(network, channel, nick), score)
+	}
+	return score.Friends
+}
+
+func (p *DuckHunt) readScore(network, channel, nick string) duckScore {
 	if p.db == nil {
-		return 0
+		return duckScore{}
 	}
 	raw, err := p.db.Get(duckHuntBucket, duckHuntScoreKey(network, channel, nick))
 	if err != nil {
-		return 0
+		return duckScore{}
 	}
 	var saved duckScore
 	if storage.Decode(raw, &saved) != nil {
+		return duckScore{}
+	}
+	return saved
+}
+
+func (p *DuckHunt) stateLocked(network, channel string) *duckHuntState {
+	key := duckHuntStateKey(network, channel)
+	state := p.states[key]
+	if state == nil {
+		state = &duckHuntState{channel: channel, users: make(map[string]struct{})}
+		p.states[key] = state
+	}
+	return state
+}
+
+func hitChance(elapsed time.Duration) float64 {
+	if elapsed < time.Second {
 		return 0
 	}
-	return saved.Ducks
+	if elapsed < 7*time.Second {
+		return 0.60 + rand.Float64()*0.15
+	}
+	return 1
 }
 
 func randomDuckDelay(c duckHuntConfig) time.Duration {

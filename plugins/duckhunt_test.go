@@ -19,6 +19,9 @@ func TestDuckHuntDefaults(t *testing.T) {
 	if plugin.cfg.minDelay != time.Minute || plugin.cfg.maxDelay != 5*time.Minute || plugin.cfg.timeout != 30*time.Second {
 		t.Fatalf("unexpected timing defaults: %+v", plugin.cfg)
 	}
+	if !plugin.cfg.befriendEnabled || plugin.cfg.minReaction != time.Second || plugin.cfg.retryCooldown != 7*time.Second {
+		t.Fatalf("unexpected interaction defaults: %+v", plugin.cfg)
+	}
 }
 
 func TestDuckHuntSchedulesAfterActivityThreshold(t *testing.T) {
@@ -56,10 +59,13 @@ func TestDuckHuntScoresPersistPerChannelAndNick(t *testing.T) {
 	if got := plugin.incrementScore("network", "#Test", "Alice"); got != 1 {
 		t.Fatalf("first score = %d, want 1", got)
 	}
+	if got := plugin.incrementFriends("network", "#test", "Alice"); got != 1 {
+		t.Fatalf("first friend score = %d, want 1", got)
+	}
 	if got := plugin.incrementScore("network", "#test", "alice"); got != 2 {
 		t.Fatalf("second score = %d, want 2", got)
 	}
-	if got := plugin.score("network", "#other", "Alice"); got != 0 {
+	if got := plugin.readScore("network", "#other", "Alice").Ducks; got != 0 {
 		t.Fatalf("different channel score = %d, want 0", got)
 	}
 	if err := db.Close(); err != nil {
@@ -77,7 +83,7 @@ func TestDuckHuntScoresPersistPerChannelAndNick(t *testing.T) {
 	if err := reloaded.Init(nil, reopened); err != nil {
 		t.Fatalf("reloaded Init returned error: %v", err)
 	}
-	if got := reloaded.score("network", "#test", "alice"); got != 0 {
+	if got := reloaded.readScore("network", "#test", "alice").Ducks; got != 0 {
 		t.Fatalf("fresh database score = %d, want 0", got)
 	}
 }
@@ -93,6 +99,7 @@ func TestDuckHuntScoresSurviveDatabaseReopen(t *testing.T) {
 		t.Fatalf("Init returned error: %v", err)
 	}
 	plugin.incrementScore("network", "#test", "Alice")
+	plugin.incrementFriends("network", "#test", "Alice")
 	if err := db.Close(); err != nil {
 		t.Fatalf("close database: %v", err)
 	}
@@ -106,7 +113,22 @@ func TestDuckHuntScoresSurviveDatabaseReopen(t *testing.T) {
 	if err := reloaded.Init(nil, reopened); err != nil {
 		t.Fatalf("reloaded Init returned error: %v", err)
 	}
-	if got := reloaded.score("network", "#TEST", "alice"); got != 1 {
+	if got := reloaded.readScore("network", "#TEST", "alice").Ducks; got != 1 {
 		t.Fatalf("reopened score = %d, want 1", got)
+	}
+	if got := reloaded.readScore("network", "#TEST", "alice").Friends; got != 1 {
+		t.Fatalf("reopened friend score = %d, want 1", got)
+	}
+}
+
+func TestDuckHuntHitChanceProtectsAgainstInstantShots(t *testing.T) {
+	if got := hitChance(500 * time.Millisecond); got != 0 {
+		t.Fatalf("instant shot chance = %v, want 0", got)
+	}
+	if got := hitChance(2 * time.Second); got < 0.60 || got > 0.75 {
+		t.Fatalf("normal shot chance = %v, want 0.60-0.75", got)
+	}
+	if got := hitChance(7 * time.Second); got != 1 {
+		t.Fatalf("late shot chance = %v, want 1", got)
 	}
 }

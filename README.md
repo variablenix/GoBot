@@ -226,7 +226,7 @@ GoBot ships with these plugins:
 - `choose`: randomly choose between several options
 - `time`: show the current time in an IANA timezone
 - `channelstats`: persistent per-channel message and user statistics
-- `duckhunt`: optional activity-triggered duck hunt with persistent per-channel scores
+- `duckhunt`: optional activity-triggered duck hunt with shooting, befriending, and persistent per-channel scores
 - `help`: lists commands and usage
 - `alias`: lists command aliases and supports per-command alias details
 
@@ -448,7 +448,7 @@ The response reports message totals, distinct users, and the top five users for 
 
 ### Duck Hunt
 
-Duck Hunt is a lightweight channel activity event rather than a round-based game. It is disabled by default so enabling it is an intentional choice for channels that want occasional fun interruptions.
+Duck Hunt is a lightweight channel activity event rather than a round-based game. It is disabled by default so enabling it is an intentional choice for channels that want occasional fun interruptions. It does not kick users, use virtual currency, or involve wagers.
 
 Enable it in `config.yaml`:
 
@@ -461,16 +461,35 @@ plugins:
     min_delay_seconds: 60
     max_delay_seconds: 300
     timeout_seconds: 30
+    befriend_enabled: true
+    min_reaction_seconds: 1
+    retry_cooldown_seconds: 7
 ```
 
 After the channel reaches the configured activity threshold, GoBot waits a random amount of time and announces a duck. The first person to send `!bang` wins:
 
 ```text
 A wild duck appeared: \_o< quack! Type !bang to shoot it!
-username shot a duck in 2.137 seconds! You have killed 1 ducks in #example.
+username shot a duck in 2.137 seconds! You have killed 1 duck in #example.
 ```
 
-Use `!ducks` to see your score or `!ducks nickname` to check another participant's score. Scores are stored in BoltDB and survive restarts. There are no wagers, virtual currency, or real-money mechanics. Normal command rate limiting applies to `!bang` and `!ducks`.
+Use `!ducks` to see your score or `!ducks nickname` to check another participant's score. Scores include both ducks shot and ducks befriended, are stored in BoltDB, and survive restarts. Normal command rate limiting applies to Duck Hunt commands.
+
+Commands:
+
+```text
+!bang                 shoot an active duck
+!befriend             befriend an active duck, if enabled
+!ducks [nickname]     show persistent scores
+!dh                   show Duck Hunt status
+!dh status            show Duck Hunt status
+!dh start             enable automatic activity for this channel (owner only)
+!dh stop              stop Duck Hunt in this channel (owner only)
+```
+
+`!dh` is a short alias for `!duckhunt`. Start/stop controls require an authenticated IRC account listed in `owner_accounts`; nicknames alone are not accepted as proof of ownership. Anyone can shoot or befriend an active duck.
+
+Shots taken instantly are treated as likely scripted input and miss. Shots taken during the early reaction window have a probability of success, while slower shots succeed. A user gets a short retry cooldown after an attempt. Invalid shots when no duck is active are ignored, which keeps the feature quiet and prevents command flooding.
 
 The activity settings control how often the event can occur:
 
@@ -478,6 +497,9 @@ The activity settings control how often the event can occur:
 - `minimum_users`: distinct nicknames required before a spawn can be scheduled
 - `min_delay_seconds` and `max_delay_seconds`: random wait after the activity threshold
 - `timeout_seconds`: how long the duck remains available
+- `befriend_enabled`: whether `!befriend` is available
+- `min_reaction_seconds`: minimum reaction time before a shot can succeed
+- `retry_cooldown_seconds`: per-user cooldown after a shot attempt
 
 ## NickServ registration and SASL authentication
 
