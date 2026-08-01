@@ -16,6 +16,7 @@ Plugins are enabled or disabled under plugins.<name>.enabled in config.yaml.
 - urban: Urban Dictionary definitions
 - reddit: compact Reddit post metadata
 - foods: local food, cuisine, beer, coffee, tea, and wine suggestions
+- sports: broad local sports suggestions
 - define: short English dictionary definitions
 - calc: safe local arithmetic and unit conversion
 - status: local connection, uptime, and counter status
@@ -309,6 +310,21 @@ common dishes, regional specialties, street food, desserts, and familiar
 variants such as `double cheeseburger`, `triple cheeseburger`, and several
 burrito styles. Add one dish per line to a list in `data/foods/`; changes are
 loaded when GoBot starts.
+
+## Sports
+
+`!sports` returns one random sport from the local catalog. `!sport` is a short
+alias, and an optional nickname makes the response more personal:
+
+~~~text
+!sports
+!sport Alex
+~~~
+
+The catalog covers team sports, individual and racket sports, combat sports,
+water and winter sports, motorsports, strength sports, adaptive sports, and
+esports. Add one sport per line to `data/sports.txt`; the file is loaded when
+GoBot starts. Every response is bounded to one IRC message.
 
 Lists are plain text, one item per line, under `data/foods/`. Operators can
 extend or replace them without changing Go code:

@@ -34,6 +34,7 @@ func All() []bot.Plugin {
 		&Calculator{},
 		&Reddit{},
 		&Foods{},
+		&Sports{},
 		&Help{},
 		&Alias{},
 	}

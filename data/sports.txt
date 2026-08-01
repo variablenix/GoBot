@@ -1,0 +1,177 @@
+athletics
+baseball
+basketball
+beach volleyball
+biathlon
+bodybuilding
+bowling
+boxing
+Brazilian jiu-jitsu
+bridge
+car racing
+canoeing
+chess
+cricket
+curling
+cycling
+diving
+dragon boat racing
+drone racing
+duathlon
+equestrian dressage
+equestrian eventing
+equestrian show jumping
+fencing
+field hockey
+figure skating
+flag football
+flying disc
+football
+futsal
+Gaelic football
+golf
+gymnastics
+handball
+hang gliding
+highland games
+hurling
+ice hockey
+ice skating
+IndyCar racing
+inline skating
+karate
+kart racing
+kickboxing
+kitesurfing
+lacrosse
+long-distance running
+luge
+mixed martial arts
+modern pentathlon
+motocross
+mountain biking
+Muay Thai
+netball
+open-water swimming
+orienteering
+padel
+pickleball
+powerlifting
+rafting
+rally racing
+racquetball
+roller derby
+rowing
+rugby league
+rugby union
+sailing
+sambo
+shooting
+skateboarding
+skeleton
+ski jumping
+skate skiing
+snowboarding
+snowshoeing
+soccer
+softball
+speed skating
+sport climbing
+squash
+sumo
+surfing
+swimming
+table tennis
+taekwondo
+tennis
+track cycling
+trampoline gymnastics
+triathlon
+tug of war
+ultimate
+underwater hockey
+volleyball
+water polo
+water skiing
+weightlifting
+windsurfing
+wrestling
+abseiling
+archery
+Australian rules football
+American football
+alpine skiing
+artistic swimming
+athletics decathlon
+athletics heptathlon
+auto racing
+backgammon
+beach soccer
+bodyboarding
+bowls
+cross-country skiing
+cross-country running
+crossfit
+disc golf
+endurance racing
+field archery
+freestyle skiing
+freestyle wrestling
+fishing
+floorball
+flying disc golf
+freerunning
+geocaching
+giant slalom
+gliding
+ice climbing
+ice cross downhill
+ice fishing
+indoor climbing
+jet ski racing
+judo
+kabaddi
+kick sledding
+korfball
+log rolling
+marathon swimming
+motorsport
+mountain running
+Nordic combined
+paragliding
+paralympic boccia
+paralympic goalball
+paralympic sitting volleyball
+paralympic wheelchair racing
+precision casting
+race walking
+roller hockey
+sepak takraw
+short-track speed skating
+ski cross
+skyrunning
+snowmobile racing
+soft tennis
+speed climbing
+sport fishing
+stand-up paddleboarding
+street luge
+strongman
+table football
+teqball
+track and field
+trampolining
+underwater rugby
+wheelchair basketball
+wheelchair rugby
+wood chopping
+World Rally Championship
+Formula One
+NASCAR
+drag racing
+drifting
+endurance motorsport
+motorcycle road racing
+supercross
+speedway
+esports
