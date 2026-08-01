@@ -72,11 +72,11 @@ type Pool struct {
 func (p *Pool) Name() string { return "pool" }
 
 func (p *Pool) Commands() []string {
-	return []string{"pool", "8ball", "8", "nineball", "9ball", "9", "shoot", "forfeit", "poolstats", "poolleaderboard"}
+	return []string{"pool", "pool8", "8pool", "pool9", "nineball", "9ball", "9", "shoot", "forfeit", "poolstats", "poolleaderboard"}
 }
 
 func (p *Pool) Help() string {
-	return "!8ball <nick> or !9ball <nick> — challenge someone; !pool accept|status|shoot [ball]|forfeit; !poolstats"
+	return "!pool 8 <nick> or !pool 9 <nick> — challenge someone; !pool accept|status|shoot [ball]|forfeit; !poolstats"
 }
 
 func (p *Pool) Init(c bot.PluginConfig, db *storage.DB) error {
@@ -141,7 +141,7 @@ func (p *Pool) Handle(b *bot.Bot, m bot.Message) bool {
 
 func poolCommand(command string) bool {
 	switch strings.ToLower(command) {
-	case "pool", "8ball", "8", "nineball", "9ball", "9", "shoot", "forfeit", "poolstats", "poolleaderboard":
+	case "pool", "pool8", "8pool", "pool9", "nineball", "9ball", "9", "shoot", "forfeit", "poolstats", "poolleaderboard":
 		return true
 	default:
 		return false
@@ -150,9 +150,9 @@ func poolCommand(command string) bool {
 
 func (p *Pool) handleLocked(b *bot.Bot, m bot.Message, key string, game *poolGame, command, arg string) string {
 	switch command {
-	case "8ball", "8":
+	case "pool8", "8pool":
 		return p.challengeLocked(key, m, poolEightBall, arg)
-	case "nineball", "9ball", "9":
+	case "pool9", "nineball", "9ball", "9":
 		return p.challengeLocked(key, m, poolNineBall, arg)
 	case "shoot":
 		return p.shootLocked(m, key, game, arg)
@@ -197,7 +197,7 @@ func (p *Pool) poolCommandLocked(key string, m bot.Message, game *poolGame, arg 
 
 func (p *Pool) challengeLocked(key string, m bot.Message, mode poolMode, rawNick string) string {
 	if strings.TrimSpace(rawNick) == "" {
-		return fmt.Sprintf("usage: !%s <nick>", map[poolMode]string{poolEightBall: "8ball", poolNineBall: "9ball"}[mode])
+		return fmt.Sprintf("usage: !%s <nick>", map[poolMode]string{poolEightBall: "pool 8", poolNineBall: "pool 9"}[mode])
 	}
 	nick := strings.TrimSpace(strings.TrimPrefix(rawNick, "@"))
 	if !validPoolNick(nick) {
@@ -254,7 +254,7 @@ func (p *Pool) declineLocked(m bot.Message, key string, game *poolGame) string {
 
 func (p *Pool) shootLocked(m bot.Message, key string, game *poolGame, rawBall string) string {
 	if game == nil || game.Pending {
-		return "no pool game is active; use !8ball <nick> or !9ball <nick>"
+		return "no pool game is active; use !pool 8 <nick> or !pool 9 <nick>"
 	}
 	player := p.currentPlayer(game)
 	if !samePoolIdentity(m, player) {
@@ -319,7 +319,7 @@ func (p *Pool) forfeitLocked(m bot.Message, key string, game *poolGame) string {
 
 func (p *Pool) statusLocked(m bot.Message, game *poolGame) string {
 	if game == nil {
-		return "no pool game is active; use !8ball <nick> or !9ball <nick>"
+		return "no pool game is active; use !pool 8 <nick> or !pool 9 <nick>"
 	}
 	if game.Pending {
 		return fmt.Sprintf("pending %s challenge: %s invited %s; waiting for !pool accept.", game.Mode, game.Players[0].Name, game.Players[1].Name)
