@@ -21,6 +21,7 @@ Plugins are enabled or disabled under plugins.<name>.enabled in config.yaml.
 - define: short English dictionary definitions
 - calc: safe local arithmetic and unit conversion
 - github: compact public GitHub repository, issue, release, user, commit, and search lookups
+- weapons: high-level local firearm and weapons-name catalog
 - status: local connection, uptime, and counter status
 - xkcd: latest or numbered XKCD comics
 - lastfm: current or recently played Last.fm tracks
@@ -495,6 +496,37 @@ plugins:
 
 The catalogs are local and editable, so operators can remove a line or adapt
 the tone of a channel without changing Go code.
+
+## Firearm and weapons catalog
+
+The `weapons` plugin is a lightweight reference/randomizer for firearm and
+weapons terminology. It returns names and broad categories only; it does not
+provide instructions, construction details, acquisition advice, or tactical
+guidance. Generic commands choose from the whole catalog, while category
+aliases narrow the result:
+
+~~~text
+!firearm
+!guns pistol
+!rifle
+!shotgun
+!smg
+!grenade
+!explosives
+~~~
+
+The catalog includes civilian, historical, sporting, military, launcher,
+grenade, and high-level explosive terms. Keep the default output limit in
+place to ensure one short IRC response. Operators can edit `data/weapons.txt`
+or disable the plugin with `plugins.weapons.enabled: false`.
+
+~~~yaml
+plugins:
+  weapons:
+    enabled: true
+    data_file: "data/weapons.txt"
+    max_length: 240
+~~~
 
 ## Cheers
 

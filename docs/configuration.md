@@ -66,6 +66,7 @@ plugins:
   define: {enabled: true, timeout_seconds: 8, max_length: 240}
   calc: {enabled: true}
   fun: {enabled: true, data_dir: "data/fun", max_length: 240}
+  weapons: {enabled: true, data_file: "data/weapons.txt", max_length: 240}
   github: {enabled: true, timeout_seconds: 8, max_length: 360, token: ""}
   reddit: {enabled: true, timeout_seconds: 8, max_length: 360}
   foods: {enabled: true, data_dir: "data/foods", max_length: 240}
@@ -76,11 +77,13 @@ plugins:
   horoscope: {enabled: true, max_summary_length: 360}
 ```
 
-`status`, `calc`, `foods`, `sports`, and `car` are local. `define` uses the public English dictionary
-service, `reddit` uses Reddit's public post and subreddit JSON endpoints with
-an RSS fallback, and `horoscope` uses a public daily horoscope API. `foods`
-and `sports` use local text files only. `fun` uses local family-friendly text
-catalogs under `data/fun`, while `github` uses read-only public GitHub API
+`status`, `calc`, `foods`, `sports`, `car`, and `weapons` are local. `define` uses
+the public English dictionary service, `reddit` uses Reddit's public post and
+subreddit JSON endpoints with an RSS fallback, and `horoscope` uses a public
+daily horoscope API. `foods` and `sports` use local text files only. `fun` uses
+local family-friendly text catalogs under `data/fun`, and `weapons` uses the
+high-level reference catalog under `data/weapons.txt`; it does not provide
+instructions or tactical guidance. `github` uses read-only public GitHub API
 lookups. Their output limits
 prevent a slow or unusually large response from holding up the bot or flooding
 IRC. Disable any of them with `enabled: false` if they are not wanted.
