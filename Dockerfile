@@ -14,6 +14,8 @@ RUN addgroup -S gobot && adduser -S -G gobot gobot
 WORKDIR /app
 COPY --from=builder /irc-bot /irc-bot
 COPY config.yaml /app/config.yaml
+COPY data /app/data
+COPY quotes /app/quotes
 RUN chown -R gobot:gobot /app
 USER gobot
 EXPOSE 8082

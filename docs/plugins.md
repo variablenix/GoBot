@@ -15,6 +15,7 @@ Plugins are enabled or disabled under plugins.<name>.enabled in config.yaml.
 - horoscope: daily zodiac horoscopes
 - urban: Urban Dictionary definitions
 - reddit: compact Reddit post metadata
+- foods: local food, cuisine, beer, coffee, tea, and wine suggestions
 - define: short English dictionary definitions
 - calc: safe local arithmetic and unit conversion
 - status: local connection, uptime, and counter status
@@ -248,14 +249,61 @@ post from a subreddit:
 !reddit https://www.reddit.com/r/golang/comments/example/post-title/
 !r https://www.reddit.com/r/golang/comments/example/post-title/
 !reddit r/linux
+!reddit https://www.reddit.com/r/linux/
 !r r/golang
 ~~~
 
 The response contains the post title, author, subreddit, score, comment count,
-and canonical Reddit URL in one compact message. For `r/subreddit`, GoBot
-fetches one recent post through Reddit's public JSON endpoint. Only recognized
-Reddit post URLs and simple subreddit names are accepted; arbitrary URL
-fetching is not performed by this command.
+and canonical Reddit URL in one compact message. Both `r/subreddit` and full
+Reddit subreddit URLs are accepted. GoBot prefers Reddit's public JSON
+endpoint, then falls back to the corresponding public RSS feed when JSON is
+temporarily blocked or throttled. RSS does not reliably include scores or
+comment counts, so those fields are omitted rather than shown as false zeroes.
+For individual posts, a final oEmbed title fallback can still provide the
+title when Reddit rate-limits both metadata endpoints.
+Only recognized Reddit hosts and paths are accepted; arbitrary URL fetching is
+not performed by this command.
+
+## Foods and drinks
+
+Foods is a local, data-driven suggestion plugin. It does not call a food API
+or send user input to a third-party service. Each request produces one short
+IRC message:
+
+~~~text
+!food
+!food ramen
+!beer
+!korean
+!japanese
+!sushi
+!ramen
+!pizza
+!tea nickname
+~~~
+
+The built-in lists include a broad `food` collection, beer styles from pale
+ales and IPAs through lagers, stouts, sours, Belgian, farmhouse, and historical
+styles, plus Korean, Japanese, sushi, ramen, Chinese, Indian, Thai, Mexican,
+Italian, Mediterranean, American, pizza, taco, burger, pasta, dessert, snack,
+coffee, tea, and wine categories. `!foods` is an alias for `!food`; `!java`,
+`!kr`, `!japan`, and `!jp` are convenience aliases.
+
+Lists are plain text, one item per line, under `data/foods/`. Operators can
+extend or replace them without changing Go code:
+
+~~~yaml
+plugins:
+  foods:
+    enabled: true
+    data_dir: "data/foods"
+    max_length: 240
+~~~
+
+An optional nickname after a category produces a single targeted suggestion,
+such as `Tea pick for Sam: genmaicha`. The plugin is bounded to one response
+and local list lookups, so it does not create an external-request or flooding
+hotspot.
 
 ## Magic 8-Ball
 
