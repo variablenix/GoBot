@@ -22,7 +22,9 @@ type Foods struct {
 var foodCategories = []string{
 	"food", "beer", "coffee", "tea", "wine", "korean", "japanese", "sushi", "ramen",
 	"chinese", "indian", "thai", "mexican", "italian", "mediterranean", "american",
-	"pizza", "taco", "burger", "pasta", "dessert", "snack",
+	"pizza", "taco", "burrito", "burger", "pasta", "dessert", "snack", "vietnamese",
+	"filipino", "french", "spanish", "turkish", "ethiopian", "brazilian", "caribbean",
+	"indonesian", "persian", "middle-eastern",
 }
 
 func (p *Foods) Name() string { return "foods" }
@@ -33,7 +35,7 @@ func (p *Foods) Commands() []string {
 }
 
 func (p *Foods) Help() string {
-	return "!food [category] [nickname] — suggest one food or drink; category aliases include !beer, !korean, !japanese, !sushi, and !ramen"
+	return "!food [category] [nickname] — suggest one food or drink; categories include !beer, !korean, !japanese, !vietnamese, !mexican, !sushi, and !ramen"
 }
 
 func (p *Foods) Init(c bot.PluginConfig, _ *storage.DB) error {
@@ -53,7 +55,12 @@ func (p *Foods) Init(c bot.PluginConfig, _ *storage.DB) error {
 		"japan": "japanese", "jp": "japanese", "sushi": "sushi", "ramen": "ramen", "chinese": "chinese",
 		"indian": "indian", "thai": "thai", "mexican": "mexican", "italian": "italian",
 		"mediterranean": "mediterranean", "american": "american", "pizza": "pizza", "taco": "taco",
-		"burger": "burger", "pasta": "pasta", "dessert": "dessert", "snack": "snack",
+		"burger": "burger", "pasta": "pasta", "dessert": "dessert", "snack": "snack", "vietnamese": "vietnamese", "vn": "vietnamese",
+		"filipino": "filipino", "philippines": "filipino", "ph": "filipino", "french": "french", "fr": "french",
+		"spanish": "spanish", "spain": "spanish", "es": "spanish", "turkish": "turkish", "tr": "turkish",
+		"ethiopian": "ethiopian", "ethiopia": "ethiopian", "brazilian": "brazilian", "br": "brazilian",
+		"caribbean": "caribbean", "indonesian": "indonesian", "indonesia": "indonesian", "id": "indonesian",
+		"persian": "persian", "iranian": "persian", "middle-eastern": "middle-eastern", "middleeastern": "middle-eastern",
 	}
 	return nil
 }
@@ -114,28 +121,40 @@ func (p *Foods) randomCategory() string {
 
 func (p *Foods) addFallbacks() {
 	fallbacks := map[string][]string{
-		"food":          {"a warm bowl of ramen", "a crispy chicken sandwich", "fresh fruit", "a plate of nachos"},
-		"beer":          {"a crisp pilsner", "a West Coast IPA", "a dry Irish stout", "a Belgian tripel"},
-		"coffee":        {"an espresso", "a flat white", "a cold brew", "a cappuccino"},
-		"tea":           {"earl grey", "matcha", "oolong tea", "masala chai"},
-		"wine":          {"a dry Riesling", "a Pinot Noir", "a Malbec", "a sparkling rosé"},
-		"korean":        {"bibimbap", "bulgogi", "tteokbokki", "kimchi jjigae"},
-		"japanese":      {"okonomiyaki", "katsu curry", "yakitori", "onigiri"},
-		"sushi":         {"salmon nigiri", "tuna maki", "unagi roll", "vegetable futomaki"},
-		"ramen":         {"shoyu ramen", "miso ramen", "tonkotsu ramen", "tantanmen"},
-		"chinese":       {"mapo tofu", "dan dan noodles", "char siu", "jiaozi"},
-		"indian":        {"chana masala", "palak paneer", "biryani", "masala dosa"},
-		"thai":          {"pad thai", "green curry", "tom yum", "khao soi"},
-		"mexican":       {"tacos al pastor", "chiles rellenos", "pozole", "enchiladas"},
-		"italian":       {"margherita pizza", "lasagna", "risotto", "gnocchi"},
-		"mediterranean": {"falafel", "moussaka", "shakshuka", "spanakopita"},
-		"american":      {"mac and cheese", "barbecue ribs", "clam chowder", "apple pie"},
-		"pizza":         {"margherita pizza", "mushroom pizza", "Detroit-style pizza", "white pizza"},
-		"taco":          {"fish taco", "carnitas taco", "barbacoa taco", "black bean taco"},
-		"burger":        {"classic cheeseburger", "veggie burger", "smash burger", "mushroom Swiss burger"},
-		"pasta":         {"spaghetti carbonara", "cacio e pepe", "pesto linguine", "puttanesca"},
-		"dessert":       {"tiramisu", "mochi", "crème brûlée", "frozen yogurt"},
-		"snack":         {"edamame", "popcorn", "trail mix", "rice crackers"},
+		"food":           {"a warm bowl of ramen", "a crispy chicken sandwich", "fresh fruit", "a plate of nachos"},
+		"beer":           {"a crisp pilsner", "a West Coast IPA", "a dry Irish stout", "a Belgian tripel"},
+		"coffee":         {"an espresso", "a flat white", "a cold brew", "a cappuccino"},
+		"tea":            {"earl grey", "matcha", "oolong tea", "masala chai"},
+		"wine":           {"a dry Riesling", "a Pinot Noir", "a Malbec", "a sparkling rosé"},
+		"korean":         {"bibimbap", "bulgogi", "tteokbokki", "kimchi jjigae"},
+		"japanese":       {"okonomiyaki", "katsu curry", "yakitori", "onigiri"},
+		"sushi":          {"salmon nigiri", "tuna maki", "unagi roll", "vegetable futomaki"},
+		"ramen":          {"shoyu ramen", "miso ramen", "tonkotsu ramen", "tantanmen"},
+		"chinese":        {"mapo tofu", "dan dan noodles", "char siu", "jiaozi"},
+		"indian":         {"chana masala", "palak paneer", "biryani", "masala dosa"},
+		"thai":           {"pad thai", "green curry", "tom yum", "khao soi"},
+		"mexican":        {"tacos al pastor", "chiles rellenos", "pozole", "enchiladas"},
+		"italian":        {"margherita pizza", "lasagna", "risotto", "gnocchi"},
+		"mediterranean":  {"falafel", "moussaka", "shakshuka", "spanakopita"},
+		"american":       {"mac and cheese", "barbecue ribs", "clam chowder", "apple pie"},
+		"pizza":          {"margherita pizza", "mushroom pizza", "Detroit-style pizza", "white pizza"},
+		"taco":           {"fish taco", "carnitas taco", "barbacoa taco", "black bean taco"},
+		"burrito":        {"bean and cheese burrito", "carne asada burrito", "California burrito", "breakfast burrito"},
+		"burger":         {"classic cheeseburger", "veggie burger", "smash burger", "mushroom Swiss burger"},
+		"pasta":          {"spaghetti carbonara", "cacio e pepe", "pesto linguine", "puttanesca"},
+		"dessert":        {"tiramisu", "mochi", "crème brûlée", "frozen yogurt"},
+		"snack":          {"edamame", "popcorn", "trail mix", "rice crackers"},
+		"vietnamese":     {"pho", "banh mi", "bun cha", "fresh spring rolls"},
+		"filipino":       {"chicken adobo", "sinigang", "lumpia", "pancit"},
+		"french":         {"croque monsieur", "coq au vin", "ratatouille", "crêpes"},
+		"spanish":        {"paella", "tortilla española", "patatas bravas", "gazpacho"},
+		"turkish":        {"doner kebab", "lahmacun", "manti", "mercimek çorbası"},
+		"ethiopian":      {"injera", "doro wat", "tibs", "shiro wat"},
+		"brazilian":      {"feijoada", "churrasco", "coxinha", "pão de queijo"},
+		"caribbean":      {"jerk chicken", "curry goat", "rice and peas", "roti"},
+		"indonesian":     {"nasi goreng", "rendang", "satay", "gado-gado"},
+		"persian":        {"chelo kebab", "ghormeh sabzi", "fesenjan", "tahdig"},
+		"middle-eastern": {"hummus", "falafel", "shawarma", "kibbeh"},
 	}
 	for category, items := range fallbacks {
 		if len(p.items[category]) == 0 {

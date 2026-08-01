@@ -30,3 +30,45 @@ chilaquiles
 lobster roll
 tom yum
 ratatouille
+burrito
+cheeseburger
+double cheeseburger
+pho
+banh mi
+adobo
+sinigang
+feijoada
+rendang
+satay
+coq au vin
+paella
+tortilla española
+doner kebab
+lahmacun
+injera
+doro wat
+jerk chicken
+curry goat
+butter chicken
+naan
+dim sum
+hot and sour soup
+spring rolls
+fried rice
+tamales
+birria
+french fries
+onion rings
+chicken pot pie
+clam chowder
+steak frites
+fish curry
+falafel wrap
+kebab
+shakshuka
+cevapi
+arepas
+moqueca
+chicken rice
+laksa
+char kway teow

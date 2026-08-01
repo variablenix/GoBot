@@ -14,3 +14,32 @@ ciabatta
 focaccia
 tiramisu
 cannoli
+spaghetti bolognese
+penne all'arrabbiata
+amatriciana
+spaghetti aglio e olio
+linguine alle vongole
+tagliatelle al ragù
+orecchiette con cime di rapa
+trofie al pesto
+risotto alla milanese
+risotto ai funghi
+melanzane alla parmigiana
+polenta
+saltimbocca
+vitello tonnato
+chicken piccata
+veal marsala
+minestrone
+ribollita
+stracciatella soup
+caprese salad
+panzanella
+supplì
+calzone
+stromboli
+focaccia barese
+panettone
+panna cotta
+zabaglione
+semifreddo
