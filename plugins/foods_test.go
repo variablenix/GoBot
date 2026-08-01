@@ -31,7 +31,11 @@ func TestFoodsFallbacksKeepPluginUsable(t *testing.T) {
 	if err := foods.Init(bot.PluginConfig{"data_dir": filepath.Join(t.TempDir(), "missing")}, nil); err != nil {
 		t.Fatal(err)
 	}
-	for _, category := range []string{"beer", "korean", "japanese", "sushi", "ramen"} {
+	for _, category := range []string{
+		"beer", "korean", "japanese", "sushi", "ramen", "burrito", "vietnamese",
+		"filipino", "french", "spanish", "turkish", "ethiopian", "brazilian",
+		"caribbean", "indonesian", "persian", "middle-eastern",
+	} {
 		if len(foods.items[category]) == 0 {
 			t.Fatalf("category %q has no fallback items", category)
 		}
@@ -42,7 +46,11 @@ func TestFoodsCommandListIncludesCuisineAliases(t *testing.T) {
 	var foods Foods
 	commands := foods.Commands()
 	joined := strings.Join(commands, " ")
-	for _, command := range []string{"food", "foods", "beer", "korean", "japanese", "sushi", "ramen"} {
+	for _, command := range []string{
+		"food", "foods", "beer", "korean", "japanese", "sushi", "ramen", "burrito",
+		"vietnamese", "filipino", "french", "spanish", "turkish", "ethiopian",
+		"brazilian", "caribbean", "indonesian", "persian", "middle-eastern",
+	} {
 		if !strings.Contains(joined, command) {
 			t.Fatalf("command %q missing from %q", command, joined)
 		}

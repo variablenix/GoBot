@@ -20,3 +20,25 @@ hotteok
 bingsu
 kimchi fried rice
 soy garlic Korean fried chicken
+yangnyeom chicken
+dakgalbi
+dakgangjeong
+galbitang
+gukbap
+soondubu jjigae
+cheonggukjang
+kimchi bokkeumbap
+kimchi mandu
+gunmandu
+tteokguk
+godeungeo gui
+jeyuk bokkeum
+ojingeo bokkeum
+galbi jjim
+kongguksu
+mul naengmyeon
+bibim naengmyeon
+patbingsu
+yakgwa
+songpyeon
+tteokkochi

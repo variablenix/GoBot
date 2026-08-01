@@ -283,6 +283,13 @@ IRC message:
 !japanese
 !sushi
 !ramen
+!burrito
+!vietnamese
+!filipino
+!french
+!spanish
+!turkish
+!middle-eastern
 !pizza
 !tea nickname
 ~~~
@@ -290,9 +297,18 @@ IRC message:
 The built-in lists include a broad `food` collection, beer styles from pale
 ales and IPAs through lagers, stouts, sours, Belgian, farmhouse, and historical
 styles, plus Korean, Japanese, sushi, ramen, Chinese, Indian, Thai, Mexican,
-Italian, Mediterranean, American, pizza, taco, burger, pasta, dessert, snack,
-coffee, tea, and wine categories. `!foods` is an alias for `!food`; `!java`,
-`!kr`, `!japan`, and `!jp` are convenience aliases.
+Italian, Mediterranean, American, pizza, taco, burrito, burger, pasta, dessert,
+snack, coffee, tea, wine, Vietnamese, Filipino, French, Spanish, Turkish,
+Ethiopian, Brazilian, Caribbean, Indonesian, Persian, and Middle Eastern
+categories. `!foods` is an alias for `!food`; `!java`, `!kr`, `!japan`, `!jp`,
+`!vn`, `!ph`, `!fr`, `!es`, `!tr`, `!br`, `!id`, `!iranian`, and
+`!middleeastern` are convenience aliases.
+
+The cuisine lists are intentionally broad and easy to extend. They include
+common dishes, regional specialties, street food, desserts, and familiar
+variants such as `double cheeseburger`, `triple cheeseburger`, and several
+burrito styles. Add one dish per line to a list in `data/foods/`; changes are
+loaded when GoBot starts.
 
 Lists are plain text, one item per line, under `data/foods/`. Operators can
 extend or replace them without changing Go code:

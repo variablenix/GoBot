@@ -4,6 +4,26 @@ gyro
 moussaka
 shakshuka
 spanakopita
+greek salad
+chicken souvlaki
+pork gyro
+falafel pita
+shakshuka
+menemen
+imam bayildi
+dolma
+pastitsio
+gemista
+fasolada
+avgolemono
+melitzanosalata
+taramosalata
+halloumi
+tabbouleh
+fattoush
+hummus
+baba ghanoush
+baklava
 tabbouleh
 hummus
 baba ganoush
