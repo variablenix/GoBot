@@ -68,11 +68,12 @@ plugins:
   reddit: {enabled: true, timeout_seconds: 8, max_length: 360}
   foods: {enabled: true, data_dir: "data/foods", max_length: 240}
   sports: {enabled: true, data_file: "data/sports.txt", max_length: 200}
+  car: {enabled: true, data_file: "data/cars.txt", max_length: 240}
   pool: {enabled: true, game_timeout_minutes: 30, turn_timeout_seconds: 120, shot_success_percent: 65}
   horoscope: {enabled: true, max_summary_length: 360}
 ```
 
-`status`, `calc`, `foods`, and `sports` are local. `define` uses the public English dictionary
+`status`, `calc`, `foods`, `sports`, and `car` are local. `define` uses the public English dictionary
 service, `reddit` uses Reddit's public post and subreddit JSON endpoints with
 an RSS fallback, and `horoscope` uses a public daily horoscope API. `foods`
 and `sports` use local text files only. Their output limits

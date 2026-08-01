@@ -17,6 +17,7 @@ Plugins are enabled or disabled under plugins.<name>.enabled in config.yaml.
 - reddit: compact Reddit post metadata
 - foods: local food, cuisine, beer, coffee, tea, and wine suggestions
 - sports: broad local sports suggestions
+- car: broad local make, model, and production-span suggestions
 - define: short English dictionary definitions
 - calc: safe local arithmetic and unit conversion
 - status: local connection, uptime, and counter status
@@ -368,6 +369,31 @@ water and winter sports, motorsports, strength sports, adaptive sports, and
 esports. Add one sport per line to `data/sports.txt`; the file is loaded when
 GoBot starts. Every response is bounded to one IRC message.
 
+## Cars
+
+`!car` returns one random entry from the local car catalog; `!cars` is an
+alias. Entries cover affordable daily drivers, trucks, SUVs, EVs, luxury cars,
+classics, and sports and supercars. Each entry includes an approximate
+production span:
+
+~~~text
+!car
+!cars Alex
+~~~
+
+The catalog is intentionally local and easy to extend rather than pretending
+to be a perfect worldwide vehicle registry. Add one make/model entry per line
+to `data/cars.txt`; entries can include a year range such as
+`Toyota Corolla (1966-present)`. The optional configuration is:
+
+~~~yaml
+plugins:
+  car:
+    enabled: true
+    data_file: "data/cars.txt"
+    max_length: 240
+~~~
+
 Lists are plain text, one item per line, under `data/foods/`. Operators can
 extend or replace them without changing Go code:
 
@@ -440,6 +466,9 @@ project--
 !quote
 !choose pizza | tacos | burgers
 !time America/Los_Angeles
+!time Seoul
+!time Bangkok
+!car
 !stats
 !chanstats
 !channelstats
@@ -464,7 +493,10 @@ project--
   [Banter and fortune](banter-fortune.md).
 - choose randomly selects between two to twenty pipe- or comma-separated
   options.
-- time uses IANA timezone names, with common aliases such as EST.
+- time accepts full IANA timezone names and common city shortcuts such as
+  `Seoul`, `Bangkok`, `Tokyo`, `London`, and `New York`; full names such as
+  `Asia/Seoul` remain supported. Weather already accepts city names through
+  Open-Meteo geocoding.
 - channelstats reports message totals, distinct users, and the top five users
   for the current channel. It is persisted in BoltDB.
 
