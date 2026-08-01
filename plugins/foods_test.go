@@ -21,7 +21,7 @@ func TestFoodsLoadsListsAndAliases(t *testing.T) {
 	if got := strings.Join(foods.items["beer"], ","); got != "lager,IPA" {
 		t.Fatalf("unexpected beer list: %q", got)
 	}
-	if foods.aliases["java"] != "coffee" || foods.aliases["dh"] != "" || foods.aliases["de"] != "german" || foods.aliases["soda"] != "soda" {
+	if foods.aliases["java"] != "coffee" || foods.aliases["dh"] != "" || foods.aliases["de"] != "german" || foods.aliases["soda"] != "soda" || foods.aliases["mandarin"] != "mandarin" || foods.aliases["szechuan"] != "sichuan" {
 		t.Fatal("unexpected food aliases")
 	}
 }
@@ -32,7 +32,7 @@ func TestFoodsFallbacksKeepPluginUsable(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, category := range []string{
-		"beer", "korean", "japanese", "sushi", "ramen", "burrito", "vietnamese",
+		"beer", "korean", "japanese", "sushi", "ramen", "chinese", "cantonese", "mandarin", "sichuan", "hunan", "shanghai", "beijing", "dongbei", "yunnan", "xinjiang", "burrito", "vietnamese",
 		"filipino", "french", "spanish", "turkish", "ethiopian", "brazilian",
 		"caribbean", "indonesian", "persian", "middle-eastern",
 		"german", "british", "irish", "scottish", "welsh", "portuguese", "greek", "polish",
@@ -55,7 +55,7 @@ func TestFoodsCommandListIncludesCuisineAliases(t *testing.T) {
 	commands := foods.Commands()
 	joined := strings.Join(commands, " ")
 	for _, command := range []string{
-		"food", "foods", "beer", "korean", "japanese", "sushi", "ramen", "burrito",
+		"food", "foods", "beer", "korean", "japanese", "sushi", "ramen", "chinese", "cantonese", "mandarin", "sichuan", "hunan", "shanghai", "beijing", "dongbei", "yunnan", "xinjiang", "burrito",
 		"vietnamese", "filipino", "french", "spanish", "turkish", "ethiopian",
 		"brazilian", "caribbean", "indonesian", "persian", "middle-eastern",
 		"german", "british", "irish", "scottish", "welsh", "portuguese", "greek", "polish",
