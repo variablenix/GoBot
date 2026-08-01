@@ -58,6 +58,22 @@ and plugin activity.
 - `storage.db_path`: BoltDB data path
 - `log`: log level and output format
 
+The example configuration includes these optional utility plugins:
+
+```yaml
+plugins:
+  status: {enabled: true}
+  define: {enabled: true, timeout_seconds: 8, max_length: 240}
+  calc: {enabled: true}
+  reddit: {enabled: true, timeout_seconds: 8, max_length: 360}
+```
+
+`status` and `calc` are local. `define` uses the public English dictionary
+service, and `reddit` uses Reddit's public post JSON endpoint. Their timeout
+and output limits prevent a slow or unusually large response from holding up
+the bot or flooding IRC. Disable any of them with `enabled: false` if they are
+not wanted.
+
 ## Owners and invitations
 
 Owners are configured out-of-band using authenticated IRC accounts. Nicknames

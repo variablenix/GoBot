@@ -29,6 +29,10 @@ func All() []bot.Plugin {
 		&Timezone{},
 		&ChannelStats{},
 		&DuckHunt{},
+		&Status{},
+		&Define{},
+		&Calculator{},
+		&Reddit{},
 		&Help{},
 		&Alias{},
 	}
