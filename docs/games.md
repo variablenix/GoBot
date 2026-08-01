@@ -88,8 +88,12 @@ plugins:
     shot_success_percent: 65
 ~~~
 
-The success percentage only controls the fun simulation outcome. It does not
-alter the target-selection rules, and all responses remain single IRC messages.
+`65` is a good all-around default for casual play: shots succeed often enough
+to keep a game moving, while misses still make the outcome unpredictable. Use
+roughly `45`–`55` for a tougher, slower game, `75`–`85` for a more forgiving
+game, or `100` when deterministic success is useful for testing. The value is
+only a fun simulation probability; it does not measure player skill or alter
+the legal target-selection rules. All responses remain single IRC messages.
 
 ## Polls
 
