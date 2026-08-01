@@ -19,14 +19,29 @@ var horoscopeSigns = map[string]string{
 	"sagittarius": "Sagittarius", "capricorn": "Capricorn", "aquarius": "Aquarius", "pisces": "Pisces",
 }
 
-type Horoscope struct{ db *storage.DB }
+const defaultHoroscopeSummaryLength = 220
+
+type Horoscope struct {
+	db               *storage.DB
+	maxSummaryLength int
+}
 
 func (p *Horoscope) Name() string       { return "horoscope" }
 func (p *Horoscope) Commands() []string { return []string{"horoscope", "zodiac"} }
 func (p *Horoscope) Help() string {
 	return "!horoscope [sign] — show today's horoscope; specifying a sign saves it for you"
 }
-func (p *Horoscope) Init(_ bot.PluginConfig, db *storage.DB) error { p.db = db; return nil }
+func (p *Horoscope) Init(c bot.PluginConfig, db *storage.DB) error {
+	p.db = db
+	p.maxSummaryLength = c.Int("max_summary_length", defaultHoroscopeSummaryLength)
+	if p.maxSummaryLength < 120 {
+		p.maxSummaryLength = 120
+	}
+	if p.maxSummaryLength > 260 {
+		p.maxSummaryLength = 260
+	}
+	return nil
+}
 
 func (p *Horoscope) Handle(b *bot.Bot, m bot.Message) bool {
 	cmd, arg, ok := bot.IsCommand(m, b.Config.CommandPrefix)
@@ -74,9 +89,20 @@ func (p *Horoscope) Handle(b *bot.Bot, m bot.Message) bool {
 		p.saveSign(m.Nick, sign)
 	}
 	text := cleanExternalText(data.Data.Horoscope)
-	text = truncateRunes(text, 260)
-	b.Send(m.ReplyTarget(), fmt.Sprintf("%s: %s", canonical, text))
+	maxSummaryLength := p.maxSummaryLength
+	if maxSummaryLength == 0 {
+		maxSummaryLength = defaultHoroscopeSummaryLength
+	}
+	text = truncateRunes(text, maxSummaryLength)
+	b.Send(m.ReplyTarget(), fmt.Sprintf("%s: %s Read more: %s", canonical, text, horoscopeSourceURL(sign)))
 	return true
+}
+
+// horoscopeSourceURL points users to a readable daily horoscope page rather
+// than exposing the JSON API endpoint. The sign is validated before this
+// helper is called, but escaping keeps the URL safe if it is reused later.
+func horoscopeSourceURL(sign string) string {
+	return "https://astrology.com.au/horoscopes/daily-horoscopes/" + url.PathEscape(strings.ToLower(sign))
 }
 
 func (p *Horoscope) savedSign(nick string) string {
