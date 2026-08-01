@@ -71,3 +71,32 @@ func TestFoodsCommandListIncludesCuisineAliases(t *testing.T) {
 		}
 	}
 }
+
+func TestFoodsFindMatchesGenericAndCategorySearches(t *testing.T) {
+	foods := Foods{items: map[string][]string{
+		"food":     {"not used"},
+		"burger":   {"double cheeseburger", "veggie burger"},
+		"american": {"pork belly", "steak sandwich"},
+		"beer":     {"Guinness stout", "pilsner"},
+	}}
+
+	generic := foods.findMatches("food", "PORK")
+	if len(generic) != 1 || generic[0].item != "pork belly" {
+		t.Fatalf("generic search returned %#v", generic)
+	}
+
+	category := foods.findMatches("burger", "double cheese")
+	if len(category) != 1 || category[0].item != "double cheeseburger" {
+		t.Fatalf("category search returned %#v", category)
+	}
+
+	if got := foods.findMatches("beer", "sake"); len(got) != 0 {
+		t.Fatalf("unexpected beer matches: %#v", got)
+	}
+}
+
+func TestNormalizeFoodSearch(t *testing.T) {
+	if got := normalizeFoodSearch("  Double-Cheeseburger! "); got != "double cheeseburger" {
+		t.Fatalf("unexpected normalized search: %q", got)
+	}
+}
