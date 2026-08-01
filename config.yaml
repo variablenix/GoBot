@@ -83,6 +83,8 @@ plugins:
   reddit: {enabled: true, timeout_seconds: 8, max_length: 360}
   # Local food and drink suggestions; add one item per line under data/foods.
   foods: {enabled: true, data_dir: "data/foods", max_length: 240}
+  # Local sports suggestions; add one sport per line to data/sports.txt.
+  sports: {enabled: true, data_file: "data/sports.txt", max_length: 200}
   # Optional activity-triggered duck hunt. Scores persist in BoltDB.
   # Start/stop controls require an authenticated account listed in owner_accounts.
   duckhunt: {enabled: false, minimum_messages: 25, minimum_users: 2, min_delay_seconds: 60, max_delay_seconds: 300, timeout_seconds: 30, flavor_enabled: true, flavor_min_lead_seconds: 15, befriend_enabled: true, min_reaction_seconds: 1, retry_cooldown_seconds: 7}
