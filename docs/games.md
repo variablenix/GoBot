@@ -83,6 +83,8 @@ plugins:
     min_delay_seconds: 60
     max_delay_seconds: 300
     timeout_seconds: 30
+    flavor_enabled: true
+    flavor_min_lead_seconds: 15
     befriend_enabled: true
     min_reaction_seconds: 1
     retry_cooldown_seconds: 7
@@ -92,15 +94,22 @@ Once the activity threshold is reached, GoBot waits a random amount of time
 and announces a duck. The first person to shoot or befriend it wins:
 
 ~~~text
-A wild duck appeared: _o< quack! Type !bang to shoot it!
+[Duck Hunt] · ° · ° · ° \_o< FLAP FLAP!
+A wild duck appeared: \_o< QUACK! Type !bang to shoot it!
 username shot a duck in 2.137 seconds! You have killed 1 duck in #example.
 ~~~
+
+Before the duck appears, GoBot may send one randomly timed, colorized teaser
+such as a flight trail, quack, or flap. There is at most one teaser per hunt
+cycle, and `flavor_min_lead_seconds` keeps it separated from the actual duck
+announcement so it does not turn into channel chatter.
 
 Commands:
 
 ~~~text
 !bang                 shoot an active duck
-!befriend             befriend an active duck, if enabled
+!bef                  befriend an active duck, if enabled
+!befriend             same as !bef
 !ducks [nickname]     show persistent scores
 !dh                   show Duck Hunt status
 !dh status            show Duck Hunt status
@@ -126,7 +135,10 @@ Settings:
 - minimum_users: distinct nicknames required before a spawn can be scheduled
 - min_delay_seconds and max_delay_seconds: random wait after the threshold
 - timeout_seconds: how long the duck remains available
-- befriend_enabled: whether !befriend is available
+- flavor_enabled: enable one random pre-spawn teaser per activity cycle
+- flavor_min_lead_seconds: minimum separation before the duck announcement;
+  it also prevents the teaser from appearing immediately after the threshold
+- befriend_enabled: whether !bef and !befriend are available
 - min_reaction_seconds: minimum reaction time before a shot can succeed
 - retry_cooldown_seconds: per-user cooldown after a shot attempt
 
