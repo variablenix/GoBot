@@ -73,6 +73,7 @@ bot/               IRC connection, config, queue, stats, and interfaces
 plugins/           built-in plugins and tests
 data/foods/        local food, cuisine, and beer suggestion lists
 data/sports.txt    local sports suggestion list
+data/cars.txt      local car make/model suggestion list
 storage/           BoltDB wrapper used by stateful plugins
 quotes/            built-in quote and response files
 grafana/           importable Prometheus dashboard and preview
