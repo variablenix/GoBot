@@ -71,6 +71,8 @@ plugins:
   karma: {enabled: true}
   dice: {enabled: true}
   blackjack: {enabled: true}
+  # Optional turn-based 8-ball and 9-ball games; no wagers or virtual currency.
+  pool: {enabled: true, game_timeout_minutes: 30, turn_timeout_seconds: 120, shot_success_percent: 65}
   poll: {enabled: true}
   remind: {enabled: true}
   quote: {enabled: true, quotes_file: "", fortune_dir: ""}

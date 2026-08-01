@@ -29,7 +29,7 @@ Plugins are enabled or disabled under plugins.<name>.enabled in config.yaml.
 - quote, choose, and time: lightweight utilities
 - channelstats: persistent per-channel statistics
 - help and alias: command discovery
-- blackjack, poll, remind, and duckhunt: games and activities
+- blackjack, pool, poll, remind, and duckhunt: games and activities
 
 Most command responses are rate-limited. See
 [Configuration](configuration.md#rate-limits-and-join-warmup).
