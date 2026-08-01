@@ -698,6 +698,12 @@ The Prometheus metrics are:
 - `bot_uptime_seconds`: current process uptime in seconds
 - `bot_messages_dropped`: messages discarded because the outbound queue was full
 
+The repository includes an importable Grafana dashboard at
+[`grafana/gobot-dashboard.json`](grafana/gobot-dashboard.json). A populated example
+is shown below; values and time ranges will vary with your GoBot instance.
+
+![GoBot Grafana dashboard example](grafana/gobot-dashboard-example.png)
+
 ### Scraping from a separate Prometheus host
 
 If Prometheus runs on another machine, GoBot must listen on a VPS address reachable by that machine. For example, on the GoBot VPS set `.env` to the VPS's LAN address and port:
