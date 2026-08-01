@@ -41,5 +41,6 @@ func All() []bot.Plugin {
 		&Help{},
 		&Alias{},
 		&Fun{},
+		&Weapons{},
 	}
 }

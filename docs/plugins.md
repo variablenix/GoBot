@@ -21,12 +21,13 @@ Plugins are enabled or disabled under plugins.<name>.enabled in config.yaml.
 - define: short English dictionary definitions
 - calc: safe local arithmetic and unit conversion
 - github: compact public GitHub repository, issue, release, user, commit, and search lookups
+- weapons: high-level local firearm and weapons-name catalog
 - status: local connection, uptime, and counter status
 - xkcd: latest or numbered XKCD comics
 - lastfm: current or recently played Last.fm tracks
 - cats: short cat facts
 - eightball: customizable Magic 8-Ball answers
-- fun: local family-friendly yo-momma jokes, one-liners, puns, and wisdom
+- fun: local yo-momma jokes, one-liners, puns, and wisdom
 - cheer: family-friendly cheers
 - seen, tell, karma, and dice: channel utilities
 - quote, choose, and time: lightweight utilities
@@ -460,8 +461,11 @@ readable without color. Each request produces one bounded message.
 
 ## Fun text catalogs
 
-The `fun` plugin provides local, family-friendly text without making an
-external request. Each command returns one randomly selected, bounded line:
+The `fun` plugin provides local text without making an external request. Each
+command returns one randomly selected, bounded line. The yo-momma catalog is
+organized around classic joke categories such as size, age, smell, silliness,
+work, food, technology, and everyday mishaps. It is playful and non-targeted:
+operators should remove any entries that do not fit their channel's tone.
 
 ~~~text
 !yomomma
@@ -476,7 +480,9 @@ external request. Each command returns one randomly selected, bounded line:
 
 The catalogs are stored under `data/fun/`:
 
-- `yo_momma.txt`: light, non-abusive “yo momma” jokes
+- `yo_momma.txt`: categorized yo-momma jokes, including fat, skinny, tall,
+  short, old, smelly, stupid/silly, loud, broke, clumsy, food, technology,
+  school, sports, and other classic joke themes
 - `one_liners.txt`: short original one-liners
 - `puns.txt`: short original puns
 - `wisdom.txt`: original/adapted wisdom lines without questionable attribution
@@ -495,6 +501,37 @@ plugins:
 
 The catalogs are local and editable, so operators can remove a line or adapt
 the tone of a channel without changing Go code.
+
+## Firearm and weapons catalog
+
+The `weapons` plugin is a lightweight reference/randomizer for firearm and
+weapons terminology. It returns names and broad categories only; it does not
+provide instructions, construction details, acquisition advice, or tactical
+guidance. Generic commands choose from the whole catalog, while category
+aliases narrow the result:
+
+~~~text
+!firearm
+!guns pistol
+!rifle
+!shotgun
+!smg
+!grenade
+!explosives
+~~~
+
+The catalog includes civilian, historical, sporting, military, launcher,
+grenade, and high-level explosive terms. Keep the default output limit in
+place to ensure one short IRC response. Operators can edit `data/weapons.txt`
+or disable the plugin with `plugins.weapons.enabled: false`.
+
+~~~yaml
+plugins:
+  weapons:
+    enabled: true
+    data_file: "data/weapons.txt"
+    max_length: 240
+~~~
 
 ## Cheers
 
