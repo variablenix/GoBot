@@ -5,7 +5,7 @@ go 1.25.12
 require (
 	github.com/spf13/viper v1.19.0
 	go.etcd.io/bbolt v1.5.0
-	go.uber.org/zap v1.27.0
+	go.uber.org/zap v1.28.0
 	golang.org/x/net v0.57.0
 	gopkg.in/irc.v3 v3.1.4
 )
