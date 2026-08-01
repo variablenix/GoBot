@@ -8,6 +8,7 @@ Plugins are enabled or disabled under plugins.<name>.enabled in config.yaml.
 
 - correction: IRC-style spelling corrections
 - banter: optional replies when GoBot is directly addressed
+- welcome: optional, probability-based join greetings with a per-channel cooldown
 - urltitle: page titles and YouTube metadata
 - weather: Open-Meteo weather, no key required
 - news: NewsAPI headlines and search
@@ -71,6 +72,34 @@ If the addressed nickname is GoBot's own configured nickname, it replies with
 a short humorous message instead of queueing a message for itself. A queued
 tell is delivered when that nickname next sends either a channel message or a
 private message to GoBot.
+
+## Join greetings
+
+The optional `welcome` plugin posts a short, playful line when another user
+joins a channel. It is disabled by default. Enable it in `config.yaml`:
+
+~~~yaml
+plugins:
+  welcome:
+    enabled: true
+    probability: 0.15
+    cooldown_seconds: 120
+    messages_file: "data/welcome.txt"
+~~~
+
+`probability` is the chance that an individual join produces a greeting. The
+cooldown is tracked separately for each channel, so a busy channel cannot be
+flooded by a greeting for every arrival. The catalog contains short original
+lines and supports the `{nick}` placeholder:
+
+~~~text
+[Welcome] The Evil Has Landed.
+[Welcome] A wild Pzycho appeared!
+~~~
+
+There is no command to enable it at runtime. Once enabled, it applies to
+channels where GoBot is present. The bot's own join is ignored, and the normal
+post-join warmup also suppresses replayed events during startup.
 
 ## Correction
 
