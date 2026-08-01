@@ -18,7 +18,7 @@ Persistent plugin state such as seen/karma data is stored in BoltDB. Runtime cou
 
 ## Requirements
 
-- Go `1.25+`
+- Go `1.25.12+` (or a newer supported release)
 - A writable filesystem for the BoltDB database
 - IRC network access
 - Optional: Docker / Docker Compose
