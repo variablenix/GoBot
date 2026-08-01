@@ -20,11 +20,13 @@ Plugins are enabled or disabled under plugins.<name>.enabled in config.yaml.
 - car: broad local make, model, and production-span suggestions
 - define: short English dictionary definitions
 - calc: safe local arithmetic and unit conversion
+- github: compact public GitHub repository, issue, release, user, commit, and search lookups
 - status: local connection, uptime, and counter status
 - xkcd: latest or numbered XKCD comics
 - lastfm: current or recently played Last.fm tracks
 - cats: short cat facts
 - eightball: customizable Magic 8-Ball answers
+- fun: local family-friendly yo-momma jokes, one-liners, puns, and wisdom
 - cheer: family-friendly cheers
 - seen, tell, karma, and dice: channel utilities
 - quote, choose, and time: lightweight utilities
@@ -271,6 +273,38 @@ title when Reddit rate-limits both metadata endpoints.
 Only recognized Reddit hosts and paths are accepted; arbitrary URL fetching is
 not performed by this command.
 
+## GitHub lookup
+
+The GitHub plugin uses the public GitHub REST API and keeps every response to
+one bounded IRC message. It accepts repository names, GitHub URLs, issues,
+pull requests, releases, commits, users, and repository searches:
+
+~~~text
+!github variablenix/GoBot
+!gh https://github.com/variablenix/GoBot/issues/1
+!github variablenix/GoBot#12
+!github variablenix/GoBot releases
+!github user octocat
+!github search go irc bot
+~~~
+
+Repository responses include a short description, stars, forks, open issues,
+language, and a link. Issue and pull-request responses include the title,
+state, author, comments, and link. Search returns up to three compact
+repository matches. Invalid hosts and malformed references are rejected
+locally; GitHub response text is cleaned before it reaches IRC.
+
+Authentication is optional. A token can increase the public API rate limit,
+but GoBot only performs read-only lookups and never needs repository write
+permissions. Keep the token out of `config.yaml` in deployments:
+
+~~~env
+BOT_GITHUB_TOKEN=your-optional-read-only-token
+~~~
+
+The token is sent only to `api.github.com` over HTTPS. Leave it empty when the
+anonymous public API limit is sufficient.
+
 ## Foods and drinks
 
 Foods is a local, data-driven suggestion plugin. It does not call a food API
@@ -423,6 +457,44 @@ hotspot.
 Responses come from quotes/eightball.txt, one per line. Prefix a response with
 green|, yellow|, or red| to control its IRC color. Unprefixed responses remain
 readable without color. Each request produces one bounded message.
+
+## Fun text catalogs
+
+The `fun` plugin provides local, family-friendly text without making an
+external request. Each command returns one randomly selected, bounded line:
+
+~~~text
+!yomomma
+!yo
+!oneliner
+!one
+!pun
+!puns
+!wisdom
+!wise
+~~~
+
+The catalogs are stored under `data/fun/`:
+
+- `yo_momma.txt`: light, non-abusive “yo momma” jokes
+- `one_liners.txt`: short original one-liners
+- `puns.txt`: short original puns
+- `wisdom.txt`: original/adapted wisdom lines without questionable attribution
+
+They are intentionally curated rather than presented as an exhaustive list of
+every joke or quotation. Add one line per entry; GoBot loads the files when it
+starts. The plugin is configured as follows:
+
+~~~yaml
+plugins:
+  fun:
+    enabled: true
+    data_dir: "data/fun"
+    max_length: 240
+~~~
+
+The catalogs are local and editable, so operators can remove a line or adapt
+the tone of a channel without changing Go code.
 
 ## Cheers
 

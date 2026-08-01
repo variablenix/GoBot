@@ -5,6 +5,8 @@ data/*
 !data/foods/*.txt
 !data/sports.txt
 !data/cars.txt
+!data/fun/
+!data/fun/*.txt
 .env
 .env.bak
 .act-runner/
