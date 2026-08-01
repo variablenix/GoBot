@@ -21,6 +21,7 @@ func All() []bot.Plugin {
 		&Choose{},
 		&Timezone{},
 		&ChannelStats{},
+		&DuckHunt{},
 		&Help{},
 		&Alias{},
 	}
