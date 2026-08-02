@@ -17,7 +17,7 @@ func TestDuckHuntDefaults(t *testing.T) {
 	if plugin.cfg.minimumMessages != 25 || plugin.cfg.minimumUsers != 2 {
 		t.Fatalf("unexpected activity defaults: %+v", plugin.cfg)
 	}
-	if plugin.cfg.minDelay != time.Minute || plugin.cfg.maxDelay != 5*time.Minute || plugin.cfg.timeout != 30*time.Second {
+	if plugin.cfg.minDelay != time.Minute || plugin.cfg.maxDelay != 5*time.Minute || plugin.cfg.timeout != time.Minute {
 		t.Fatalf("unexpected timing defaults: %+v", plugin.cfg)
 	}
 	if !plugin.cfg.befriendEnabled || plugin.cfg.minReaction != time.Second || plugin.cfg.retryCooldown != 7*time.Second {
@@ -178,6 +178,19 @@ func TestDuckHuntFlavorIncludesColorAndMotion(t *testing.T) {
 	lower := strings.ToLower(flavor)
 	if !strings.Contains(lower, "quack") && !strings.Contains(lower, "flap") {
 		t.Fatal("expected quack or flap text in flavor")
+	}
+}
+
+func TestDuckHuntEscapeIncludesColorAndMotion(t *testing.T) {
+	escape := randomDuckEscape()
+	if !strings.Contains(escape, "\x03") {
+		t.Fatal("expected mIRC color formatting in Duck Hunt escape")
+	}
+	if !strings.Contains(escape, "[Duck Hunt]") {
+		t.Fatal("expected Duck Hunt label in escape")
+	}
+	if strings.Contains(escape, "\n") || strings.Contains(escape, "\r") {
+		t.Fatal("escape must remain one IRC message")
 	}
 }
 

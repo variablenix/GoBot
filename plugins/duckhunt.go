@@ -67,7 +67,7 @@ func (p *DuckHunt) Init(c bot.PluginConfig, db *storage.DB) error {
 	minimumUsers := c.Int("minimum_users", 2)
 	minDelay := c.Int("min_delay_seconds", 60)
 	maxDelay := c.Int("max_delay_seconds", 300)
-	timeout := c.Int("timeout_seconds", 30)
+	timeout := c.Int("timeout_seconds", 60)
 	flavorEnabled := c.Bool("flavor_enabled", true)
 	flavorMinLead := c.Int("flavor_min_lead_seconds", 15)
 	befriendEnabled := c.Bool("befriend_enabled", true)
@@ -196,6 +196,19 @@ func (p *DuckHunt) tick(b *bot.Bot) {
 
 	p.mu.Lock()
 	for _, state := range p.states {
+		if !b.PluginEnabledForChannel(p.Name(), state.channel) {
+			// Drop pending activity when the channel override disables this
+			// plugin. New activity can schedule a fresh hunt if it is enabled
+			// again later.
+			state.active = false
+			state.spawnedAt = time.Time{}
+			state.nextSpawn = time.Time{}
+			state.flavorAt = time.Time{}
+			state.flavorSent = false
+			state.messages = 0
+			state.users = make(map[string]struct{})
+			continue
+		}
 		if state.stopped {
 			continue
 		}
@@ -211,7 +224,7 @@ func (p *DuckHunt) tick(b *bot.Bot) {
 			state.users = make(map[string]struct{})
 			messages = append(messages, outgoing{
 				target: state.channel,
-				text:   ircColor(ircYellow, "The duck flew away—too slow!"),
+				text:   randomDuckEscape(),
 			})
 			continue
 		}
@@ -459,6 +472,20 @@ func randomDuckAnnouncement() string {
 	duck := ducks[rand.Intn(len(ducks))]
 	noise := noises[rand.Intn(len(noises))]
 	return fmt.Sprintf("%s %s %s Type %s to shoot it!", ircColor(ircGreen, "[Duck Hunt]"), ircColor(ircYellow, duck), ircColor(ircCyan, noise), ircColor(ircBold, "!bang"))
+}
+
+func randomDuckEscape() string {
+	actions := []string{
+		`The duck escapes into the sky! °°...`,
+		`The duck flaps away, living another day. °°°...`,
+		`The duck waddles behind a bush and gets away! \_o<`,
+		`\_o< *ZOOM* The speedy duck vanishes in a flash!`,
+		`The duck takes off in a hurry. QUACK! °°...`,
+		`The duck slips away through the reeds. Better luck next time!`,
+		`The duck spreads its wings and soars away. \_O<`,
+		`The duck makes a break for it—waddle waddle waddle!`,
+	}
+	return ircColor(ircYellow, "[Duck Hunt] "+actions[rand.Intn(len(actions))])
 }
 
 func duckPlural(count uint64) string {

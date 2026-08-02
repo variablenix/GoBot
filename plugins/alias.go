@@ -22,7 +22,7 @@ func (p *Alias) Handle(b *bot.Bot, m bot.Message) bool {
 	}
 	arg = strings.ToLower(strings.TrimSpace(arg))
 	if arg != "" {
-		if aliases, plugin, ok := aliasesFor(b.Plugins, arg); ok {
+		if aliases, plugin, ok := aliasesForEnabled(b, m, arg); ok {
 			if len(aliases) == 0 {
 				b.Send(m.ReplyTarget(), ircColor(ircYellow, "!"+plugin+" has no aliases"))
 			} else {
@@ -33,8 +33,32 @@ func (p *Alias) Handle(b *bot.Bot, m bot.Message) bool {
 		b.Send(m.ReplyTarget(), ircColor(ircRed, "unknown command; use !alias to list aliases"))
 		return true
 	}
-	b.Send(m.ReplyTarget(), ircBold+"aliases:"+ircReset+" "+formatAliasGroups(b.Plugins))
+	plugins := make([]bot.Plugin, 0, len(b.Plugins))
+	for _, plugin := range b.Plugins {
+		if m.IsChannel && !b.PluginEnabledForChannel(plugin.Name(), m.Target) {
+			continue
+		}
+		plugins = append(plugins, plugin)
+	}
+	b.Send(m.ReplyTarget(), ircBold+"aliases:"+ircReset+" "+formatAliasGroups(plugins))
 	return true
+}
+
+func aliasesForEnabled(b *bot.Bot, m bot.Message, name string) ([]string, string, bool) {
+	for _, plugin := range b.Plugins {
+		if m.IsChannel && !b.PluginEnabledForChannel(plugin.Name(), m.Target) {
+			continue
+		}
+		if strings.EqualFold(plugin.Name(), name) {
+			return pluginAliases(plugin), plugin.Name(), true
+		}
+		for _, command := range plugin.Commands() {
+			if strings.EqualFold(command, name) {
+				return pluginAliases(plugin), plugin.Name(), true
+			}
+		}
+	}
+	return nil, "", false
 }
 
 func aliasesFor(plugins []bot.Plugin, name string) ([]string, string, bool) {

@@ -27,7 +27,7 @@ func (p *Karma) Handle(b *bot.Bot, m bot.Message) bool {
 	cmd, arg, ok := bot.IsCommand(m, b.Config.CommandPrefix)
 	if !ok {
 		if updates := p.applyTextChanges(m.Text); len(updates) > 0 {
-			b.Send(m.ReplyTarget(), ircColor(ircCyan, "karma updated: "+strings.Join(updates, ", ")))
+			b.Send(m.ReplyTarget(), formatKarmaUpdates(updates))
 			return true
 		}
 		return false
@@ -56,11 +56,17 @@ func (p *Karma) Handle(b *bot.Bot, m bot.Message) bool {
 	return true
 }
 
-func (p *Karma) applyTextChanges(text string) []string {
+type karmaUpdate struct {
+	key   string
+	delta int
+	value int
+}
+
+func (p *Karma) applyTextChanges(text string) []karmaUpdate {
 	if p.db == nil || p.rx == nil {
 		return nil
 	}
-	updates := make([]string, 0)
+	updates := make([]karmaUpdate, 0)
 	for _, match := range p.rx.FindAllStringSubmatchIndex(text, -1) {
 		if len(match) < 8 {
 			continue
@@ -79,9 +85,33 @@ func (p *Karma) applyTextChanges(text string) []string {
 		if err != nil {
 			continue
 		}
-		updates = append(updates, fmt.Sprintf("%s=%+d", key, value))
+		updates = append(updates, karmaUpdate{key: key, delta: delta, value: value})
 	}
 	return updates
+}
+
+func formatKarmaUpdates(updates []karmaUpdate) string {
+	if len(updates) == 0 {
+		return ""
+	}
+	details := make([]string, 0, len(updates))
+	positive, negative := true, true
+	for _, update := range updates {
+		if update.delta <= 0 {
+			positive = false
+		}
+		if update.delta >= 0 {
+			negative = false
+		}
+		details = append(details, fmt.Sprintf("%s %+d (total %+d)", update.key, update.delta, update.value))
+	}
+	if positive {
+		return ircColor(ircGreen, "Karma boost! "+strings.Join(details, ", ")+" ✨🎯🌟💫")
+	}
+	if negative {
+		return ircColor(ircRed, "Karma dip! "+strings.Join(details, ", ")+" 📉🌀💥😬")
+	}
+	return ircColor(ircCyan, "Karma update! "+strings.Join(details, ", ")+" ✨📊🔄🌟")
 }
 
 func isKarmaWordByte(value byte) bool {
