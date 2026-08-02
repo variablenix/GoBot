@@ -26,3 +26,25 @@ func TestFormatSeenAge(t *testing.T) {
 		})
 	}
 }
+
+func TestNormalizeSeenTextForCTCPAction(t *testing.T) {
+	tests := []struct {
+		name string
+		nick string
+		text string
+		want string
+	}{
+		{name: "action", nick: "netstat", text: "\x01ACTION wants to spank nsa\x01", want: "netstat wants to spank nsa"},
+		{name: "lowercase action", nick: "netstat", text: "\x01action waves\x01", want: "netstat waves"},
+		{name: "empty action", nick: "netstat", text: "\x01ACTION\x01", want: "netstat"},
+		{name: "ordinary message", nick: "netstat", text: "hello there", want: "hello there"},
+		{name: "action prefix is not enough", nick: "netstat", text: "\x01ACTIONable\x01", want: "\x01ACTIONable\x01"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := normalizeSeenText(tt.nick, tt.text); got != tt.want {
+				t.Fatalf("normalizeSeenText(%q, %q) = %q, want %q", tt.nick, tt.text, got, tt.want)
+			}
+		})
+	}
+}

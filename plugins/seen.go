@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/variablenix/GoBot/bot"
 	"github.com/variablenix/GoBot/storage"
@@ -23,7 +24,7 @@ func (p *Seen) Help() string                                 { return "!seen <ni
 func (p *Seen) Init(_ bot.PluginConfig, d *storage.DB) error { p.db = d; return nil }
 func (p *Seen) Handle(b *bot.Bot, m bot.Message) bool {
 	if m.Command == "PRIVMSG" && m.Nick != "" {
-		p.db.Set("seen", strings.ToLower(m.Nick), record{m.Nick, m.Target, m.Text, m.Timestamp})
+		p.db.Set("seen", strings.ToLower(m.Nick), record{m.Nick, m.Target, normalizeSeenText(m.Nick, m.Text), m.Timestamp})
 	}
 	cmd, arg, ok := bot.IsCommand(m, b.Config.CommandPrefix)
 	if !ok || cmd != "seen" {
@@ -38,6 +39,23 @@ func (p *Seen) Handle(b *bot.Bot, m bot.Message) bool {
 	json.Unmarshal(v, &x)
 	b.Send(m.ReplyTarget(), fmt.Sprintf("%s was last seen in %s %s ago saying: %q", x.Nick, x.Channel, formatSeenAge(x.At, time.Now()), x.Text))
 	return true
+}
+
+func normalizeSeenText(nick, text string) string {
+	if len(text) >= 2 && text[0] == '\x01' && text[len(text)-1] == '\x01' {
+		content := text[1 : len(text)-1]
+		if len(content) >= len("ACTION") && strings.EqualFold(content[:len("ACTION")], "ACTION") {
+			remainder := content[len("ACTION"):]
+			if remainder == "" || unicode.IsSpace([]rune(remainder)[0]) {
+				action := strings.TrimSpace(remainder)
+				if action == "" {
+					return strings.TrimSpace(nick)
+				}
+				return strings.TrimSpace(strings.TrimSpace(nick) + " " + action)
+			}
+		}
+	}
+	return text
 }
 
 func formatSeenAge(at, now time.Time) string {
