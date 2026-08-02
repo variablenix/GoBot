@@ -46,6 +46,38 @@ func TestAskProviderNoneDoesNotCallAI(t *testing.T) {
 	}
 }
 
+func TestAskEnvironmentOverridesNestedConfig(t *testing.T) {
+	t.Setenv("BOT_ASK_PROVIDER", "openrouter")
+	t.Setenv("BOT_ASK_AI_REWRITE", "true")
+
+	p := &Ask{}
+	if err := p.Init(bot.PluginConfig{
+		"provider":   "none",
+		"ai_rewrite": false,
+		"max_length": 360,
+	}, nil); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	if got := p.cfg.String("provider", "none"); got != "openrouter" {
+		t.Fatalf("provider = %q, want openrouter", got)
+	}
+	if !p.cfg.Bool("ai_rewrite", false) {
+		t.Fatal("ai_rewrite remained disabled despite BOT_ASK_AI_REWRITE=true")
+	}
+}
+
+func TestAskInvalidEnvironmentBooleanLeavesConfigUnchanged(t *testing.T) {
+	t.Setenv("BOT_ASK_AI_REWRITE", "not-a-boolean")
+
+	p := &Ask{}
+	if err := p.Init(bot.PluginConfig{"ai_rewrite": true}, nil); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	if !p.cfg.Bool("ai_rewrite", false) {
+		t.Fatal("invalid environment boolean unexpectedly changed config")
+	}
+}
+
 func TestAskSenderKeyUsesAccountWhenAvailable(t *testing.T) {
 	key := askSenderKey(bot.Message{Nick: "Echo", Account: "UserAccount"})
 	if key != "account:useraccount" {

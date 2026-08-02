@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -34,10 +35,33 @@ func (p *Ask) Help() string {
 }
 
 func (p *Ask) Init(c bot.PluginConfig, _ *storage.DB) error {
-	p.cfg = c
+	p.cfg = withAskEnvironment(c)
 	p.last = make(map[string]time.Time)
 	p.lastWarning = make(map[string]time.Time)
 	return nil
+}
+
+// withAskEnvironment applies the ask-specific environment variables after
+// the config file has been decoded. Viper can read bound scalar environment
+// values with Get, but nested map values are not reliably reflected when the
+// whole plugin map is unmarshaled into PluginConfig. Applying these two
+// switches here makes the documented .env overrides authoritative without
+// requiring secrets in config.yaml.
+func withAskEnvironment(c bot.PluginConfig) bot.PluginConfig {
+	cfg := make(bot.PluginConfig, len(c)+2)
+	for key, value := range c {
+		cfg[key] = value
+	}
+
+	if provider := strings.TrimSpace(os.Getenv("BOT_ASK_PROVIDER")); provider != "" {
+		cfg["provider"] = provider
+	}
+	if raw, ok := os.LookupEnv("BOT_ASK_AI_REWRITE"); ok {
+		if enabled, err := strconv.ParseBool(strings.TrimSpace(raw)); err == nil {
+			cfg["ai_rewrite"] = enabled
+		}
+	}
+	return cfg
 }
 
 func (p *Ask) Handle(b *bot.Bot, m bot.Message) bool {
