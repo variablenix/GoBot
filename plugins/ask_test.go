@@ -131,3 +131,19 @@ func TestUsableAskRewriteRejectsProviderMetaText(t *testing.T) {
 		t.Fatal("usableAskRewrite rejected a direct factual answer")
 	}
 }
+
+func TestAskRewriteRejectionReasonDoesNotExposeResponse(t *testing.T) {
+	tests := []struct {
+		answer string
+		want   string
+	}{
+		{answer: "", want: "empty_response"},
+		{answer: "The user asks: what is Linux?", want: "provider_meta_text"},
+		{answer: "A response with no accepted structure", want: "unusable_response"},
+	}
+	for _, test := range tests {
+		if got := askRewriteRejectionReason(test.answer); got != test.want {
+			t.Errorf("askRewriteRejectionReason(%q) = %q, want %q", test.answer, got, test.want)
+		}
+	}
+}
