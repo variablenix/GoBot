@@ -1,7 +1,8 @@
 # Games and activities
 
 Games use the same command cooldown and outbound queue protections as every
-other plugin. No game uses real money or virtual currency.
+other plugin. No game uses real money or wagering. Duck Hunt points are local
+scores with no value outside the bot.
 
 ## Blackjack / 21
 
@@ -133,7 +134,9 @@ and rescheduled after restart; reminders older than 15 days are discarded.
 ## Duck Hunt
 
 Duck Hunt is an optional channel activity event. It is disabled by default and
-does not kick users, use virtual currency, or involve wagers.
+combines short randomized duck appearances with a small points-and-gear arcade
+loop. Points have no value outside the bot; there are no wagers or external
+payments.
 
 ~~~yaml
 plugins:
@@ -149,16 +152,34 @@ plugins:
     befriend_enabled: true
     min_reaction_seconds: 1
     retry_cooldown_seconds: 7
+    minimum_hp: 1
+    maximum_hp: 5
+    damage_per_shot: 1
+    befriend_attempts: 3
+    golden_duck_probability: 0.15
+    firearm_enabled: true
+    magazine_size: 6
+    starting_ammo: 6
+    starting_points: 25
+    magazine_cost: 15
+    gun_cost: 25
 ~~~
 
 Once the activity threshold is reached, GoBot waits a random amount of time
-and announces a duck. The first person to shoot or befriend it wins:
+and announces a duck. Players can then shoot it over multiple hits or build
+trust through repeated befriending attempts:
 
 ~~~text
 [Duck Hunt] · ° · ° · ° \_o< FLAP FLAP!
-A wild duck appeared: \_o< QUACK! Type !bang to shoot it!
-username shot a duck in 2.137 seconds! You have killed 1 duck in #example.
+[Duck Hunt] \_o< QUACK! HP: 3 | Type !bang to shoot or !bef to befriend!
+username hit the GOLDEN DUCK for 1 damage! It has 2 HP left. +20 points
 ~~~
+
+The active-duck announcement stays compact for terminal clients: `\_o< QUACK!`.
+When IRC colors are supported, the duck uses a soft tan approximation, green
+head, and yellow bill. The `GOLDEN DUCK` label is reserved for hit, befriending, and
+escape messages, where it is shown in yellow; it is not inserted into the duck
+ASCII itself.
 
 Before the duck appears, GoBot may send one randomly timed, colorized teaser
 such as a flight trail, quack, or flap. There is at most one teaser per hunt
@@ -166,10 +187,10 @@ cycle, and `flavor_min_lead_seconds` keeps it separated from the actual duck
 announcement so it does not turn into channel chatter.
 
 Duck Hunt includes several randomized messages: four flight-trail/flavor
-teasers, multiple duck and quack announcement variants, and eight different
-escape actions including flying, flapping, waddling, slipping through reeds,
-and zooming away. A hunt uses at most one teaser and one final outcome message,
-so the variety does not create a flood.
+teasers, multiple duck and quack announcement variants, and escape actions for
+flying, flapping, waddling, slipping through reeds, zooming away, and the ninja
+duck's smoke-bomb exit. A hunt uses at most one teaser and one final outcome
+message, so the variety does not create a flood.
 
 Commands:
 
@@ -177,6 +198,13 @@ Commands:
 !bang                 shoot an active duck
 !bef                  befriend an active duck, if enabled
 !befriend             same as !bef
+!shop / !store        list arcade gear and point prices
+!buy peashooter       buy the starter Peashooter (!buy gun also works)
+!buy quacker          buy the larger Quacker Blaster
+!buy golden           buy the stronger Golden Wing
+!buy magazine         buy a spare magazine
+!ammo                 show ammo, spare magazines, and points
+!reload               load a spare magazine
 !ducks [nickname]     show persistent scores
 !dh                   show Duck Hunt status
 !dh status            show Duck Hunt status
@@ -189,8 +217,26 @@ account listed in owner_accounts; anyone can shoot or befriend an active duck.
 
 Instant shots are treated as likely scripted input and miss. Shots during the
 early reaction window have a probability of success; slower shots succeed.
-Each user gets a short retry cooldown. Invalid shots when no duck is active are
-quietly ignored.
+Each user gets a short retry cooldown. A successful shot removes
+`damage_per_shot` HP; the duck remains active until its HP reaches zero. Golden
+ducks are less common and award a larger points bonus.
+
+`!bef` uses a small trust progression. The duck can warm up to a user without
+being tamed immediately; after `befriend_attempts` successful approaches, the
+user befriends it and receives a points bonus. Successful shots also earn
+points, and resolving a duck adds a larger completion bonus. Spend those
+points in `!shop`: the Peashooter is the baseline item, the Quacker Blaster
+has a larger magazine, and the Golden Wing costs more but deals extra damage.
+The catalog uses arcade-style names and simple game statistics so the feature
+stays focused on gameplay rather than real-world equipment.
+
+New players receive `starting_points`. A player can buy one item at a time;
+buying a different item replaces the current gear and starts a fresh magazine.
+Spare magazines are purchased with `!buy magazine` and loaded with `!reload`.
+Ammo is consumed by `!bang`, while successful hits and befriending replenish
+the player's points over time. If a player fires when no duck is active, the
+bot may confiscate their gear and report `[GUN CONFISCATED]`; the player can
+earn more points and visit `!shop` again. This is only a game-state penalty.
 
 If nobody shoots or befriends the duck before `timeout_seconds` expires, it
 responds with one randomized escape line such as `The duck escapes into the
@@ -212,7 +258,18 @@ Settings:
 - befriend_enabled: whether !bef and !befriend are available
 - min_reaction_seconds: minimum reaction time before a shot can succeed
 - retry_cooldown_seconds: per-user cooldown after a shot attempt
+- minimum_hp and maximum_hp: inclusive range for a duck's starting HP
+- damage_per_shot: HP removed by each successful shot
+- befriend_attempts: trust approaches needed to befriend the duck
+- golden_duck_probability: chance that a spawn is a higher-value golden duck
+- firearm_enabled: enable the arcade gear and ammo sub-game
+- magazine_size and starting_ammo: baseline Peashooter capacity and ammunition
+  loaded when a player buys gear; the Quacker Blaster and Golden Wing adjust
+  the baseline capacity/damage
+- starting_points: points granted when a player first participates
+- magazine_cost and gun_cost: base shop prices; the enhanced items add their
+  own small point premium
 
-Scores include ducks shot and ducks befriended, are stored in BoltDB, and
-survive restarts. After a duck is resolved or times out, the channel must
-reach the activity threshold again before another automatic event is scheduled.
+Scores, points, and player gear are stored in BoltDB and survive restarts.
+After a duck is resolved or times out, the channel must reach the activity
+threshold again before another automatic event is scheduled.
