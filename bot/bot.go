@@ -204,9 +204,7 @@ func (b *Bot) connect(ctx context.Context) error {
 	}
 	errc := make(chan error, 1)
 	client := irc.NewClient(conn, irc.ClientConfig{Nick: b.Config.Identity.Nick, User: b.Config.Identity.User, Name: b.Config.Identity.Realname, Handler: irc.HandlerFunc(func(c *irc.Client, m *irc.Message) {
-		if b.Config.Identity.SASLUser != "" && b.Config.Identity.SASLPass != "" {
-			handleSASL(c, m, b.Config.Identity.SASLUser, b.Config.Identity.SASLPass, b.Log)
-		}
+		handleSASL(c, m, b.Config.Identity.SASLUser, b.Config.Identity.SASLPass, b.Log)
 		b.logIRCEvent(m)
 		if m.Command == "INVITE" {
 			b.handleInvite(m)
@@ -250,8 +248,10 @@ func (b *Bot) connect(ctx context.Context) error {
 			zap.String("server", b.Config.Server.Host),
 			zap.String("account", b.Config.Identity.SASLUser),
 		)
-		client.Write("CAP LS 302")
+	} else {
+		b.Log.Info("starting IRC capability negotiation", zap.String("network", b.Config.NetworkName), zap.String("server", b.Config.Server.Host))
 	}
+	client.Write("CAP LS 302")
 	go func() { errc <- client.Run() }()
 	select {
 	case <-ctx.Done():
@@ -462,17 +462,25 @@ func handleSASL(client *irc.Client, message *irc.Message, username, password str
 		subcommand := strings.ToUpper(message.Params[1])
 		switch subcommand {
 		case "LS":
-			if strings.Contains(strings.ToLower(message.Trailing()), "sasl") {
-				log.Info("server supports SASL")
-				client.Write("CAP REQ :sasl")
+			request := capabilityRequest(message.Trailing(), username != "" && password != "")
+			if request != "" {
+				if hasCapability(message.Trailing(), "sasl") {
+					log.Info("server supports SASL")
+				}
+				if hasCapability(message.Trailing(), "account-tag") {
+					log.Info("server supports account-tag")
+				}
+				client.Write("CAP REQ :" + request)
 			} else {
-				log.Warn("server did not advertise SASL")
+				log.Warn("server did not advertise requested IRC capabilities")
 				client.Write("CAP END")
 			}
 		case "ACK":
-			if strings.Contains(strings.ToLower(message.Trailing()), "sasl") {
+			if hasCapability(message.Trailing(), "sasl") && username != "" && password != "" {
 				log.Info("server acknowledged SASL capability")
 				client.Write("AUTHENTICATE PLAIN")
+			} else {
+				client.Write("CAP END")
 			}
 		}
 	case "AUTHENTICATE":
@@ -491,6 +499,26 @@ func handleSASL(client *irc.Client, message *irc.Message, username, password str
 		)
 		client.Write("CAP END")
 	}
+}
+
+func capabilityRequest(advertised string, saslEnabled bool) string {
+	requested := make([]string, 0, 2)
+	if saslEnabled && hasCapability(advertised, "sasl") {
+		requested = append(requested, "sasl")
+	}
+	if hasCapability(advertised, "account-tag") {
+		requested = append(requested, "account-tag")
+	}
+	return strings.Join(requested, " ")
+}
+
+func hasCapability(advertised, wanted string) bool {
+	for _, capability := range strings.Fields(strings.ToLower(advertised)) {
+		if strings.SplitN(capability, "=", 2)[0] == strings.ToLower(wanted) {
+			return true
+		}
+	}
+	return false
 }
 
 func (b *Bot) shouldUseNickServFallback() bool {
