@@ -1,7 +1,8 @@
 # Games and activities
 
 Games use the same command cooldown and outbound queue protections as every
-other plugin. No game uses real money or virtual currency.
+other plugin. No game uses real money or wagering; some activities, such as
+Duck Hunt, use fictional points for local scoring only.
 
 ## Blackjack / 21
 
@@ -133,7 +134,8 @@ and rescheduled after restart; reminders older than 15 days are discarded.
 ## Duck Hunt
 
 Duck Hunt is an optional channel activity event. It is disabled by default and
-does not kick users, use virtual currency, or involve wagers.
+does not kick users, use real money, or involve wagers. Its points and gear are
+fictional arcade mechanics only.
 
 ~~~yaml
 plugins:
@@ -149,15 +151,27 @@ plugins:
     befriend_enabled: true
     min_reaction_seconds: 1
     retry_cooldown_seconds: 7
+    minimum_hp: 1
+    maximum_hp: 5
+    damage_per_shot: 1
+    befriend_attempts: 3
+    golden_duck_probability: 0.15
+    firearm_enabled: true
+    magazine_size: 6
+    starting_ammo: 6
+    starting_points: 25
+    magazine_cost: 15
+    gun_cost: 25
 ~~~
 
 Once the activity threshold is reached, GoBot waits a random amount of time
-and announces a duck. The first person to shoot or befriend it wins:
+and announces a duck. Players can then shoot it over multiple hits or build
+trust through repeated befriending attempts:
 
 ~~~text
 [Duck Hunt] · ° · ° · ° \_o< FLAP FLAP!
-A wild duck appeared: \_o< QUACK! Type !bang to shoot it!
-username shot a duck in 2.137 seconds! You have killed 1 duck in #example.
+[Duck Hunt] \_o< GOLDEN DUCK QUACK! HP: 3 | Type !bang to shoot or !bef to befriend!
+username hit the GOLDEN DUCK for 1 damage! It has 2 HP left. +20 points
 ~~~
 
 Before the duck appears, GoBot may send one randomly timed, colorized teaser
@@ -166,10 +180,10 @@ cycle, and `flavor_min_lead_seconds` keeps it separated from the actual duck
 announcement so it does not turn into channel chatter.
 
 Duck Hunt includes several randomized messages: four flight-trail/flavor
-teasers, multiple duck and quack announcement variants, and eight different
-escape actions including flying, flapping, waddling, slipping through reeds,
-and zooming away. A hunt uses at most one teaser and one final outcome message,
-so the variety does not create a flood.
+teasers, multiple duck and quack announcement variants, and escape actions for
+flying, flapping, waddling, slipping through reeds, zooming away, and the ninja
+duck's smoke-bomb exit. A hunt uses at most one teaser and one final outcome
+message, so the variety does not create a flood.
 
 Commands:
 
@@ -177,6 +191,10 @@ Commands:
 !bang                 shoot an active duck
 !bef                  befriend an active duck, if enabled
 !befriend             same as !bef
+!buy gun              buy the fictional duck gun
+!buy magazine         buy a fictional spare magazine
+!ammo                 show ammo, spare magazines, and points
+!reload               load a spare magazine
 !ducks [nickname]     show persistent scores
 !dh                   show Duck Hunt status
 !dh status            show Duck Hunt status
@@ -189,8 +207,16 @@ account listed in owner_accounts; anyone can shoot or befriend an active duck.
 
 Instant shots are treated as likely scripted input and miss. Shots during the
 early reaction window have a probability of success; slower shots succeed.
-Each user gets a short retry cooldown. Invalid shots when no duck is active are
-quietly ignored.
+Each user gets a short retry cooldown. A successful shot removes
+`damage_per_shot` HP; the duck remains active until its HP reaches zero. Golden
+ducks are less common and award a larger fictional points bonus.
+
+`!bef` uses a small trust progression. The duck can warm up to a user without
+being tamed immediately; after `befriend_attempts` successful approaches, the
+user befriends it and receives a fictional points bonus. If there is no active
+duck, `!bang` gives a short no-duck response. If the user had fictional arcade
+gear, it may be confiscated as part of the joke; this has no effect outside the
+bot's game data.
 
 If nobody shoots or befriends the duck before `timeout_seconds` expires, it
 responds with one randomized escape line such as `The duck escapes into the
@@ -212,7 +238,16 @@ Settings:
 - befriend_enabled: whether !bef and !befriend are available
 - min_reaction_seconds: minimum reaction time before a shot can succeed
 - retry_cooldown_seconds: per-user cooldown after a shot attempt
+- minimum_hp and maximum_hp: inclusive range for a duck's starting HP
+- damage_per_shot: HP removed by each successful shot
+- befriend_attempts: trust approaches needed to befriend the duck
+- golden_duck_probability: chance that a spawn is a higher-value golden duck
+- firearm_enabled: enable the fictional duck-gun/ammo sub-game
+- magazine_size and starting_ammo: magazine capacity and ammunition loaded when
+  a new fictional gun is acquired
+- starting_points: fictional points granted when a player first participates
+- magazine_cost and gun_cost: fictional point costs for arcade gear
 
-Scores include ducks shot and ducks befriended, are stored in BoltDB, and
-survive restarts. After a duck is resolved or times out, the channel must
-reach the activity threshold again before another automatic event is scheduled.
+Scores, fictional points, and player gear are stored in BoltDB and survive
+restarts. After a duck is resolved or times out, the channel must reach the
+activity threshold again before another automatic event is scheduled.

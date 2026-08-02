@@ -108,9 +108,32 @@ plugins:
   # Local sports suggestions; add one sport per line to data/sports.txt.
   sports: {enabled: true, data_file: "data/sports.txt", max_length: 200}
   car: {enabled: true, data_file: "data/cars.txt", max_length: 240}
-  # Optional activity-triggered duck hunt. Scores persist in BoltDB.
+  # Optional activity-triggered duck hunt. Scores and arcade gear persist in BoltDB.
   # Start/stop controls require an authenticated account listed in owner_accounts.
-  duckhunt: {enabled: false, minimum_messages: 25, minimum_users: 2, min_delay_seconds: 60, max_delay_seconds: 300, timeout_seconds: 60, flavor_enabled: true, flavor_min_lead_seconds: 15, befriend_enabled: true, min_reaction_seconds: 1, retry_cooldown_seconds: 7}
+  duckhunt:
+    enabled: false
+    minimum_messages: 25
+    minimum_users: 2
+    min_delay_seconds: 60
+    max_delay_seconds: 300
+    timeout_seconds: 60
+    flavor_enabled: true
+    flavor_min_lead_seconds: 15
+    befriend_enabled: true
+    min_reaction_seconds: 1
+    retry_cooldown_seconds: 7
+    # Fictional arcade mechanics only; no real-money wagering or real-world instructions.
+    minimum_hp: 1
+    maximum_hp: 5
+    damage_per_shot: 1
+    befriend_attempts: 3
+    golden_duck_probability: 0.15
+    firearm_enabled: true
+    magazine_size: 6
+    starting_ammo: 6
+    starting_points: 25
+    magazine_cost: 15
+    gun_cost: 25
 stats:
   enabled: true
   http_port: 8082
