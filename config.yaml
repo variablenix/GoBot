@@ -65,6 +65,24 @@ plugins:
   urltitle: {enabled: true, max_title_length: 120, timeout_seconds: 5, youtube_api_key: ""}
   weather: {enabled: true, default_units: imperial}
   news: {enabled: true, api_key: "", max_results: 3}
+  # Source-grounded answers stay keyless by default. AI rewriting is opt-in.
+  # Use BOT_OPENROUTER_API_KEY, BOT_OPENAI_API_KEY, or BOT_GEMINI_API_KEY
+  # instead of putting provider secrets in this file.
+  ask:
+    enabled: true
+    wikipedia_first: true
+    duckduckgo_fallback: true
+    ai_rewrite: false
+    provider: none # none, openrouter, openai, gemini, ollama
+    max_length: 360
+    max_response_chars: 240
+    timeout_seconds: 12
+    cooldown_seconds: 15
+    openrouter_model: openrouter/free
+    openai_model: gpt-4o-mini
+    gemini_model: gemini-2.0-flash
+    ollama_model: llama3.2
+    ollama_url: http://127.0.0.1:11434
   wikipedia: {enabled: true, max_summary_length: 300}
   # Longer paragraphs remain one IRC message; truncated replies include a readable source link.
   horoscope: {enabled: true, max_summary_length: 360}

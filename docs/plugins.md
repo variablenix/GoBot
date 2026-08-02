@@ -12,6 +12,7 @@ Plugins are enabled or disabled under plugins.<name>.enabled in config.yaml.
 - urltitle: page titles and YouTube metadata
 - weather: Open-Meteo weather, no key required
 - news: NewsAPI headlines and search
+- ask: source-grounded questions with optional AI rewriting
 - wikipedia: English Wikipedia summaries
 - horoscope: daily zodiac horoscopes
 - urban: Urban Dictionary definitions
@@ -650,6 +651,56 @@ plugins:
 ~~~
 
 Responses come from quotes/cheers.txt, one family-friendly response per line.
+
+## Ask / questions
+
+Ask GoBot a general question with any of these aliases:
+
+~~~text
+!ask how dangerous is extreme dehydration?
+!question what is the Linux kernel?
+!q what does TLS protect?
+~~~
+
+GoBot first looks for a concise English Wikipedia summary and can fall back to
+DuckDuckGo's public Instant Answer data. The default source-only mode needs no
+API key. It replies in one compact IRC message and includes a `Read more` link
+when the source provides one. A sender-specific cooldown prevents repeated
+lookups from becoming a flood source.
+
+The plugin is configured under `plugins.ask`:
+
+~~~yaml
+plugins:
+  ask:
+    enabled: true
+    wikipedia_first: true
+    duckduckgo_fallback: true
+    ai_rewrite: false
+    provider: none # none, openrouter, openai, gemini, ollama
+    max_length: 360
+    max_response_chars: 240
+    timeout_seconds: 12
+    cooldown_seconds: 15
+~~~
+
+`ai_rewrite` is optional. When enabled, GoBot gives the selected provider the
+retrieved source and asks it to turn that source into a concise, factual,
+single-paragraph answer. It does not use an AI provider when `provider: none`
+is selected, and it falls back to the source summary if the provider is
+unavailable. Keep provider credentials out of `config.yaml`:
+
+~~~env
+BOT_ASK_PROVIDER=openrouter
+BOT_ASK_AI_REWRITE=true
+BOT_OPENROUTER_API_KEY=...
+BOT_OPENROUTER_MODEL=openrouter/free
+~~~
+
+OpenAI uses `BOT_OPENAI_API_KEY` and `BOT_OPENAI_MODEL`; Gemini uses
+`BOT_GEMINI_API_KEY` and `BOT_GEMINI_MODEL`. For a local Ollama instance, use
+`BOT_ASK_PROVIDER=ollama`, `BOT_OLLAMA_URL`, and `BOT_OLLAMA_MODEL`. The output
+limits still apply regardless of provider.
 
 ## Wikipedia
 

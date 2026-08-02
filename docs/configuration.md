@@ -97,6 +97,22 @@ plugins:
   weapons: {enabled: true, data_file: "data/weapons.txt", max_length: 240}
   github: {enabled: true, timeout_seconds: 8, max_length: 360, token: ""}
   reddit: {enabled: true, timeout_seconds: 8, max_length: 360}
+  # Keyless source-grounded answers by default; AI rewriting is opt-in.
+  ask:
+    enabled: true
+    wikipedia_first: true
+    duckduckgo_fallback: true
+    ai_rewrite: false
+    provider: none # none, openrouter, openai, gemini, ollama
+    max_length: 360
+    max_response_chars: 240
+    timeout_seconds: 12
+    cooldown_seconds: 15
+    openrouter_model: openrouter/free
+    openai_model: gpt-4o-mini
+    gemini_model: gemini-2.0-flash
+    ollama_model: llama3.2
+    ollama_url: http://127.0.0.1:11434
   grab: {enabled: true, max_length: 320, max_quotes_per_user: 20}
   linux: {enabled: true, timeout_seconds: 8, max_length: 260}
   foods: {enabled: true, data_dir: "data/foods", max_length: 240}
@@ -109,8 +125,15 @@ plugins:
   horoscope: {enabled: true, max_summary_length: 360}
 ```
 
-`status`, `calc`, `foods`, `sports`, `car`, and `weapons` are local. `define` uses
-the public English dictionary service, `reddit` uses Reddit's public post and
+`status`, `calc`, `foods`, `sports`, `car`, and `weapons` are local. `ask` uses
+English Wikipedia first and DuckDuckGo's public Instant Answer endpoint as a
+fallback. In its default `provider: none` mode it needs no API key and returns
+a compact source-grounded answer with a source link. Set `ai_rewrite: true`
+and choose `openrouter`, `openai`, `gemini`, or `ollama` to optionally rewrite
+the retrieved source into a more conversational answer. Provider credentials
+belong in environment variables such as `BOT_OPENROUTER_API_KEY`,
+`BOT_OPENAI_API_KEY`, or `BOT_GEMINI_API_KEY`; never commit them to this file.
+`define` uses the public English dictionary service, `reddit` uses Reddit's public post and
 subreddit JSON endpoints with an RSS fallback, and `horoscope` uses a public
 daily horoscope API. `foods` and `sports` use local text files only. `fun` uses
 local operator-editable text catalogs under `data/fun`, and `weapons` uses the
