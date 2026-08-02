@@ -9,6 +9,11 @@ dependencies, and deployment configuration maintained.
 - Keep secrets in .env or a deployment secret store, never in Git.
 - Use authenticated IRC account names for owner controls; nicknames are not
   authorization proof.
+- GoBot requests the IRCv3 `account-tag` capability when the server advertises
+  it, and uses that tag for owner checks; if the server does not provide it,
+  GoBot does not fall back to nickname-based ownership.
+- GoBot also requests IRCv3 `server-time` when available so persisted message
+  timestamps reflect the IRC server clock.
 - The private `reload` command is accepted only from an authenticated account
   listed in `owner_accounts`; it cannot change ownership or connection
   settings.

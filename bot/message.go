@@ -21,7 +21,13 @@ func ParseMessage(m *irc.Message) Message {
 		text = strings.Join(m.Params[1:], " ")
 	}
 	account, _ := m.GetTag("account")
-	return Message{Raw: m.String(), Nick: m.Name, User: m.User, Host: m.Host, Account: account, Command: m.Command, Target: target, Text: text, IsChannel: strings.HasPrefix(strings.ToLower(target), "#") || strings.HasPrefix(strings.ToLower(target), "&"), Timestamp: time.Now()}
+	timestamp := time.Now()
+	if rawTimestamp, ok := m.GetTag("time"); ok {
+		if parsed, err := time.Parse(time.RFC3339Nano, rawTimestamp); err == nil {
+			timestamp = parsed
+		}
+	}
+	return Message{Raw: m.String(), Nick: m.Name, User: m.User, Host: m.Host, Account: account, Command: m.Command, Target: target, Text: text, IsChannel: strings.HasPrefix(strings.ToLower(target), "#") || strings.HasPrefix(strings.ToLower(target), "&"), Timestamp: timestamp}
 }
 func (m Message) ReplyTarget() string {
 	if m.IsChannel {
