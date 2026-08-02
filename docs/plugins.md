@@ -722,6 +722,23 @@ the log. A source-only response is usually faster; an AI rewrite adds one
 external request, and free models may take longer when they are cold or busy.
 Use `BOT_ASK_AI_REWRITE=false` to compare source-only behavior.
 
+## Daily bonus
+
+The `daily` plugin adds a persistent `!daily` command:
+
+~~~yaml
+plugins:
+  daily: {enabled: true, bonus_xp: 25}
+~~~
+
+Each authenticated account can claim once per UTC calendar day, regardless of
+channel or network. Users without an authenticated account are limited by
+network and nickname. Different users may claim independently; this is not a
+single shared server-wide claim. The reward is added to the Duck Hunt XP
+profile for the channel where the claim is made, so Duck Hunt must be enabled
+globally and in that channel. Claims survive restarts through the configured
+Bolt database.
+
 After changing `config.yaml`, an owner can send GoBot a private `reload`
 message to apply reloadable plugin settings without reconnecting. Changes to
 `.env` still require a service restart because systemd reads that file when the

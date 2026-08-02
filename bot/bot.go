@@ -64,9 +64,10 @@ func (b *Bot) SetReloadHandler(handler func(Message)) {
 }
 
 // ReloadPlugins applies configuration to active plugins that explicitly
-// support runtime reloads. Connection, identity, channel, owner, and
-// per-channel override settings are handled separately by the process reload
-// callback.
+// support runtime reloads and changes global enablement. Connection,
+// identity, channel, owner, and per-channel override settings are handled
+// separately by the process reload callback. Changes are applied independently
+// so one plugin failure does not prevent unrelated safe changes.
 func (b *Bot) ReloadPlugins(configs map[string]PluginConfig) (int, error) {
 	b.pluginMu.Lock()
 	defer b.pluginMu.Unlock()
@@ -77,6 +78,13 @@ func (b *Bot) ReloadPlugins(configs map[string]PluginConfig) (int, error) {
 		enabled := config.Bool("enabled", true)
 		wasEnabled := b.enabledPlugins[p.Name()]
 		if !enabled {
+			if wasEnabled {
+				if stopper, ok := p.(Stopper); ok {
+					stopper.Stop(b)
+					b.startedPlugins[p.Name()] = false
+				}
+				count++
+			}
 			b.enabledPlugins[p.Name()] = false
 			continue
 		}
@@ -133,6 +141,12 @@ func (b *Bot) pluginEnabled(name string) bool {
 	enabled, configured := b.enabledPlugins[name]
 	b.pluginMu.RUnlock()
 	return !configured || enabled
+}
+
+// PluginEnabled reports whether a plugin is globally enabled. Channel
+// overrides are intentionally not considered here.
+func (b *Bot) PluginEnabled(name string) bool {
+	return b.pluginEnabled(name)
 }
 
 // ReloadPluginOverrides replaces the per-channel plugin overrides used by
