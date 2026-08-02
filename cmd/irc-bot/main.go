@@ -116,12 +116,12 @@ func main() {
 			return
 		}
 		count, err := current.ReloadPlugins(updated.Plugins)
+		current.ReloadPluginOverrides(pluginOverridesForNetwork(updated, current.Config.NetworkName))
 		if err != nil {
-			current.Send(msg.ReplyTarget(), "reload failed; configuration was not changed")
-			log.Warn("configuration reload failed", zap.Error(err))
+			current.Send(msg.ReplyTarget(), fmt.Sprintf("configuration reloaded with errors after %d plugin change(s); channel overrides applied; IRC connection unchanged", count))
+			log.Warn("configuration reload partially failed", zap.Int("plugins", count), zap.Error(err))
 			return
 		}
-		current.ReloadPluginOverrides(pluginOverridesForNetwork(updated, current.Config.NetworkName))
 		current.Send(msg.ReplyTarget(), fmt.Sprintf("configuration reloaded for %d plugin(s) and channel overrides; IRC connection unchanged", count))
 		log.Info("configuration reloaded", zap.Int("plugins", count), zap.String("network", current.Config.NetworkName))
 	}

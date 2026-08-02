@@ -21,6 +21,9 @@ func (p *Help) Handle(b *bot.Bot, m bot.Message) bool {
 	}
 	if strings.TrimSpace(arg) != "" {
 		for _, x := range b.Plugins {
+			if !b.PluginEnabled(x.Name()) {
+				continue
+			}
 			if m.IsChannel && !b.PluginEnabledForChannel(x.Name(), m.Target) {
 				continue
 			}
@@ -38,6 +41,9 @@ func (p *Help) Handle(b *bot.Bot, m bot.Message) bool {
 	}
 	var names []string
 	for _, x := range b.Plugins {
+		if !b.PluginEnabled(x.Name()) {
+			continue
+		}
 		if m.IsChannel && !b.PluginEnabledForChannel(x.Name(), m.Target) {
 			continue
 		}
