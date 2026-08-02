@@ -72,3 +72,15 @@ func TestPrivateReloadIsOwnerOnly(t *testing.T) {
 		t.Fatalf("unexpected reload handler calls: %d", called)
 	}
 }
+
+func TestCapabilityRequestIncludesAccountTag(t *testing.T) {
+	if got := capabilityRequest("multi-prefix sasl account-tag away", true); got != "sasl account-tag" {
+		t.Fatalf("capabilityRequest with SASL = %q, want %q", got, "sasl account-tag")
+	}
+	if got := capabilityRequest("account-tag", false); got != "account-tag" {
+		t.Fatalf("capabilityRequest without SASL = %q, want %q", got, "account-tag")
+	}
+	if got := capabilityRequest("sasl", false); got != "" {
+		t.Fatalf("capabilityRequest without account tag = %q, want empty", got)
+	}
+}
