@@ -132,6 +132,17 @@ func TestUsableAskRewriteRejectsProviderMetaText(t *testing.T) {
 	}
 }
 
+func TestAskRewritePromptHasDirectAnswerContract(t *testing.T) {
+	initial := askRewritePrompt("What is Go?", askSource{Title: "Go", Summary: "A programming language."}, 240, false)
+	if !strings.Contains(initial, "Return only one concise plain-text paragraph") || !strings.Contains(initial, "INSUFFICIENT_SOURCE") {
+		t.Fatalf("initial prompt is missing answer contract: %q", initial)
+	}
+	correction := askRewritePrompt("What is Go?", askSource{Title: "Go", Summary: "A programming language."}, 240, true)
+	if !strings.Contains(correction, "previous response was invalid") {
+		t.Fatalf("correction prompt is missing retry instruction: %q", correction)
+	}
+}
+
 func TestAskRewriteRejectionReasonDoesNotExposeResponse(t *testing.T) {
 	tests := []struct {
 		answer string
@@ -139,6 +150,7 @@ func TestAskRewriteRejectionReasonDoesNotExposeResponse(t *testing.T) {
 	}{
 		{answer: "", want: "empty_response"},
 		{answer: "The user asks: what is Linux?", want: "provider_meta_text"},
+		{answer: "INSUFFICIENT_SOURCE", want: "insufficient_source"},
 		{answer: "A response with no accepted structure", want: "unusable_response"},
 	}
 	for _, test := range tests {
