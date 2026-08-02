@@ -470,6 +470,9 @@ func handleSASL(client *irc.Client, message *irc.Message, username, password str
 				if hasCapability(message.Trailing(), "account-tag") {
 					log.Info("server supports account-tag")
 				}
+				if hasCapability(message.Trailing(), "server-time") {
+					log.Info("server supports server-time")
+				}
 				client.Write("CAP REQ :" + request)
 			} else {
 				log.Warn("server did not advertise requested IRC capabilities")
@@ -502,12 +505,15 @@ func handleSASL(client *irc.Client, message *irc.Message, username, password str
 }
 
 func capabilityRequest(advertised string, saslEnabled bool) string {
-	requested := make([]string, 0, 2)
+	requested := make([]string, 0, 3)
 	if saslEnabled && hasCapability(advertised, "sasl") {
 		requested = append(requested, "sasl")
 	}
 	if hasCapability(advertised, "account-tag") {
 		requested = append(requested, "account-tag")
+	}
+	if hasCapability(advertised, "server-time") {
+		requested = append(requested, "server-time")
 	}
 	return strings.Join(requested, " ")
 }

@@ -3,12 +3,30 @@ package bot
 import (
 	"gopkg.in/irc.v3"
 	"testing"
+	"time"
 )
 
 func TestParseMessage(t *testing.T) {
 	m := ParseMessage(irc.MustParseMessage("@account=alice :alice!u@h PRIVMSG #test :hello world"))
 	if m.Nick != "alice" || m.User != "u" || m.Host != "h" || m.Account != "alice" || m.Target != "#test" || m.Text != "hello world" || !m.IsChannel {
 		t.Fatalf("unexpected message: %+v", m)
+	}
+}
+
+func TestParseMessageUsesServerTimeWhenAvailable(t *testing.T) {
+	m := ParseMessage(irc.MustParseMessage("@account=alice;time=2026-08-02T19:00:00.123Z :alice!u@h PRIVMSG #test :hello"))
+	want := time.Date(2026, time.August, 2, 19, 0, 0, 123000000, time.UTC)
+	if !m.Timestamp.Equal(want) {
+		t.Fatalf("timestamp = %s, want %s", m.Timestamp, want)
+	}
+}
+
+func TestParseMessageFallsBackToLocalTimeForInvalidServerTime(t *testing.T) {
+	before := time.Now()
+	m := ParseMessage(irc.MustParseMessage("@time=not-a-timestamp :alice!u@h PRIVMSG #test :hello"))
+	after := time.Now()
+	if m.Timestamp.Before(before) || m.Timestamp.After(after) {
+		t.Fatalf("timestamp = %s, want parse time between %s and %s", m.Timestamp, before, after)
 	}
 }
 
@@ -74,11 +92,11 @@ func TestPrivateReloadIsOwnerOnly(t *testing.T) {
 }
 
 func TestCapabilityRequestIncludesAccountTag(t *testing.T) {
-	if got := capabilityRequest("multi-prefix sasl account-tag away", true); got != "sasl account-tag" {
-		t.Fatalf("capabilityRequest with SASL = %q, want %q", got, "sasl account-tag")
+	if got := capabilityRequest("multi-prefix sasl account-tag server-time away", true); got != "sasl account-tag server-time" {
+		t.Fatalf("capabilityRequest with SASL = %q, want %q", got, "sasl account-tag server-time")
 	}
-	if got := capabilityRequest("account-tag", false); got != "account-tag" {
-		t.Fatalf("capabilityRequest without SASL = %q, want %q", got, "account-tag")
+	if got := capabilityRequest("account-tag server-time", false); got != "account-tag server-time" {
+		t.Fatalf("capabilityRequest without SASL = %q, want %q", got, "account-tag server-time")
 	}
 	if got := capabilityRequest("sasl", false); got != "" {
 		t.Fatalf("capabilityRequest without account tag = %q, want empty", got)
