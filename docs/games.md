@@ -1,8 +1,8 @@
 # Games and activities
 
 Games use the same command cooldown and outbound queue protections as every
-other plugin. No game uses real money or wagering; some activities, such as
-Duck Hunt, use fictional points for local scoring only.
+other plugin. No game uses real money or wagering. Duck Hunt points are local
+scores with no value outside the bot.
 
 ## Blackjack / 21
 
@@ -134,8 +134,9 @@ and rescheduled after restart; reminders older than 15 days are discarded.
 ## Duck Hunt
 
 Duck Hunt is an optional channel activity event. It is disabled by default and
-does not kick users, use real money, or involve wagers. Its points and gear are
-fictional arcade mechanics only.
+combines short randomized duck appearances with a small points-and-gear arcade
+loop. Points have no value outside the bot; there are no wagers or external
+payments.
 
 ~~~yaml
 plugins:
@@ -191,8 +192,11 @@ Commands:
 !bang                 shoot an active duck
 !bef                  befriend an active duck, if enabled
 !befriend             same as !bef
-!buy gun              buy the fictional duck gun
-!buy magazine         buy a fictional spare magazine
+!shop / !store        list arcade gear and point prices
+!buy peashooter       buy the starter Peashooter (!buy gun also works)
+!buy quacker          buy the larger Quacker Blaster
+!buy golden           buy the stronger Golden Wing
+!buy magazine         buy a spare magazine
 !ammo                 show ammo, spare magazines, and points
 !reload               load a spare magazine
 !ducks [nickname]     show persistent scores
@@ -209,14 +213,24 @@ Instant shots are treated as likely scripted input and miss. Shots during the
 early reaction window have a probability of success; slower shots succeed.
 Each user gets a short retry cooldown. A successful shot removes
 `damage_per_shot` HP; the duck remains active until its HP reaches zero. Golden
-ducks are less common and award a larger fictional points bonus.
+ducks are less common and award a larger points bonus.
 
 `!bef` uses a small trust progression. The duck can warm up to a user without
 being tamed immediately; after `befriend_attempts` successful approaches, the
-user befriends it and receives a fictional points bonus. If there is no active
-duck, `!bang` gives a short no-duck response. If the user had fictional arcade
-gear, it may be confiscated as part of the joke; this has no effect outside the
-bot's game data.
+user befriends it and receives a points bonus. Successful shots also earn
+points, and resolving a duck adds a larger completion bonus. Spend those
+points in `!shop`: the Peashooter is the baseline item, the Quacker Blaster
+has a larger magazine, and the Golden Wing costs more but deals extra damage.
+The catalog uses arcade-style names and simple game statistics so the feature
+stays focused on gameplay rather than real-world equipment.
+
+New players receive `starting_points`. A player can buy one item at a time;
+buying a different item replaces the current gear and starts a fresh magazine.
+Spare magazines are purchased with `!buy magazine` and loaded with `!reload`.
+Ammo is consumed by `!bang`, while successful hits and befriending replenish
+the player's points over time. If a player fires when no duck is active, the
+bot may confiscate their gear and report `[GUN CONFISCATED]`; the player can
+earn more points and visit `!shop` again. This is only a game-state penalty.
 
 If nobody shoots or befriends the duck before `timeout_seconds` expires, it
 responds with one randomized escape line such as `The duck escapes into the
@@ -242,12 +256,14 @@ Settings:
 - damage_per_shot: HP removed by each successful shot
 - befriend_attempts: trust approaches needed to befriend the duck
 - golden_duck_probability: chance that a spawn is a higher-value golden duck
-- firearm_enabled: enable the fictional duck-gun/ammo sub-game
-- magazine_size and starting_ammo: magazine capacity and ammunition loaded when
-  a new fictional gun is acquired
-- starting_points: fictional points granted when a player first participates
-- magazine_cost and gun_cost: fictional point costs for arcade gear
+- firearm_enabled: enable the arcade gear and ammo sub-game
+- magazine_size and starting_ammo: baseline Peashooter capacity and ammunition
+  loaded when a player buys gear; the Quacker Blaster and Golden Wing adjust
+  the baseline capacity/damage
+- starting_points: points granted when a player first participates
+- magazine_cost and gun_cost: base shop prices; the enhanced items add their
+  own small point premium
 
-Scores, fictional points, and player gear are stored in BoltDB and survive
-restarts. After a duck is resolved or times out, the channel must reach the
-activity threshold again before another automatic event is scheduled.
+Scores, points, and player gear are stored in BoltDB and survive restarts.
+After a duck is resolved or times out, the channel must reach the activity
+threshold again before another automatic event is scheduled.

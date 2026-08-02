@@ -46,7 +46,7 @@ func TestDuckHuntIncludesBefriendAlias(t *testing.T) {
 	if !found {
 		t.Fatal("expected !bef command alias")
 	}
-	for _, command := range []string{"buy", "reload", "ammo"} {
+	for _, command := range []string{"shop", "store", "buy", "reload", "ammo"} {
 		found = false
 		for _, candidate := range plugin.Commands() {
 			if candidate == command {
@@ -60,6 +60,26 @@ func TestDuckHuntIncludesBefriendAlias(t *testing.T) {
 	}
 	if !strings.Contains(plugin.Help(), "!bef") {
 		t.Fatal("expected !bef alias in help")
+	}
+}
+
+func TestDuckHuntShopCatalog(t *testing.T) {
+	plugin := &DuckHunt{}
+	if err := plugin.Init(nil, nil); err != nil {
+		t.Fatalf("Init returned error: %v", err)
+	}
+	weapons := plugin.shopWeapons()
+	if len(weapons) != 3 {
+		t.Fatalf("shop has %d weapons, want 3", len(weapons))
+	}
+	if weapon, ok := plugin.findWeapon("gun"); !ok || weapon.Key != "peashooter" {
+		t.Fatalf("generic gun alias resolved to %+v, want peashooter", weapon)
+	}
+	if weapons[1].MagazineSize <= weapons[0].MagazineSize {
+		t.Fatalf("Quacker Blaster should have a larger magazine: %+v", weapons)
+	}
+	if weapons[2].Damage <= weapons[0].Damage || weapons[2].Cost <= weapons[0].Cost {
+		t.Fatalf("Golden Wing should cost more and do more damage: %+v", weapons)
 	}
 }
 
@@ -197,13 +217,15 @@ func TestDuckHuntPlayerGearPersists(t *testing.T) {
 	player.SpareMagazines = 2
 	player.Ammo = 3
 	player.Points = 99
+	player.HasGun = true
+	player.Weapon = "quacker"
 	plugin.savePlayerLocked("network", "#channel", "Alice", player)
 	plugin.mu.Unlock()
 
 	plugin.mu.Lock()
 	loaded := plugin.loadPlayerLocked("network", "#channel", "alice")
 	plugin.mu.Unlock()
-	if loaded.SpareMagazines != 2 || loaded.Ammo != 3 || loaded.Points != 99 {
+	if loaded.SpareMagazines != 2 || loaded.Ammo != 3 || loaded.Points != 99 || loaded.Weapon != "quacker" {
 		t.Fatalf("loaded player = %+v, want persisted gear and points", loaded)
 	}
 }
