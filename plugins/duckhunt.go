@@ -38,6 +38,9 @@ type duckHuntConfig struct {
 	startingPoints  int64
 	magazineCost    int64
 	gunCost         int64
+	xpPerHit        int64
+	xpPerKill       int64
+	xpPerBefriend   int64
 }
 
 type duckHuntState struct {
@@ -68,6 +71,7 @@ type duckPlayer struct {
 	Ammo           int    `json:"ammo"`
 	SpareMagazines int    `json:"spare_magazines"`
 	Points         int64  `json:"points"`
+	XP             int64  `json:"xp"`
 }
 
 type duckWeapon struct {
@@ -91,10 +95,10 @@ type DuckHunt struct {
 
 func (p *DuckHunt) Name() string { return "duckhunt" }
 func (p *DuckHunt) Commands() []string {
-	return []string{"duckhunt", "dh", "bang", "befriend", "bef", "ducks", "shop", "store", "buy", "reload", "ammo"}
+	return []string{"duckhunt", "dh", "bang", "befriend", "bef", "ducks", "level", "xp", "profile", "shop", "store", "buy", "reload", "ammo"}
 }
 func (p *DuckHunt) Help() string {
-	return "!bang shoots an active duck; !bef befriends it; !shop lists arcade gear; !buy <item>, !ammo, and !reload manage it; !ducks [nick] shows scores; !dh status|start|stop controls activity"
+	return "!bang shoots an active duck; !bef befriends it; !shop lists arcade gear; !buy <item>, !ammo, and !reload manage it; !ducks [nick] shows points and scores; !level [nick] shows XP and level; !dh status|start|stop controls activity"
 }
 
 // shopWeapons keeps the arsenal deliberately arcade-like. The names are game
@@ -186,6 +190,9 @@ func (p *DuckHunt) Init(c bot.PluginConfig, db *storage.DB) error {
 	startingPoints := int64(c.Int("starting_points", 25))
 	magazineCost := int64(c.Int("magazine_cost", 15))
 	gunCost := int64(c.Int("gun_cost", 25))
+	xpPerHit := int64(c.Int("xp_per_hit", 5))
+	xpPerKill := int64(c.Int("xp_per_kill", 25))
+	xpPerBefriend := int64(c.Int("xp_per_befriend", 20))
 
 	if minimumMessages < 1 {
 		minimumMessages = 1
@@ -247,6 +254,15 @@ func (p *DuckHunt) Init(c bot.PluginConfig, db *storage.DB) error {
 	if gunCost < 0 {
 		gunCost = 0
 	}
+	if xpPerHit < 0 {
+		xpPerHit = 0
+	}
+	if xpPerKill < 0 {
+		xpPerKill = 0
+	}
+	if xpPerBefriend < 0 {
+		xpPerBefriend = 0
+	}
 
 	p.db = db
 	p.cfg = duckHuntConfig{
@@ -271,6 +287,9 @@ func (p *DuckHunt) Init(c bot.PluginConfig, db *storage.DB) error {
 		startingPoints:  startingPoints,
 		magazineCost:    magazineCost,
 		gunCost:         gunCost,
+		xpPerHit:        xpPerHit,
+		xpPerKill:       xpPerKill,
+		xpPerBefriend:   xpPerBefriend,
 	}
 	p.states = make(map[string]*duckHuntState)
 	p.attempts = make(map[string]time.Time)
@@ -316,6 +335,9 @@ func (p *DuckHunt) Handle(b *bot.Bot, m bot.Message) bool {
 		return true
 	case "ducks":
 		p.ducks(b, m, arg)
+		return true
+	case "level", "xp", "profile":
+		p.profile(b, m, arg)
 		return true
 	case "shop", "store":
 		p.shop(b, m)
@@ -564,12 +586,14 @@ func (p *DuckHunt) interact(b *bot.Bot, m bot.Message, befriend bool) {
 		if state.golden {
 			bonus *= 2
 		}
+		xp := xpReward(p.cfg.xpPerBefriend, state.golden)
 		player.Points += bonus
+		player.XP += xp
 		p.savePlayerLocked(b.Config.NetworkName, m.Target, m.Nick, player)
 		golden := duckName(state)
 		p.resetCycleLocked(state)
 		p.mu.Unlock()
-		b.Send(m.ReplyTarget(), fmt.Sprintf("%s %s befriended %s! %s [%s points] You have befriended %d duck%s in %s.", ircColor(ircGreen, "*FRIEND*"), m.Nick, golden, ircColor(ircGreen, "QUACK!"), ircColor(ircGreen, fmt.Sprintf("+%d", bonus)), friends, duckPlural(friends), m.Target))
+		b.Send(m.ReplyTarget(), fmt.Sprintf("%s %s befriended %s! %s [%s points, %s XP] You have befriended %d duck%s in %s.", ircColor(ircGreen, "*FRIEND*"), m.Nick, golden, ircColor(ircGreen, "QUACK!"), ircColor(ircGreen, fmt.Sprintf("+%d", bonus)), ircColor(ircGreen, fmt.Sprintf("+%d", xp)), friends, duckPlural(friends), m.Target))
 		return
 	}
 	weapon := p.weaponForPlayer(player)
@@ -579,10 +603,12 @@ func (p *DuckHunt) interact(b *bot.Bot, m bot.Message, befriend bool) {
 		remaining := state.hp
 		name := duckName(state)
 		points := shotPoints(state)
+		xp := xpReward(p.cfg.xpPerHit, state.golden)
 		player.Points += points
+		player.XP += xp
 		p.savePlayerLocked(b.Config.NetworkName, m.Target, m.Nick, player)
 		p.mu.Unlock()
-		b.Send(m.ReplyTarget(), fmt.Sprintf("%s %s hit %s for %d damage! It has %d HP left. %s", ircColor(ircCyan, "*BANG*"), m.Nick, name, damage, remaining, ircColor(ircGreen, fmt.Sprintf("+%d points", points))))
+		b.Send(m.ReplyTarget(), fmt.Sprintf("%s %s hit %s for %d damage! It has %d HP left. %s", ircColor(ircCyan, "*BANG*"), m.Nick, name, damage, remaining, ircColor(ircGreen, fmt.Sprintf("+%d points, +%d XP", points, xp))))
 		return
 	}
 	kills := p.incrementScore(b.Config.NetworkName, m.Target, m.Nick)
@@ -590,13 +616,15 @@ func (p *DuckHunt) interact(b *bot.Bot, m bot.Message, befriend bool) {
 	if state.golden {
 		bonus *= 2
 	}
+	xp := xpReward(p.cfg.xpPerKill, state.golden)
 	player.Points += bonus
+	player.XP += xp
 	p.savePlayerLocked(b.Config.NetworkName, m.Target, m.Nick, player)
 	name := duckName(state)
 	p.resetCycleLocked(state)
 	p.mu.Unlock()
 
-	b.Send(m.ReplyTarget(), fmt.Sprintf("%s %s hit %s for %d damage! It has 0 HP left. %s [%s] You have killed %d duck%s in %s.", ircColor(ircGreen, "*BANG*"), m.Nick, name, damage, ircColor(ircGreen, "KWAK!"), ircColor(ircGreen, fmt.Sprintf("+%d points", bonus)), kills, duckPlural(kills), m.Target))
+	b.Send(m.ReplyTarget(), fmt.Sprintf("%s %s hit %s for %d damage! It has 0 HP left. %s [%s points, %s XP] You have killed %d duck%s in %s.", ircColor(ircGreen, "*BANG*"), m.Nick, name, damage, ircColor(ircGreen, "KWAK!"), ircColor(ircGreen, fmt.Sprintf("+%d", bonus)), ircColor(ircGreen, fmt.Sprintf("+%d", xp)), kills, duckPlural(kills), m.Target))
 }
 
 func (p *DuckHunt) ducks(b *bot.Bot, m bot.Message, arg string) {
@@ -613,7 +641,25 @@ func (p *DuckHunt) ducks(b *bot.Bot, m bot.Message, arg string) {
 	p.mu.Lock()
 	player := p.loadPlayerLocked(b.Config.NetworkName, m.Target, nick)
 	p.mu.Unlock()
-	b.Send(m.ReplyTarget(), fmt.Sprintf("%s has killed %d duck%s, befriended %d duck%s, and has %d points in %s.", nick, score.Ducks, duckPlural(score.Ducks), score.Friends, duckPlural(score.Friends), player.Points, m.Target))
+	level := duckLevel(player.XP)
+	b.Send(m.ReplyTarget(), fmt.Sprintf("%s: %d killed, %d befriended, %d points, level %d (%d XP; %d to level %d) in %s.", nick, score.Ducks, score.Friends, player.Points, level, player.XP, xpToNextLevel(player.XP), level+1, m.Target))
+}
+
+func (p *DuckHunt) profile(b *bot.Bot, m bot.Message, arg string) {
+	nick := strings.TrimSpace(arg)
+	if nick == "" {
+		nick = m.Nick
+	}
+	if strings.ContainsAny(nick, " \r\n\t") || len([]rune(nick)) > 64 {
+		b.Send(m.ReplyTarget(), ircColor(ircCyan, "usage: !level [nick]"))
+		return
+	}
+	score := p.readScore(b.Config.NetworkName, m.Target, nick)
+	p.mu.Lock()
+	player := p.loadPlayerLocked(b.Config.NetworkName, m.Target, nick)
+	p.mu.Unlock()
+	level := duckLevel(player.XP)
+	b.Send(m.ReplyTarget(), fmt.Sprintf("%s is level %d with %d XP (%d to level %d), %d points, %d killed, and %d befriended in %s.", nick, level, player.XP, xpToNextLevel(player.XP), level+1, player.Points, score.Ducks, score.Friends, m.Target))
 }
 
 func (p *DuckHunt) ammo(b *bot.Bot, m bot.Message) {
@@ -838,6 +884,9 @@ func (p *DuckHunt) loadPlayerLocked(network, channel, nick string) duckPlayer {
 	if player.Points < 0 {
 		player.Points = 0
 	}
+	if player.XP < 0 {
+		player.XP = 0
+	}
 	if player.Ammo < 0 {
 		player.Ammo = 0
 	}
@@ -914,6 +963,46 @@ func shotPoints(state *duckHuntState) int64 {
 	return 10
 }
 
+func xpReward(base int64, golden bool) int64 {
+	if base <= 0 {
+		return 0
+	}
+	if golden {
+		return base * 2
+	}
+	return base
+}
+
+// xpForLevel uses a gentle cumulative curve: level 2 starts at 100 XP,
+// level 3 at 300 XP, level 4 at 600 XP, and so on.
+func xpForLevel(level int) int64 {
+	if level <= 1 {
+		return 0
+	}
+	n := int64(level - 1)
+	return 100 * n * (n + 1) / 2
+}
+
+func duckLevel(xp int64) int {
+	if xp < 0 {
+		xp = 0
+	}
+	level := 1
+	for level < 100000 && xp >= xpForLevel(level+1) {
+		level++
+	}
+	return level
+}
+
+func xpToNextLevel(xp int64) int64 {
+	level := duckLevel(xp)
+	remaining := xpForLevel(level+1) - xp
+	if remaining < 0 {
+		return 0
+	}
+	return remaining
+}
+
 func duckName(state *duckHuntState) string {
 	if state != nil && state.golden {
 		return ircColor(ircYellow, "the GOLDEN DUCK")
@@ -976,17 +1065,17 @@ func randomDuckEscape() string {
 	actions := []string{
 		`The duck escapes into the sky! °°...`,
 		`The duck flaps away, living another day. °°°...`,
-		`The duck waddles behind a bush and gets away! \_o<`,
-		`\_o< *ZOOM* The speedy duck vanishes in a flash!`,
+		`The duck waddles behind a bush and gets away!`,
+		`*ZOOM* The speedy duck vanishes in a flash!`,
 		`The duck takes off in a hurry. QUACK! °°...`,
 		`The duck slips away through the reeds. Better luck next time!`,
-		`The duck spreads its wings and soars away. \_O<`,
+		`The duck spreads its wings and soars away.`,
 		`The duck makes a break for it—waddle waddle waddle!`,
 		`The ninja duck drops a smoke bomb and vanishes! *poof*`,
 		`The duck moonwalks into the reeds and disappears.`,
 		`The duck performs an evasive barrel roll and escapes!`,
 	}
-	return ircColor(ircYellow, "[Duck Hunt] "+actions[rand.Intn(len(actions))])
+	return fmt.Sprintf("%s %s %s", ircColor(ircGreen, "[Duck Hunt]"), coloredDuckASCII(), ircColor(ircYellow, actions[rand.Intn(len(actions))]))
 }
 
 func duckPlural(count uint64) string {
