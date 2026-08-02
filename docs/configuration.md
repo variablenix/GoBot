@@ -182,11 +182,20 @@ The sender must be identified to an IRC account listed in `owner_accounts`; a
 nickname alone is not accepted. GoBot replies privately after the reload and
 keeps the existing IRC connection open.
 
-The reload currently applies settings for active plugins that support runtime
-reloads, including `ask`. It does not change the server, nickname, channels,
-`owner_accounts`, plugin enable/disable flags, or per-channel plugin
-overrides. Those changes require a restart. Environment variables loaded from
-`.env` are process settings as well, so changing `.env` requires a restart.
+The reload applies settings for active plugins that support runtime reloads,
+including `ask`, refreshes the `plugin_overrides` for the network on which the
+private message was received, and applies global plugin enable/disable changes.
+For example, changing `plugins.choose.enabled` from `true` to `false` stops
+`!choose` immediately; changing it back to `true` initializes it and enables it
+again without disconnecting. The same applies to channel overrides such as
+`duckhunt: false`. For a multi-network configuration, GoBot selects the
+override map belonging to the connected network; legacy single-network
+`plugin_overrides` is supported too.
+
+The reload does not change the server, nickname, channel membership, or
+`owner_accounts`. Those changes require a restart. Environment variables loaded
+from `.env` are process settings as well, so changing `.env` requires a
+restart.
 
 Anyone may invite the bot when invitations are enabled:
 

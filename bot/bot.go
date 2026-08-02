@@ -17,24 +17,27 @@ import (
 )
 
 type Bot struct {
-	Config        Config
-	DB            *storage.DB
-	Stats         *Stats
-	Plugins       []Plugin
-	Log           *zap.Logger
-	Queue         *Queue
-	client        *irc.Client
-	reloadHandler func(Message)
-	mu            sync.RWMutex
-	pluginMu      sync.RWMutex
-	commandMu     sync.Mutex
-	lastCommands  map[string]time.Time
-	lastWarnings  map[string]time.Time
-	inviteMu      sync.Mutex
-	lastInvites   map[string]time.Time
-	lastInvite    time.Time
-	warmupMu      sync.RWMutex
-	warmupUntil   map[string]time.Time
+	Config         Config
+	DB             *storage.DB
+	Stats          *Stats
+	Plugins        []Plugin
+	Log            *zap.Logger
+	Queue          *Queue
+	client         *irc.Client
+	reloadHandler  func(Message)
+	mu             sync.RWMutex
+	configMu       sync.RWMutex
+	pluginMu       sync.RWMutex
+	enabledPlugins map[string]bool
+	startedPlugins map[string]bool
+	commandMu      sync.Mutex
+	lastCommands   map[string]time.Time
+	lastWarnings   map[string]time.Time
+	inviteMu       sync.Mutex
+	lastInvites    map[string]time.Time
+	lastInvite     time.Time
+	warmupMu       sync.RWMutex
+	warmupUntil    map[string]time.Time
 }
 
 func New(cfg Config, db *storage.DB, plugins []Plugin, log *zap.Logger) *Bot {
@@ -42,7 +45,12 @@ func New(cfg Config, db *storage.DB, plugins []Plugin, log *zap.Logger) *Bot {
 }
 
 func NewWithStats(cfg Config, db *storage.DB, plugins []Plugin, log *zap.Logger, stats *Stats) *Bot {
-	b := &Bot{Config: cfg, DB: db, Stats: stats, Plugins: plugins, Log: log, lastCommands: make(map[string]time.Time), lastWarnings: make(map[string]time.Time), lastInvites: make(map[string]time.Time), warmupUntil: make(map[string]time.Time)}
+	enabledPlugins := make(map[string]bool, len(plugins))
+	startedPlugins := make(map[string]bool, len(plugins))
+	for _, plugin := range plugins {
+		enabledPlugins[plugin.Name()] = true
+	}
+	b := &Bot{Config: cfg, DB: db, Stats: stats, Plugins: plugins, Log: log, enabledPlugins: enabledPlugins, startedPlugins: startedPlugins, lastCommands: make(map[string]time.Time), lastWarnings: make(map[string]time.Time), lastInvites: make(map[string]time.Time), warmupUntil: make(map[string]time.Time)}
 	b.Queue = NewQueue(cfg.RateLimit.MessagesPerSecond, cfg.RateLimit.Burst, func(o Outgoing) { b.sendNow(o.Target, o.Text) })
 	return b
 }
@@ -56,27 +64,99 @@ func (b *Bot) SetReloadHandler(handler func(Message)) {
 }
 
 // ReloadPlugins applies configuration to active plugins that explicitly
-// support runtime reloads. Connection, identity, channel, and owner settings
-// remain unchanged until the next process start.
+// support runtime reloads. Connection, identity, channel, owner, and
+// per-channel override settings are handled separately by the process reload
+// callback.
 func (b *Bot) ReloadPlugins(configs map[string]PluginConfig) (int, error) {
 	b.pluginMu.Lock()
 	defer b.pluginMu.Unlock()
 	count := 0
 	var firstErr error
 	for _, p := range b.Plugins {
-		reloadable, ok := p.(Reloadable)
-		if !ok {
+		config := configs[p.Name()]
+		enabled := config.Bool("enabled", true)
+		wasEnabled := b.enabledPlugins[p.Name()]
+		if !enabled {
+			b.enabledPlugins[p.Name()] = false
 			continue
 		}
-		if err := reloadable.Reload(configs[p.Name()]); err != nil {
+		if !wasEnabled {
+			if err := p.Init(config, b.DB); err != nil {
+				if firstErr == nil {
+					firstErr = fmt.Errorf("%s: %w", p.Name(), err)
+				}
+				continue
+			}
+			b.enabledPlugins[p.Name()] = true
+			if starter, ok := p.(Starter); ok && !b.startedPlugins[p.Name()] {
+				starter.Start(b)
+				b.startedPlugins[p.Name()] = true
+			}
+			count++
+			continue
+		}
+		reloadable, ok := p.(Reloadable)
+		if !ok {
+			b.enabledPlugins[p.Name()] = true
+			continue
+		}
+		if err := reloadable.Reload(config); err != nil {
 			if firstErr == nil {
 				firstErr = fmt.Errorf("%s: %w", p.Name(), err)
 			}
 			continue
 		}
+		b.enabledPlugins[p.Name()] = true
 		count++
 	}
 	return count, firstErr
+}
+
+// SetPluginEnabled records the initial global plugin enablement after all
+// plugins have been initialized. ReloadPlugins handles later transitions.
+func (b *Bot) SetPluginEnabled(name string, enabled bool) {
+	b.pluginMu.Lock()
+	b.enabledPlugins[name] = enabled
+	b.pluginMu.Unlock()
+}
+
+// MarkPluginStarted records a plugin background worker started by the process
+// during initial setup, preventing a later reload from starting it twice.
+func (b *Bot) MarkPluginStarted(name string) {
+	b.pluginMu.Lock()
+	b.startedPlugins[name] = true
+	b.pluginMu.Unlock()
+}
+
+func (b *Bot) pluginEnabled(name string) bool {
+	b.pluginMu.RLock()
+	enabled, configured := b.enabledPlugins[name]
+	b.pluginMu.RUnlock()
+	return !configured || enabled
+}
+
+// ReloadPluginOverrides replaces the per-channel plugin overrides used by
+// this network. The map is copied so the caller can safely discard or reuse
+// the newly loaded configuration after the reload completes.
+func (b *Bot) ReloadPluginOverrides(overrides map[string]map[string]bool) {
+	b.configMu.Lock()
+	b.Config.PluginOverrides = clonePluginOverrides(overrides)
+	b.configMu.Unlock()
+}
+
+func clonePluginOverrides(overrides map[string]map[string]bool) map[string]map[string]bool {
+	if overrides == nil {
+		return nil
+	}
+	clone := make(map[string]map[string]bool, len(overrides))
+	for channel, plugins := range overrides {
+		pluginClone := make(map[string]bool, len(plugins))
+		for plugin, enabled := range plugins {
+			pluginClone[plugin] = enabled
+		}
+		clone[channel] = pluginClone
+	}
+	return clone
 }
 func (b *Bot) Send(target, text string) {
 	if !b.Queue.Enqueue(Outgoing{target, text}) {
@@ -246,20 +326,27 @@ func (b *Bot) ChannelWarming(channel string) bool {
 // is not listed, or a plugin that is not listed for that channel, keeps the
 // global plugin setting.
 func (b *Bot) PluginEnabledForChannel(pluginName, channel string) bool {
+	if !b.pluginEnabled(pluginName) {
+		return false
+	}
 	channel = strings.TrimSpace(channel)
 	if channel == "" {
 		return true
 	}
-	for configuredChannel, overrides := range b.Config.PluginOverrides {
+	b.configMu.RLock()
+	overrides := b.Config.PluginOverrides
+	for configuredChannel, channelOverrides := range overrides {
 		if !strings.EqualFold(strings.TrimSpace(configuredChannel), channel) {
 			continue
 		}
-		for configuredPlugin, enabled := range overrides {
+		for configuredPlugin, enabled := range channelOverrides {
 			if strings.EqualFold(strings.TrimSpace(configuredPlugin), pluginName) {
+				b.configMu.RUnlock()
 				return enabled
 			}
 		}
 	}
+	b.configMu.RUnlock()
 	return true
 }
 
@@ -473,6 +560,9 @@ func (b *Bot) dispatch(msg Message) {
 	}
 	command := false
 	for _, p := range b.Plugins {
+		if !b.pluginEnabled(p.Name()) {
+			continue
+		}
 		if msg.IsChannel && !b.PluginEnabledForChannel(p.Name(), msg.Target) {
 			continue
 		}
@@ -501,6 +591,9 @@ func (b *Bot) dispatch(msg Message) {
 
 func (b *Bot) dispatchEvent(msg Message) {
 	for _, p := range b.Plugins {
+		if !b.pluginEnabled(p.Name()) {
+			continue
+		}
 		if msg.IsChannel && !b.PluginEnabledForChannel(p.Name(), msg.Target) {
 			continue
 		}
