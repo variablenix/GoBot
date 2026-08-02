@@ -956,21 +956,20 @@ func randomDuckAnnouncement() string {
 }
 
 func randomDuckAnnouncementForState(state *duckHuntState) string {
-	ducks := []string{`\_o<`, `\_O<`, `\_0<`, `\_ö<`}
-	noises := []string{"quack!", "QUACK!", "QUACK! QUACK!", "QUACK! flap flap!"}
-	duck := ducks[rand.Intn(len(ducks))]
-	noise := noises[rand.Intn(len(noises))]
+	// Keep the active-duck announcement compact and recognizable in both
+	// graphical and terminal IRC clients. The body uses mIRC orange as a soft
+	// tan approximation, the head is green, and the bill is yellow.
+	duck := coloredDuckASCII()
+	noise := ircColor(ircCyan, "QUACK!")
 	hp := 1
 	if state != nil && state.maxHP > 0 {
 		hp = state.maxHP
 	}
-	name := "DUCK"
-	color := ircCyan
-	if state != nil && state.golden {
-		name = "GOLDEN DUCK"
-		color = ircYellow
-	}
-	return fmt.Sprintf("%s %s %s %s HP: %d | Type %s to shoot or %s to befriend!", ircColor(ircGreen, "[Duck Hunt]"), ircColor(ircYellow, duck), ircColor(color, name), ircColor(ircCyan, noise), hp, ircColor(ircBold, "!bang"), ircColor(ircBold, "!bef"))
+	return fmt.Sprintf("%s %s %s HP: %d | Type %s to shoot or %s to befriend!", ircColor(ircGreen, "[Duck Hunt]"), duck, noise, hp, ircColor(ircBold, "!bang"), ircColor(ircBold, "!bef"))
+}
+
+func coloredDuckASCII() string {
+	return ircColor(ircTan, `\_`) + ircColor(ircGreen, "o") + ircColor(ircYellow, "<")
 }
 
 func randomDuckEscape() string {

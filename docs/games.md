@@ -171,9 +171,15 @@ trust through repeated befriending attempts:
 
 ~~~text
 [Duck Hunt] · ° · ° · ° \_o< FLAP FLAP!
-[Duck Hunt] \_o< GOLDEN DUCK QUACK! HP: 3 | Type !bang to shoot or !bef to befriend!
+[Duck Hunt] \_o< QUACK! HP: 3 | Type !bang to shoot or !bef to befriend!
 username hit the GOLDEN DUCK for 1 damage! It has 2 HP left. +20 points
 ~~~
+
+The active-duck announcement stays compact for terminal clients: `\_o< QUACK!`.
+When IRC colors are supported, the duck uses a soft tan approximation, green
+head, and yellow bill. The `GOLDEN DUCK` label is reserved for hit, befriending, and
+escape messages, where it is shown in yellow; it is not inserted into the duck
+ASCII itself.
 
 Before the duck appears, GoBot may send one randomly timed, colorized teaser
 such as a flight trail, quack, or flap. There is at most one teaser per hunt

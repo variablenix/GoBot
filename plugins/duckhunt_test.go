@@ -83,6 +83,22 @@ func TestDuckHuntShopCatalog(t *testing.T) {
 	}
 }
 
+func TestDuckHuntAnnouncementKeepsDuckASCIICompact(t *testing.T) {
+	announcement := randomDuckAnnouncementForState(&duckHuntState{golden: true, maxHP: 3})
+	if !strings.Contains(announcement, "QUACK!") {
+		t.Fatalf("announcement = %q, want QUACK!", announcement)
+	}
+	if !strings.Contains(announcement, "HP: 3") {
+		t.Fatalf("announcement = %q, want HP: 3", announcement)
+	}
+	if strings.Contains(announcement, "GOLDEN DUCK") {
+		t.Fatalf("announcement = %q, should not put GOLDEN DUCK in the duck body", announcement)
+	}
+	if !strings.Contains(announcement, "\\_") || !strings.Contains(announcement, "o") || !strings.Contains(announcement, "<") {
+		t.Fatalf("announcement = %q, want compact duck ASCII", announcement)
+	}
+}
+
 func TestDuckHuntSchedulesAfterActivityThreshold(t *testing.T) {
 	plugin := &DuckHunt{}
 	if err := plugin.Init(bot.PluginConfig{
@@ -243,10 +259,10 @@ func TestDuckHuntAnnouncementIncludesColorDuckAndQuack(t *testing.T) {
 	}
 }
 
-func TestDuckHuntGoldenAnnouncementIncludesHPAndActions(t *testing.T) {
+func TestDuckHuntAnnouncementIncludesHPAndActions(t *testing.T) {
 	announcement := randomDuckAnnouncementForState(&duckHuntState{golden: true, hp: 4, maxHP: 4})
-	if !strings.Contains(announcement, "GOLDEN DUCK") || !strings.Contains(announcement, "HP: 4") {
-		t.Fatalf("unexpected golden announcement: %q", announcement)
+	if strings.Contains(announcement, "GOLDEN DUCK") || !strings.Contains(announcement, "HP: 4") {
+		t.Fatalf("unexpected announcement: %q", announcement)
 	}
 	if !strings.Contains(announcement, "!bang") || !strings.Contains(announcement, "!bef") {
 		t.Fatalf("announcement does not provide actions: %q", announcement)

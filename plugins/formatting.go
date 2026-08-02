@@ -9,6 +9,7 @@ const (
 	ircBold   = "\x02"
 	ircGreen  = "\x0303"
 	ircRed    = "\x0304"
+	ircTan    = "\x0307" // mIRC orange, a practical tan approximation
 	ircCyan   = "\x0311"
 	ircYellow = "\x0308"
 )
