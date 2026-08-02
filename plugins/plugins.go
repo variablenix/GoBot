@@ -32,6 +32,7 @@ func All() []bot.Plugin {
 		&Timezone{},
 		&ChannelStats{},
 		&DuckHunt{},
+		&Daily{},
 		&Status{},
 		&Define{},
 		&Calculator{},

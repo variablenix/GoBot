@@ -86,11 +86,12 @@ type duckWeapon struct {
 // wagering mechanics: a duck appears after enough activity, and players use
 // local points and arcade gear to interact with it.
 type DuckHunt struct {
-	mu       sync.Mutex
-	db       *storage.DB
-	cfg      duckHuntConfig
-	states   map[string]*duckHuntState
-	attempts map[string]time.Time
+	mu         sync.Mutex
+	db         *storage.DB
+	cfg        duckHuntConfig
+	states     map[string]*duckHuntState
+	attempts   map[string]time.Time
+	tickerDone chan struct{}
 }
 
 func (p *DuckHunt) Name() string { return "duckhunt" }
@@ -299,13 +300,37 @@ func (p *DuckHunt) Init(c bot.PluginConfig, db *storage.DB) error {
 // Start checks channel states in the background. Active duck state is kept in
 // memory; scores, points, and player gear are persisted.
 func (p *DuckHunt) Start(b *bot.Bot) {
+	p.mu.Lock()
+	if p.tickerDone != nil {
+		p.mu.Unlock()
+		return
+	}
+	done := make(chan struct{})
+	p.tickerDone = done
+	p.mu.Unlock()
 	go func() {
 		ticker := time.NewTicker(time.Second)
 		defer ticker.Stop()
-		for range ticker.C {
-			p.tick(b)
+		for {
+			select {
+			case <-ticker.C:
+				p.tick(b)
+			case <-done:
+				return
+			}
 		}
 	}()
+}
+
+// Stop terminates the activity ticker. State is rebuilt by Init if the plugin
+// is enabled again, so a disabled Duck Hunt cannot emit stale activity.
+func (p *DuckHunt) Stop(_ *bot.Bot) {
+	p.mu.Lock()
+	if p.tickerDone != nil {
+		close(p.tickerDone)
+		p.tickerDone = nil
+	}
+	p.mu.Unlock()
 }
 
 func (p *DuckHunt) Handle(b *bot.Bot, m bot.Message) bool {
@@ -905,6 +930,29 @@ func (p *DuckHunt) savePlayerLocked(network, channel, nick string, player duckPl
 	if p.db != nil {
 		_ = p.db.Set(duckHuntPlayersBucket, duckHuntPlayerKey(network, channel, nick), player)
 	}
+}
+
+// AwardXP adds progression XP to the player's profile for the current
+// network/channel. It is used by the daily bonus plugin so daily rewards and
+// Duck Hunt progression share one durable ledger.
+func (p *DuckHunt) AwardXP(network, channel, nick string, amount int64) (int64, error) {
+	if amount <= 0 {
+		return 0, fmt.Errorf("XP award must be positive")
+	}
+	const maxInt64 = int64(1<<63 - 1)
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	player := p.loadPlayerLocked(network, channel, nick)
+	if player.XP > maxInt64-amount {
+		return player.XP, fmt.Errorf("XP total is too large")
+	}
+	player.XP += amount
+	if p.db != nil {
+		if err := p.db.Set(duckHuntPlayersBucket, duckHuntPlayerKey(network, channel, nick), player); err != nil {
+			return player.XP - amount, err
+		}
+	}
+	return player.XP, nil
 }
 
 func (p *DuckHunt) stateLocked(network, channel string) *duckHuntState {

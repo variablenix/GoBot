@@ -97,6 +97,7 @@ plugins:
   weapons: {enabled: true, data_file: "data/weapons.txt", max_length: 240}
   github: {enabled: true, timeout_seconds: 8, max_length: 360, token: ""}
   reddit: {enabled: true, timeout_seconds: 8, max_length: 360}
+  daily: {enabled: true, bonus_xp: 25}
   # Keyless source-grounded answers by default; AI rewriting is opt-in.
   ask:
     enabled: true
@@ -142,6 +143,14 @@ instructions or tactical guidance. `github` uses read-only public GitHub API
 lookups. Their output limits
 prevent a slow or unusually large response from holding up the bot or flooding
 IRC. Disable any of them with `enabled: false` if they are not wanted.
+
+`daily` provides `!daily` in channels. Each authenticated account can claim
+once per UTC calendar day, regardless of channel or network; users without an
+account tag are limited by network and nickname. Different users can each
+claim the same day. The default reward is 25 XP, added to the Duck Hunt
+progression profile for the channel where it is claimed. Daily bonuses require
+Duck Hunt to be enabled globally and for that channel. Claims are persisted in
+the configured database, so restarting GoBot does not reset the daily limit.
 
 The optional `welcome` plugin listens for users joining a channel. It applies
 the configured probability to each join and then enforces a per-channel
