@@ -67,3 +67,14 @@ func TestDailyAwardUsesDuckHuntXP(t *testing.T) {
 		t.Fatalf("player XP = %d, want 25", player.XP)
 	}
 }
+
+func TestDailyMessagesColorOnlyMeaningfulFragments(t *testing.T) {
+	success := formatDailySuccess("Echo", 25, 1)
+	if success != "Echo > Daily bonus claimed! \x0303+25 XP\x0f \x0308(1-day streak!)\x0f Come back tomorrow!" {
+		t.Fatalf("success message = %q", success)
+	}
+	already := formatDailyAlreadyClaimed()
+	if already != "\x0308daily bonus already claimed today\x0f — come back tomorrow!" {
+		t.Fatalf("already-claimed message = %q", already)
+	}
+}

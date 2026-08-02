@@ -90,11 +90,11 @@ func (p *Daily) Handle(b *bot.Bot, m bot.Message) bool {
 	today := dailyNow().UTC().Format("2006-01-02")
 	claim, alreadyClaimed, err := p.claim(identity, today)
 	if err != nil {
-		b.Send(m.ReplyTarget(), "daily bonus storage is temporarily unavailable")
+		b.Send(m.ReplyTarget(), ircColor(ircRed, "daily bonus storage is temporarily unavailable"))
 		return true
 	}
 	if alreadyClaimed {
-		b.Send(m.ReplyTarget(), "daily bonus already claimed today — come back tomorrow!")
+		b.Send(m.ReplyTarget(), formatDailyAlreadyClaimed())
 		return true
 	}
 
@@ -103,11 +103,21 @@ func (p *Daily) Handle(b *bot.Bot, m bot.Message) bool {
 	p.cfgMu.RUnlock()
 	if _, err := duckhunt.AwardXP(b.Config.NetworkName, m.Target, m.Nick, bonusXP); err != nil {
 		p.rollback(identity, claim)
-		b.Send(m.ReplyTarget(), "daily bonus could not be saved; please try again later")
+		b.Send(m.ReplyTarget(), ircColor(ircRed, "daily bonus could not be saved; please try again later"))
 		return true
 	}
-	b.Send(m.ReplyTarget(), fmt.Sprintf("%s > Daily bonus claimed! +%d XP (%d-day streak!) Come back tomorrow!", m.Nick, bonusXP, claim.Streak))
+	b.Send(m.ReplyTarget(), formatDailySuccess(m.Nick, bonusXP, claim.Streak))
 	return true
+}
+
+func formatDailySuccess(nick string, bonusXP int64, streak int) string {
+	reward := ircColor(ircGreen, fmt.Sprintf("+%d XP", bonusXP))
+	streakText := ircColor(ircYellow, fmt.Sprintf("(%d-day streak!)", streak))
+	return fmt.Sprintf("%s > Daily bonus claimed! %s %s Come back tomorrow!", nick, reward, streakText)
+}
+
+func formatDailyAlreadyClaimed() string {
+	return ircColor(ircYellow, "daily bonus already claimed today") + " — come back tomorrow!"
 }
 
 func findDuckHunt(b *bot.Bot) *DuckHunt {
