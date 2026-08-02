@@ -163,6 +163,10 @@ plugins:
     starting_points: 25
     magazine_cost: 15
     gun_cost: 25
+    # Points are shop currency; XP is separate and controls player levels.
+    xp_per_hit: 5
+    xp_per_kill: 25
+    xp_per_befriend: 20
 ~~~
 
 Once the activity threshold is reached, GoBot waits a random amount of time
@@ -205,7 +209,10 @@ Commands:
 !buy magazine         buy a spare magazine
 !ammo                 show ammo, spare magazines, and points
 !reload               load a spare magazine
-!ducks [nickname]     show persistent scores
+!ducks [nickname]     show persistent scores, points, level, and XP
+!level [nickname]     show level, XP, points, and Duck Hunt scores
+!xp [nickname]        alias for !level
+!profile [nickname]   alias for !level
 !dh                   show Duck Hunt status
 !dh status            show Duck Hunt status
 !dh start             enable automatic activity for this channel (owner only)
@@ -230,6 +237,17 @@ has a larger magazine, and the Golden Wing costs more but deals extra damage.
 The catalog uses arcade-style names and simple game statistics so the feature
 stays focused on gameplay rather than real-world equipment.
 
+Points and XP are separate persistent values. Points are the shop currency
+used by `!buy` and `!reload`; XP measures Duck Hunt progress and determines the
+player's level. Everyone starts at level 1. Level 2 requires 100 total XP,
+level 3 requires 300 total XP, level 4 requires 600 total XP, and each later
+level follows the same gradually increasing curve. Normal hits, kills, and
+befriending award the configured XP values; golden ducks award double XP.
+Use `!level` or `!profile` to see your own profile, or add a nickname to view
+another player's public Duck Hunt totals. Existing BoltDB player records are
+compatible: players from older versions simply begin with 0 XP and keep their
+existing points, gear, and scores.
+
 New players receive `starting_points`. A player can buy one item at a time;
 buying a different item replaces the current gear and starts a fresh magazine.
 Spare magazines are purchased with `!buy magazine` and loaded with `!reload`.
@@ -241,10 +259,11 @@ earn more points and visit `!shop` again. This is only a game-state penalty.
 If nobody shoots or befriends the duck before `timeout_seconds` expires, it
 responds with one randomized escape line such as `The duck escapes into the
 sky!` or `\\_o< *ZOOM* The speedy duck vanishes in a flash!`. This is one IRC
-message, not a follow-up flood. Announcements and results use standard mIRC
-IRC colors for the Duck Hunt label, duck, quack, misses, and successful
-interactions. Clients without color support still receive readable text and an
-ASCII duck.
+message, not a follow-up flood. Escape results include the compact colored
+duck ASCII and a highlighted motion line, such as `\\_o< The duck flaps away,
+living another day. °°°...`. The output deliberately uses ASCII motion instead
+of emoji so it stays readable in terminal IRC clients; clients without color
+support still receive readable text and an ASCII duck.
 
 Settings:
 
@@ -269,7 +288,12 @@ Settings:
 - starting_points: points granted when a player first participates
 - magazine_cost and gun_cost: base shop prices; the enhanced items add their
   own small point premium
+- xp_per_hit: XP awarded for a successful non-final hit; golden ducks double it
+- xp_per_kill: XP awarded when a shot resolves the duck; golden ducks double it
+- xp_per_befriend: XP awarded when a player completes the trust progression;
+  golden ducks double it
 
-Scores, points, and player gear are stored in BoltDB and survive restarts.
+Scores, points, XP, levels, and player gear are stored in BoltDB and survive
+restarts. The progression data is local to each network/channel/nickname.
 After a duck is resolved or times out, the channel must reach the activity
 threshold again before another automatic event is scheduled.

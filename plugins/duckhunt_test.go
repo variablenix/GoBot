@@ -32,6 +32,9 @@ func TestDuckHuntDefaults(t *testing.T) {
 	if !plugin.cfg.firearmEnabled || plugin.cfg.magazineSize != 6 || plugin.cfg.startingAmmo != 6 || plugin.cfg.startingPoints != 25 {
 		t.Fatalf("unexpected arcade gear defaults: %+v", plugin.cfg)
 	}
+	if plugin.cfg.xpPerHit != 5 || plugin.cfg.xpPerKill != 25 || plugin.cfg.xpPerBefriend != 20 {
+		t.Fatalf("unexpected progression defaults: %+v", plugin.cfg)
+	}
 }
 
 func TestDuckHuntIncludesBefriendAlias(t *testing.T) {
@@ -46,7 +49,7 @@ func TestDuckHuntIncludesBefriendAlias(t *testing.T) {
 	if !found {
 		t.Fatal("expected !bef command alias")
 	}
-	for _, command := range []string{"shop", "store", "buy", "reload", "ammo"} {
+	for _, command := range []string{"shop", "store", "buy", "reload", "ammo", "level", "xp", "profile"} {
 		found = false
 		for _, candidate := range plugin.Commands() {
 			if candidate == command {
@@ -60,6 +63,9 @@ func TestDuckHuntIncludesBefriendAlias(t *testing.T) {
 	}
 	if !strings.Contains(plugin.Help(), "!bef") {
 		t.Fatal("expected !bef alias in help")
+	}
+	if !strings.Contains(plugin.Help(), "!level") {
+		t.Fatal("expected progression command in help")
 	}
 }
 
@@ -233,6 +239,7 @@ func TestDuckHuntPlayerGearPersists(t *testing.T) {
 	player.SpareMagazines = 2
 	player.Ammo = 3
 	player.Points = 99
+	player.XP = 123
 	player.HasGun = true
 	player.Weapon = "quacker"
 	plugin.savePlayerLocked("network", "#channel", "Alice", player)
@@ -241,8 +248,35 @@ func TestDuckHuntPlayerGearPersists(t *testing.T) {
 	plugin.mu.Lock()
 	loaded := plugin.loadPlayerLocked("network", "#channel", "alice")
 	plugin.mu.Unlock()
-	if loaded.SpareMagazines != 2 || loaded.Ammo != 3 || loaded.Points != 99 || loaded.Weapon != "quacker" {
+	if loaded.SpareMagazines != 2 || loaded.Ammo != 3 || loaded.Points != 99 || loaded.XP != 123 || loaded.Weapon != "quacker" {
 		t.Fatalf("loaded player = %+v, want persisted gear and points", loaded)
+	}
+}
+
+func TestDuckHuntProgression(t *testing.T) {
+	tests := []struct {
+		xp    int64
+		level int
+	}{
+		{xp: 0, level: 1},
+		{xp: 99, level: 1},
+		{xp: 100, level: 2},
+		{xp: 299, level: 2},
+		{xp: 300, level: 3},
+	}
+	for _, test := range tests {
+		if got := duckLevel(test.xp); got != test.level {
+			t.Fatalf("duckLevel(%d) = %d, want %d", test.xp, got, test.level)
+		}
+	}
+	if got := xpToNextLevel(123); got != 177 {
+		t.Fatalf("xpToNextLevel(123) = %d, want 177", got)
+	}
+	if got := xpReward(5, false); got != 5 {
+		t.Fatalf("xpReward(5, false) = %d, want 5", got)
+	}
+	if got := xpReward(5, true); got != 10 {
+		t.Fatalf("xpReward(5, true) = %d, want 10", got)
 	}
 }
 
@@ -284,15 +318,17 @@ func TestDuckHuntFlavorIncludesColorAndMotion(t *testing.T) {
 }
 
 func TestDuckHuntEscapeIncludesColorAndMotion(t *testing.T) {
-	escape := randomDuckEscape()
-	if !strings.Contains(escape, "\x03") {
-		t.Fatal("expected mIRC color formatting in Duck Hunt escape")
-	}
-	if !strings.Contains(escape, "[Duck Hunt]") {
-		t.Fatal("expected Duck Hunt label in escape")
-	}
-	if strings.Contains(escape, "\n") || strings.Contains(escape, "\r") {
-		t.Fatal("escape must remain one IRC message")
+	for i := 0; i < 50; i++ {
+		escape := randomDuckEscape()
+		if !strings.Contains(escape, "\x03") {
+			t.Fatal("expected mIRC color formatting in Duck Hunt escape")
+		}
+		if !strings.Contains(escape, "[Duck Hunt]") || !strings.Contains(escape, `\_`) {
+			t.Fatalf("escape = %q, want Duck Hunt label and duck ASCII", escape)
+		}
+		if strings.Contains(escape, "\n") || strings.Contains(escape, "\r") {
+			t.Fatal("escape must remain one IRC message")
+		}
 	}
 }
 
