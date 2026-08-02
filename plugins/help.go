@@ -21,6 +21,9 @@ func (p *Help) Handle(b *bot.Bot, m bot.Message) bool {
 	}
 	if strings.TrimSpace(arg) != "" {
 		for _, x := range b.Plugins {
+			if m.IsChannel && !b.PluginEnabledForChannel(x.Name(), m.Target) {
+				continue
+			}
 			if strings.EqualFold(x.Name(), strings.TrimSpace(arg)) {
 				b.Send(m.ReplyTarget(), ircColor(ircCyan, x.Help()))
 				return true
@@ -35,6 +38,9 @@ func (p *Help) Handle(b *bot.Bot, m bot.Message) bool {
 	}
 	var names []string
 	for _, x := range b.Plugins {
+		if m.IsChannel && !b.PluginEnabledForChannel(x.Name(), m.Target) {
+			continue
+		}
 		names = append(names, x.Name())
 	}
 	sort.Strings(names)

@@ -207,6 +207,28 @@ func (b *Bot) ChannelWarming(channel string) bool {
 	return b.channelWarming(channel)
 }
 
+// PluginEnabledForChannel reports whether a plugin is allowed to operate in
+// a channel. Per-channel overrides are intentionally opt-out: a channel that
+// is not listed, or a plugin that is not listed for that channel, keeps the
+// global plugin setting.
+func (b *Bot) PluginEnabledForChannel(pluginName, channel string) bool {
+	channel = strings.TrimSpace(channel)
+	if channel == "" {
+		return true
+	}
+	for configuredChannel, overrides := range b.Config.PluginOverrides {
+		if !strings.EqualFold(strings.TrimSpace(configuredChannel), channel) {
+			continue
+		}
+		for configuredPlugin, enabled := range overrides {
+			if strings.EqualFold(strings.TrimSpace(configuredPlugin), pluginName) {
+				return enabled
+			}
+		}
+	}
+	return true
+}
+
 func validChannelName(channel string) bool {
 	if len(channel) < 2 || len(channel) > 200 || (channel[0] != '#' && channel[0] != '&') {
 		return false
@@ -414,6 +436,9 @@ func (b *Bot) dispatch(msg Message) {
 	}
 	command := false
 	for _, p := range b.Plugins {
+		if msg.IsChannel && !b.PluginEnabledForChannel(p.Name(), msg.Target) {
+			continue
+		}
 		consumed := false
 		func() {
 			defer func() {
@@ -437,6 +462,9 @@ func (b *Bot) dispatch(msg Message) {
 
 func (b *Bot) dispatchEvent(msg Message) {
 	for _, p := range b.Plugins {
+		if msg.IsChannel && !b.PluginEnabledForChannel(p.Name(), msg.Target) {
+			continue
+		}
 		handler, ok := p.(EventHandler)
 		if !ok {
 			continue
