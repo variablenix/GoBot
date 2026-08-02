@@ -688,7 +688,11 @@ plugins:
 retrieved source and asks it to turn that source into a concise, factual,
 single-paragraph answer. It does not use an AI provider when `provider: none`
 is selected, and it falls back to the source summary if the provider is
-unavailable. Keep provider credentials out of `config.yaml`:
+unavailable. `BOT_ASK_PROVIDER` and `BOT_ASK_AI_REWRITE` override the
+corresponding nested config values; this means `provider: none` and
+`ai_rewrite: false` can remain in the tracked example while a deployment
+enables rewriting through `.env`. Keep provider credentials out of
+`config.yaml`:
 
 ~~~env
 BOT_ASK_PROVIDER=openrouter
@@ -700,7 +704,28 @@ BOT_OPENROUTER_MODEL=openrouter/free
 OpenAI uses `BOT_OPENAI_API_KEY` and `BOT_OPENAI_MODEL`; Gemini uses
 `BOT_GEMINI_API_KEY` and `BOT_GEMINI_MODEL`. For a local Ollama instance, use
 `BOT_ASK_PROVIDER=ollama`, `BOT_OLLAMA_URL`, and `BOT_OLLAMA_MODEL`. The output
-limits still apply regardless of provider.
+limits still apply regardless of provider. If a provider returns meta-text
+such as “the user asks” or “the source does not”, GoBot rejects it and keeps
+the source-grounded answer instead.
+
+To verify that the key is actually being used, check the service log after one
+fresh `!ask` request:
+
+~~~text
+ask AI rewrite requested ... provider=openrouter ... api_key_configured=true
+ask AI rewrite used ... provider=openrouter ...
+~~~
+
+If the provider call fails, GoBot logs `ask AI rewrite unavailable; using source
+summary` and still returns the source answer. The API key is never written to
+the log. A source-only response is usually faster; an AI rewrite adds one
+external request, and free models may take longer when they are cold or busy.
+Use `BOT_ASK_AI_REWRITE=false` to compare source-only behavior.
+
+After changing `config.yaml`, an owner can send GoBot a private `reload`
+message to apply reloadable plugin settings without reconnecting. Changes to
+`.env` still require a service restart because systemd reads that file when the
+process starts.
 
 ## Wikipedia
 

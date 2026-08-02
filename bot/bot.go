@@ -17,22 +17,24 @@ import (
 )
 
 type Bot struct {
-	Config       Config
-	DB           *storage.DB
-	Stats        *Stats
-	Plugins      []Plugin
-	Log          *zap.Logger
-	Queue        *Queue
-	client       *irc.Client
-	mu           sync.RWMutex
-	commandMu    sync.Mutex
-	lastCommands map[string]time.Time
-	lastWarnings map[string]time.Time
-	inviteMu     sync.Mutex
-	lastInvites  map[string]time.Time
-	lastInvite   time.Time
-	warmupMu     sync.RWMutex
-	warmupUntil  map[string]time.Time
+	Config        Config
+	DB            *storage.DB
+	Stats         *Stats
+	Plugins       []Plugin
+	Log           *zap.Logger
+	Queue         *Queue
+	client        *irc.Client
+	reloadHandler func(Message)
+	mu            sync.RWMutex
+	pluginMu      sync.RWMutex
+	commandMu     sync.Mutex
+	lastCommands  map[string]time.Time
+	lastWarnings  map[string]time.Time
+	inviteMu      sync.Mutex
+	lastInvites   map[string]time.Time
+	lastInvite    time.Time
+	warmupMu      sync.RWMutex
+	warmupUntil   map[string]time.Time
 }
 
 func New(cfg Config, db *storage.DB, plugins []Plugin, log *zap.Logger) *Bot {
@@ -43,6 +45,38 @@ func NewWithStats(cfg Config, db *storage.DB, plugins []Plugin, log *zap.Logger,
 	b := &Bot{Config: cfg, DB: db, Stats: stats, Plugins: plugins, Log: log, lastCommands: make(map[string]time.Time), lastWarnings: make(map[string]time.Time), lastInvites: make(map[string]time.Time), warmupUntil: make(map[string]time.Time)}
 	b.Queue = NewQueue(cfg.RateLimit.MessagesPerSecond, cfg.RateLimit.Burst, func(o Outgoing) { b.sendNow(o.Target, o.Text) })
 	return b
+}
+
+// SetReloadHandler installs the owner-only private-message callback used by
+// the process to reload plugin configuration in place.
+func (b *Bot) SetReloadHandler(handler func(Message)) {
+	b.mu.Lock()
+	b.reloadHandler = handler
+	b.mu.Unlock()
+}
+
+// ReloadPlugins applies configuration to active plugins that explicitly
+// support runtime reloads. Connection, identity, channel, and owner settings
+// remain unchanged until the next process start.
+func (b *Bot) ReloadPlugins(configs map[string]PluginConfig) (int, error) {
+	b.pluginMu.Lock()
+	defer b.pluginMu.Unlock()
+	count := 0
+	var firstErr error
+	for _, p := range b.Plugins {
+		reloadable, ok := p.(Reloadable)
+		if !ok {
+			continue
+		}
+		if err := reloadable.Reload(configs[p.Name()]); err != nil {
+			if firstErr == nil {
+				firstErr = fmt.Errorf("%s: %w", p.Name(), err)
+			}
+			continue
+		}
+		count++
+	}
+	return count, firstErr
 }
 func (b *Bot) Send(target, text string) {
 	if !b.Queue.Enqueue(Outgoing{target, text}) {
@@ -428,6 +462,9 @@ func (b *Bot) logIRCEvent(m *irc.Message) {
 	}
 }
 func (b *Bot) dispatch(msg Message) {
+	if b.handlePrivateReload(msg) {
+		return
+	}
 	if msg.Command == "PRIVMSG" && msg.IsChannel && b.channelWarming(msg.Target) {
 		return
 	}
@@ -440,8 +477,10 @@ func (b *Bot) dispatch(msg Message) {
 			continue
 		}
 		consumed := false
+		b.pluginMu.RLock()
 		func() {
 			defer func() {
+				b.pluginMu.RUnlock()
 				if r := recover(); r != nil {
 					b.Log.Error("plugin panic", zap.String("plugin", p.Name()), zap.Any("panic", r))
 				}
@@ -469,8 +508,10 @@ func (b *Bot) dispatchEvent(msg Message) {
 		if !ok {
 			continue
 		}
+		b.pluginMu.RLock()
 		func() {
 			defer func() {
+				b.pluginMu.RUnlock()
 				if r := recover(); r != nil {
 					b.Log.Error("plugin event panic", zap.String("plugin", p.Name()), zap.Any("panic", r))
 				}
@@ -478,6 +519,23 @@ func (b *Bot) dispatchEvent(msg Message) {
 			handler.HandleEvent(b, msg)
 		}()
 	}
+}
+
+func (b *Bot) handlePrivateReload(msg Message) bool {
+	if msg.Command != "PRIVMSG" || msg.IsChannel || !b.IsOwner(msg) {
+		return false
+	}
+	text := strings.ToLower(strings.TrimSpace(msg.Text))
+	if text != "reload" && text != "!reload" {
+		return false
+	}
+	b.mu.RLock()
+	handler := b.reloadHandler
+	b.mu.RUnlock()
+	if handler != nil {
+		handler(msg)
+	}
+	return true
 }
 func (b *Bot) Run(ctx context.Context) error {
 	backoff := 5 * time.Second
