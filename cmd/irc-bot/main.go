@@ -84,20 +84,22 @@ func main() {
 		networkCfg.Identity = network.Identity
 		networkCfg.Channels = network.Channels
 		networkCfg.PluginOverrides = network.PluginOverrides
-		active := make([]bot.Plugin, 0)
-		for _, p := range plugins.All() {
-			if c, ok := cfg.Plugins[p.Name()]; ok && !c.Bool("enabled", true) {
-				continue
+		allPlugins := plugins.All()
+		instance := bot.NewWithStats(networkCfg, db, allPlugins, log, stats)
+		for _, plugin := range allPlugins {
+			enabled := true
+			if c, ok := cfg.Plugins[plugin.Name()]; ok {
+				enabled = c.Bool("enabled", true)
 			}
-			if err := p.Init(cfg.Plugins[p.Name()], db); err != nil {
-				log.Fatal("plugin init", zap.String("plugin", p.Name()), zap.String("network", network.Name), zap.Error(err))
-			}
-			active = append(active, p)
-		}
-		instance := bot.NewWithStats(networkCfg, db, active, log, stats)
-		for _, plugin := range active {
-			if starter, ok := plugin.(bot.Starter); ok {
-				starter.Start(instance)
+			instance.SetPluginEnabled(plugin.Name(), enabled)
+			if enabled {
+				if err := plugin.Init(cfg.Plugins[plugin.Name()], db); err != nil {
+					log.Fatal("plugin init", zap.String("plugin", plugin.Name()), zap.String("network", network.Name), zap.Error(err))
+				}
+				if starter, ok := plugin.(bot.Starter); ok {
+					starter.Start(instance)
+					instance.MarkPluginStarted(plugin.Name())
+				}
 			}
 		}
 		instances = append(instances, instance)
@@ -119,7 +121,8 @@ func main() {
 			log.Warn("configuration reload failed", zap.Error(err))
 			return
 		}
-		current.Send(msg.ReplyTarget(), fmt.Sprintf("configuration reloaded for %d plugin(s); IRC connection unchanged", count))
+		current.ReloadPluginOverrides(pluginOverridesForNetwork(updated, current.Config.NetworkName))
+		current.Send(msg.ReplyTarget(), fmt.Sprintf("configuration reloaded for %d plugin(s) and channel overrides; IRC connection unchanged", count))
 		log.Info("configuration reloaded", zap.Int("plugins", count), zap.String("network", current.Config.NetworkName))
 	}
 	for _, instance := range instances {
@@ -139,6 +142,25 @@ func main() {
 	for _, instance := range instances {
 		instance.Queue.Drain(qctx)
 	}
+}
+
+func pluginOverridesForNetwork(cfg bot.Config, networkName string) map[string]map[string]bool {
+	if len(cfg.Networks) == 0 {
+		return cfg.PluginOverrides
+	}
+	for i, network := range cfg.Networks {
+		name := network.Name
+		if name == "" {
+			name = network.Server.Host
+		}
+		if name == "" {
+			name = fmt.Sprintf("network-%d", i+1)
+		}
+		if strings.EqualFold(name, networkName) {
+			return network.PluginOverrides
+		}
+	}
+	return nil
 }
 
 func loadConfig() (bot.Config, error) {
