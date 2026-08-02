@@ -165,6 +165,12 @@ such as a flight trail, quack, or flap. There is at most one teaser per hunt
 cycle, and `flavor_min_lead_seconds` keeps it separated from the actual duck
 announcement so it does not turn into channel chatter.
 
+Duck Hunt includes several randomized messages: four flight-trail/flavor
+teasers, multiple duck and quack announcement variants, and eight different
+escape actions including flying, flapping, waddling, slipping through reeds,
+and zooming away. A hunt uses at most one teaser and one final outcome message,
+so the variety does not create a flood.
+
 Commands:
 
 ~~~text

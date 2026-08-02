@@ -21,11 +21,12 @@ networks:
       sasl_user: ""
       sasl_pass: ""
     channels:
-      - "#example"
-      - "#bots"
+      - "#quiet"
+      - "#lobby"
     # Optional per-channel opt-outs. Unlisted plugins keep their global setting.
+    # Only #quiet gets these overrides; #lobby keeps the global plugin settings.
     plugin_overrides:
-      "#bots":
+      "#quiet":
         banter: false
         urltitle: false
         duckhunt: false
@@ -55,6 +56,21 @@ Set a plugin to `false` to disable it in that channel; omitted plugins remain
 enabled. Channel and plugin names are matched case-insensitively. Overrides
 also keep disabled plugins out of `!help` and `!alias`, and event-driven
 plugins such as Duck Hunt are stopped cleanly for that channel.
+
+For example, with the configuration above, `#quiet` disables banter, URL title
+lookups, and Duck Hunt, while `#lobby` continues using the global settings. To
+disable a different plugin in `#lobby`, add another entry without changing the
+`#quiet` entry:
+
+```yaml
+plugin_overrides:
+  "#quiet":
+    banter: false
+    urltitle: false
+    duckhunt: false
+  "#lobby":
+    banter: false
+```
 
 ## Main settings
 
