@@ -35,6 +35,9 @@ func (p *Alias) Handle(b *bot.Bot, m bot.Message) bool {
 	}
 	plugins := make([]bot.Plugin, 0, len(b.Plugins))
 	for _, plugin := range b.Plugins {
+		if !b.PluginEnabled(plugin.Name()) {
+			continue
+		}
 		if m.IsChannel && !b.PluginEnabledForChannel(plugin.Name(), m.Target) {
 			continue
 		}
@@ -46,6 +49,9 @@ func (p *Alias) Handle(b *bot.Bot, m bot.Message) bool {
 
 func aliasesForEnabled(b *bot.Bot, m bot.Message, name string) ([]string, string, bool) {
 	for _, plugin := range b.Plugins {
+		if !b.PluginEnabled(plugin.Name()) {
+			continue
+		}
 		if m.IsChannel && !b.PluginEnabledForChannel(plugin.Name(), m.Target) {
 			continue
 		}

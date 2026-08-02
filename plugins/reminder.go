@@ -78,6 +78,23 @@ func (p *Reminder) Start(b *bot.Bot) {
 	p.pending = append(p.pending, remaining...)
 	p.mu.Unlock()
 }
+
+// Stop cancels active timers while retaining their persisted records. A later
+// enable reloads those records and schedules them again instead of allowing a
+// disabled plugin to send messages.
+func (p *Reminder) Stop(_ *bot.Bot) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	for _, items := range p.items {
+		for _, item := range items {
+			if item.timer != nil {
+				item.timer.Stop()
+			}
+		}
+	}
+	p.items = make(map[string][]*reminder)
+	p.pending = nil
+}
 func (p *Reminder) Handle(b *bot.Bot, m bot.Message) bool {
 	cmd, arg, ok := bot.IsCommand(m, b.Config.CommandPrefix)
 	if !ok || cmd != "remind" {
@@ -141,7 +158,9 @@ func (p *Reminder) schedule(b *bot.Bot, saved reminderRecord) *reminder {
 		delay = 0
 	}
 	item.timer = time.AfterFunc(delay, func() {
-		b.Send(item.target, fmt.Sprintf("%s: reminder: %s", item.nick, item.message))
+		if b.PluginEnabledForChannel(p.Name(), item.target) {
+			b.Send(item.target, fmt.Sprintf("%s: reminder: %s", item.nick, item.message))
+		}
 		p.remove(key, item)
 	})
 	return item
