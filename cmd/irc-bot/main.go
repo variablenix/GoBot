@@ -19,41 +19,9 @@ import (
 )
 
 func main() {
-	viper.SetConfigFile("config.yaml")
-	viper.AutomaticEnv()
-	viper.SetEnvPrefix("BOT")
-	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-	_ = viper.ReadInConfig()
-	viper.BindEnv("identity.sasl_pass", "BOT_SASL_PASS")
-	viper.BindEnv("plugins.news.api_key", "BOT_NEWS_API_KEY")
-	viper.BindEnv("plugins.lastfm.api_key", "BOT_LASTFM_API_KEY")
-	viper.BindEnv("plugins.github.token", "BOT_GITHUB_TOKEN")
-	viper.BindEnv("plugins.urltitle.youtube_api_key", "BOT_YOUTUBE_API_KEY")
-	viper.BindEnv("plugins.ask.ai_rewrite", "BOT_ASK_AI_REWRITE")
-	viper.BindEnv("plugins.ask.provider", "BOT_ASK_PROVIDER")
-	viper.BindEnv("plugins.ask.openrouter_api_key", "BOT_OPENROUTER_API_KEY")
-	viper.BindEnv("plugins.ask.openrouter_model", "BOT_OPENROUTER_MODEL")
-	viper.BindEnv("plugins.ask.openai_api_key", "BOT_OPENAI_API_KEY")
-	viper.BindEnv("plugins.ask.openai_model", "BOT_OPENAI_MODEL")
-	viper.BindEnv("plugins.ask.gemini_api_key", "BOT_GEMINI_API_KEY")
-	viper.BindEnv("plugins.ask.gemini_model", "BOT_GEMINI_MODEL")
-	viper.BindEnv("plugins.ask.ollama_url", "BOT_OLLAMA_URL")
-	viper.BindEnv("plugins.ask.ollama_model", "BOT_OLLAMA_MODEL")
-	viper.BindEnv("storage.db_path", "BOT_STORAGE_DB_PATH")
-	viper.BindEnv("stats.listen_address", "BOT_STATS_LISTEN_ADDRESS")
-
-	var cfg bot.Config
-	if err := viper.Unmarshal(&cfg); err != nil {
+	cfg, err := loadConfig()
+	if err != nil {
 		panic(err)
-	}
-	if cfg.Storage.DBPath == "" {
-		cfg.Storage.DBPath = "bot.db"
-	}
-	if cfg.CommandPrefix == "" {
-		cfg.CommandPrefix = "!"
-	}
-	if cfg.Stats.ListenAddress == "" {
-		cfg.Stats.ListenAddress = "127.0.0.1"
 	}
 
 	networks := cfg.Networks
@@ -133,13 +101,37 @@ func main() {
 			}
 		}
 		instances = append(instances, instance)
+	}
+
+	var reloadMu sync.Mutex
+	reload := func(current *bot.Bot, msg bot.Message) {
+		reloadMu.Lock()
+		defer reloadMu.Unlock()
+		updated, err := loadConfig()
+		if err != nil {
+			current.Send(msg.ReplyTarget(), "reload failed; configuration was not changed")
+			log.Warn("configuration reload failed", zap.Error(err))
+			return
+		}
+		count, err := current.ReloadPlugins(updated.Plugins)
+		if err != nil {
+			current.Send(msg.ReplyTarget(), "reload failed; configuration was not changed")
+			log.Warn("configuration reload failed", zap.Error(err))
+			return
+		}
+		current.Send(msg.ReplyTarget(), fmt.Sprintf("configuration reloaded for %d plugin(s); IRC connection unchanged", count))
+		log.Info("configuration reloaded", zap.Int("plugins", count), zap.String("network", current.Config.NetworkName))
+	}
+	for _, instance := range instances {
+		current := instance
+		current.SetReloadHandler(func(msg bot.Message) { reload(current, msg) })
 		wg.Add(1)
 		go func(networkName string, b *bot.Bot) {
 			defer wg.Done()
 			if err := b.Run(ctx); err != nil {
 				log.Error("bot stopped", zap.String("network", networkName), zap.Error(err))
 			}
-		}(network.Name, instance)
+		}(current.Config.NetworkName, current)
 	}
 	wg.Wait()
 	qctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -147,6 +139,57 @@ func main() {
 	for _, instance := range instances {
 		instance.Queue.Drain(qctx)
 	}
+}
+
+func loadConfig() (bot.Config, error) {
+	configureViper()
+	if err := viper.ReadInConfig(); err != nil {
+		return bot.Config{}, err
+	}
+	var cfg bot.Config
+	if err := viper.Unmarshal(&cfg); err != nil {
+		return bot.Config{}, err
+	}
+	if cfg.Storage.DBPath == "" {
+		cfg.Storage.DBPath = "bot.db"
+	}
+	if cfg.CommandPrefix == "" {
+		cfg.CommandPrefix = "!"
+	}
+	if cfg.Stats.ListenAddress == "" {
+		cfg.Stats.ListenAddress = "127.0.0.1"
+	}
+	return cfg, nil
+}
+
+func configureViper() {
+	viper.Reset()
+	viper.SetConfigFile("config.yaml")
+	viper.AutomaticEnv()
+	viper.SetEnvPrefix("BOT")
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	bind := func(key, env string) {
+		if err := viper.BindEnv(key, env); err != nil {
+			panic(err)
+		}
+	}
+	bind("identity.sasl_pass", "BOT_SASL_PASS")
+	bind("plugins.news.api_key", "BOT_NEWS_API_KEY")
+	bind("plugins.lastfm.api_key", "BOT_LASTFM_API_KEY")
+	bind("plugins.github.token", "BOT_GITHUB_TOKEN")
+	bind("plugins.urltitle.youtube_api_key", "BOT_YOUTUBE_API_KEY")
+	bind("plugins.ask.ai_rewrite", "BOT_ASK_AI_REWRITE")
+	bind("plugins.ask.provider", "BOT_ASK_PROVIDER")
+	bind("plugins.ask.openrouter_api_key", "BOT_OPENROUTER_API_KEY")
+	bind("plugins.ask.openrouter_model", "BOT_OPENROUTER_MODEL")
+	bind("plugins.ask.openai_api_key", "BOT_OPENAI_API_KEY")
+	bind("plugins.ask.openai_model", "BOT_OPENAI_MODEL")
+	bind("plugins.ask.gemini_api_key", "BOT_GEMINI_API_KEY")
+	bind("plugins.ask.gemini_model", "BOT_GEMINI_MODEL")
+	bind("plugins.ask.ollama_url", "BOT_OLLAMA_URL")
+	bind("plugins.ask.ollama_model", "BOT_OLLAMA_MODEL")
+	bind("storage.db_path", "BOT_STORAGE_DB_PATH")
+	bind("stats.listen_address", "BOT_STATS_LISTEN_ADDRESS")
 }
 
 func newLogger(format string) *zap.Logger {

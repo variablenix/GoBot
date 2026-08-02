@@ -31,3 +31,44 @@ func TestValidChannelName(t *testing.T) {
 		}
 	}
 }
+
+func TestIsOwnerRequiresAuthenticatedAccount(t *testing.T) {
+	b := &Bot{Config: Config{OwnerAccounts: []string{"Alice"}}}
+
+	if !b.IsOwner(Message{Account: "alice"}) {
+		t.Fatal("expected matching authenticated account to be an owner")
+	}
+	if b.IsOwner(Message{Nick: "alice"}) {
+		t.Fatal("nickname alone must not prove ownership")
+	}
+	if b.IsOwner(Message{Account: "*"}) {
+		t.Fatal("unidentified account must not prove ownership")
+	}
+}
+
+func TestPrivateReloadIsOwnerOnly(t *testing.T) {
+	called := 0
+	b := &Bot{
+		Config:        Config{OwnerAccounts: []string{"alice"}},
+		reloadHandler: func(Message) { called++ },
+	}
+
+	if !b.handlePrivateReload(Message{Command: "PRIVMSG", Account: "alice", Text: "reload"}) {
+		t.Fatal("expected an authenticated owner's private reload to be handled")
+	}
+	if called != 1 {
+		t.Fatalf("expected reload handler once, got %d calls", called)
+	}
+	if b.handlePrivateReload(Message{Command: "PRIVMSG", Account: "guest", Text: "reload"}) {
+		t.Fatal("unauthenticated account must not trigger reload")
+	}
+	if b.handlePrivateReload(Message{Command: "PRIVMSG", Account: "alice", IsChannel: true, Text: "reload"}) {
+		t.Fatal("channel messages must not trigger private reload")
+	}
+	if b.handlePrivateReload(Message{Command: "PRIVMSG", Account: "alice", Text: "reload now"}) {
+		t.Fatal("reload must require an exact command")
+	}
+	if called != 1 {
+		t.Fatalf("unexpected reload handler calls: %d", called)
+	}
+}

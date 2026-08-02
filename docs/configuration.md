@@ -169,6 +169,25 @@ owner_accounts:
 GoBot records the IRCv3 `account` tag when the network provides it. There is
 intentionally no ownership-claim command.
 
+### Owner-only private reload
+
+An owner can reload file-backed plugin settings without disconnecting GoBot:
+
+```text
+/msg GoBot reload
+/msg GoBot !reload
+```
+
+The sender must be identified to an IRC account listed in `owner_accounts`; a
+nickname alone is not accepted. GoBot replies privately after the reload and
+keeps the existing IRC connection open.
+
+The reload currently applies settings for active plugins that support runtime
+reloads, including `ask`. It does not change the server, nickname, channels,
+`owner_accounts`, plugin enable/disable flags, or per-channel plugin
+overrides. Those changes require a restart. Environment variables loaded from
+`.env` are process settings as well, so changing `.env` requires a restart.
+
 Anyone may invite the bot when invitations are enabled:
 
 ```yaml

@@ -9,6 +9,11 @@ dependencies, and deployment configuration maintained.
 - Keep secrets in .env or a deployment secret store, never in Git.
 - Use authenticated IRC account names for owner controls; nicknames are not
   authorization proof.
+- The private `reload` command is accepted only from an authenticated account
+  listed in `owner_accounts`; it cannot change ownership or connection
+  settings.
+- Configuration reloads do not reread systemd's `EnvironmentFile`; restart the
+  service after changing `.env` so API keys and provider settings take effect.
 - Restrict /stats and /metrics; they have no built-in authentication.
 - Bind the stats listener to localhost unless another host must scrape it.
 - If remote scraping is required, use a private/WireGuard address and firewall

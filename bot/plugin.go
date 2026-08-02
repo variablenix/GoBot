@@ -19,3 +19,9 @@ type Starter interface {
 type EventHandler interface {
 	HandleEvent(*Bot, Message) bool
 }
+
+// Reloadable lets a long-running plugin apply configuration changes without
+// rebuilding its state or dropping the IRC connection.
+type Reloadable interface {
+	Reload(PluginConfig) error
+}
