@@ -156,11 +156,19 @@ func (p *Ask) Handle(b *bot.Bot, m bot.Message) bool {
 		}
 		started := time.Now()
 		if rewritten, ok := p.rewriteWithConfig(ctx, question, source, cfg); ok {
-			if rewritten = cleanExternalText(rewritten); usableAskRewrite(rewritten) {
+			rewritten = cleanExternalText(rewritten)
+			if usableAskRewrite(rewritten) {
 				answer = rewritten
 				if b.Log != nil {
 					b.Log.Info("ask AI rewrite used", zap.String("provider", provider), zap.Duration("duration", time.Since(started)))
 				}
+			} else if b.Log != nil {
+				b.Log.Warn("ask AI rewrite rejected; using source summary",
+					zap.String("provider", provider),
+					zap.String("model", model),
+					zap.String("reason", askRewriteRejectionReason(rewritten)),
+					zap.Duration("duration", time.Since(started)),
+				)
 			}
 		} else if b.Log != nil {
 			b.Log.Warn("ask AI rewrite unavailable; using source summary", zap.String("provider", provider), zap.String("model", model), zap.Duration("duration", time.Since(started)))
@@ -249,6 +257,26 @@ func usableAskRewrite(answer string) bool {
 		}
 	}
 	return true
+}
+
+func askRewriteRejectionReason(answer string) string {
+	answer = strings.ToLower(strings.TrimSpace(answer))
+	if answer == "" {
+		return "empty_response"
+	}
+	for _, phrase := range []string{
+		"the user asks",
+		"the source does not",
+		"the source is",
+		"the answer should be",
+		"according to the source",
+		"not enough information in this source",
+	} {
+		if strings.Contains(answer, phrase) {
+			return "provider_meta_text"
+		}
+	}
+	return "unusable_response"
 }
 
 type askSource struct {
