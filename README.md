@@ -8,7 +8,7 @@
 GoBot is an extensible Go IRC bot for long-running use on one or more IRC
 networks. It supports TLS/SASL authentication, multiple networks and
 channels, persistent plugin data, rate-limited responses, games, reminders,
-URL titles, and Prometheus metrics.
+source-grounded question answers, URL titles, and Prometheus metrics.
 
 The repository contains example connection settings so you can see the
 configuration shape. Replace them with the networks, channels, identity, and

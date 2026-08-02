@@ -49,6 +49,7 @@ func (p *Wikipedia) Handle(b *bot.Bot, m bot.Message) bool {
 }
 
 type wikipediaSummaryResult struct {
+	Title       string `json:"title"`
 	Extract     string `json:"extract"`
 	ContentURLs struct {
 		Desktop struct {
