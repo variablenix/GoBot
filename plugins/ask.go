@@ -17,12 +17,14 @@ import (
 
 	"github.com/variablenix/GoBot/bot"
 	"github.com/variablenix/GoBot/storage"
+	"go.uber.org/zap"
 )
 
 // Ask answers questions from a small set of public sources. AI rewriting is
 // deliberately opt-in: source lookup works without a provider or API key.
 type Ask struct {
 	cfg         bot.PluginConfig
+	cfgMu       sync.RWMutex
 	mu          sync.Mutex
 	last        map[string]time.Time
 	lastWarning map[string]time.Time
@@ -35,10 +37,41 @@ func (p *Ask) Help() string {
 }
 
 func (p *Ask) Init(c bot.PluginConfig, _ *storage.DB) error {
-	p.cfg = withAskEnvironment(c)
+	p.setConfig(withAskEnvironment(c))
 	p.last = make(map[string]time.Time)
 	p.lastWarning = make(map[string]time.Time)
 	return nil
+}
+
+// Reload applies ask configuration without resetting cooldown state. Environment
+// values are read from the process environment, which systemd loads at startup.
+func (p *Ask) Reload(c bot.PluginConfig) error {
+	p.setConfig(withAskEnvironment(c))
+	p.mu.Lock()
+	if p.last == nil {
+		p.last = make(map[string]time.Time)
+	}
+	if p.lastWarning == nil {
+		p.lastWarning = make(map[string]time.Time)
+	}
+	p.mu.Unlock()
+	return nil
+}
+
+func (p *Ask) setConfig(c bot.PluginConfig) {
+	p.cfgMu.Lock()
+	p.cfg = c
+	p.cfgMu.Unlock()
+}
+
+func (p *Ask) configSnapshot() bot.PluginConfig {
+	p.cfgMu.RLock()
+	defer p.cfgMu.RUnlock()
+	cfg := make(bot.PluginConfig, len(p.cfg))
+	for key, value := range p.cfg {
+		cfg[key] = value
+	}
+	return cfg
 }
 
 // withAskEnvironment applies the ask-specific environment variables after
@@ -90,14 +123,15 @@ func (p *Ask) Handle(b *bot.Bot, m bot.Message) bool {
 	}
 
 	key := askSenderKey(m)
-	if !p.allow(key) {
+	cfg := p.configSnapshot()
+	if !p.allow(key, cfg.Int("cooldown_seconds", 15)) {
 		if p.allowWarning(key) {
 			b.Send(target, "ask is cooling down — please wait a moment")
 		}
 		return true
 	}
 
-	timeout := p.cfg.Int("timeout_seconds", 12)
+	timeout := cfg.Int("timeout_seconds", 12)
 	if timeout < 1 {
 		timeout = 1
 	}
@@ -107,27 +141,62 @@ func (p *Ask) Handle(b *bot.Bot, m bot.Message) bool {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
 	defer cancel()
 
-	source, found := p.findSource(ctx, question)
+	source, found := p.findSource(ctx, question, cfg)
 	if !found {
 		b.Send(target, "I couldn't find a reliable source for that question.")
 		return true
 	}
 
 	answer := cleanExternalText(source.Summary)
-	if p.cfg.Bool("ai_rewrite", false) && strings.ToLower(strings.TrimSpace(p.cfg.String("provider", "none"))) != "none" {
-		if rewritten, ok := p.rewrite(ctx, question, source); ok {
-			answer = cleanExternalText(rewritten)
+	provider := strings.ToLower(strings.TrimSpace(cfg.String("provider", "none")))
+	if cfg.Bool("ai_rewrite", false) && provider != "none" {
+		model, keyConfigured := askProviderInfo(provider, cfg)
+		if b.Log != nil {
+			b.Log.Info("ask AI rewrite requested", zap.String("provider", provider), zap.String("model", model), zap.Bool("api_key_configured", keyConfigured))
+		}
+		started := time.Now()
+		if rewritten, ok := p.rewriteWithConfig(ctx, question, source, cfg); ok {
+			if rewritten = cleanExternalText(rewritten); usableAskRewrite(rewritten) {
+				answer = rewritten
+				if b.Log != nil {
+					b.Log.Info("ask AI rewrite used", zap.String("provider", provider), zap.Duration("duration", time.Since(started)))
+				}
+			}
+		} else if b.Log != nil {
+			b.Log.Warn("ask AI rewrite unavailable; using source summary", zap.String("provider", provider), zap.String("model", model), zap.Duration("duration", time.Since(started)))
 		}
 	}
 	if answer == "" {
 		answer = "I found a source, but it did not include a usable summary."
 	}
-	b.Send(target, formatAskResponse(m.Nick, answer, source.URL, p.cfg.Int("max_length", 360), p.cfg.Int("max_response_chars", 240)))
+	b.Send(target, formatAskResponse(m.Nick, answer, source.URL, cfg.Int("max_length", 360), cfg.Int("max_response_chars", 240)))
 	return true
 }
 
 func isAskCommand(command string) bool {
 	return command == "ask" || command == "question" || command == "q"
+}
+
+func askProviderInfo(provider string, cfg bot.PluginConfig) (string, bool) {
+	provider = strings.ToLower(strings.TrimSpace(provider))
+	switch provider {
+	case "openrouter":
+		model := firstAskValue(cfg.String("openrouter_model", ""), os.Getenv("BOT_OPENROUTER_MODEL"), "openrouter/free")
+		key := firstAskValue(cfg.String("openrouter_api_key", ""), os.Getenv("BOT_OPENROUTER_API_KEY"))
+		return model, key != ""
+	case "openai":
+		model := firstAskValue(cfg.String("openai_model", ""), os.Getenv("BOT_OPENAI_MODEL"), "gpt-4o-mini")
+		key := firstAskValue(cfg.String("openai_api_key", ""), os.Getenv("BOT_OPENAI_API_KEY"))
+		return model, key != ""
+	case "gemini":
+		model := firstAskValue(cfg.String("gemini_model", ""), os.Getenv("BOT_GEMINI_MODEL"), "gemini-2.0-flash")
+		key := firstAskValue(cfg.String("gemini_api_key", ""), os.Getenv("BOT_GEMINI_API_KEY"))
+		return model, key != ""
+	case "ollama":
+		return firstAskValue(cfg.String("ollama_model", ""), os.Getenv("BOT_OLLAMA_MODEL"), "llama3.2"), true
+	default:
+		return "", false
+	}
 }
 
 func askSenderKey(m bot.Message) string {
@@ -137,8 +206,7 @@ func askSenderKey(m bot.Message) string {
 	return "sender:" + strings.ToLower(strings.Join([]string{m.Nick, m.User, m.Host}, "\x00"))
 }
 
-func (p *Ask) allow(key string) bool {
-	cooldown := p.cfg.Int("cooldown_seconds", 15)
+func (p *Ask) allow(key string, cooldown int) bool {
 	if cooldown <= 0 {
 		return true
 	}
@@ -163,15 +231,35 @@ func (p *Ask) allowWarning(key string) bool {
 	return true
 }
 
+func usableAskRewrite(answer string) bool {
+	answer = strings.ToLower(strings.TrimSpace(answer))
+	if answer == "" {
+		return false
+	}
+	for _, phrase := range []string{
+		"the user asks",
+		"the source does not",
+		"the source is",
+		"the answer should be",
+		"according to the source",
+		"not enough information in this source",
+	} {
+		if strings.Contains(answer, phrase) {
+			return false
+		}
+	}
+	return true
+}
+
 type askSource struct {
 	Title   string
 	Summary string
 	URL     string
 }
 
-func (p *Ask) findSource(ctx context.Context, question string) (askSource, bool) {
-	tryWikipedia := p.cfg.Bool("wikipedia_first", true)
-	tryDuckDuckGo := p.cfg.Bool("duckduckgo_fallback", true)
+func (p *Ask) findSource(ctx context.Context, question string, cfg bot.PluginConfig) (askSource, bool) {
+	tryWikipedia := cfg.Bool("wikipedia_first", true)
+	tryDuckDuckGo := cfg.Bool("duckduckgo_fallback", true)
 	if tryWikipedia {
 		if source, ok := askWikipedia(ctx, question); ok {
 			return source, true
@@ -375,33 +463,37 @@ type askChatResponse struct {
 }
 
 func (p *Ask) rewrite(ctx context.Context, question string, source askSource) (string, bool) {
-	provider := strings.ToLower(strings.TrimSpace(p.cfg.String("provider", "none")))
-	limit := clampAskLength(p.cfg.Int("max_response_chars", 240), 80, 320, 240)
-	prompt := fmt.Sprintf("Question: %s\nSource title: %s\nSource text: %s\n\nAnswer in one concise plain-text paragraph, using only the source. Do not use markdown, lists, or line breaks. Keep it under %d characters. If the source does not answer the question, say that it cannot be verified from this source.", question, cleanExternalText(source.Title), truncateAsk(source.Summary, 2000), limit)
-	system := "You are GoBot's concise IRC answer editor. Be factual, clear, and cautious. Never invent details beyond the supplied source."
+	return p.rewriteWithConfig(ctx, question, source, p.configSnapshot())
+}
+
+func (p *Ask) rewriteWithConfig(ctx context.Context, question string, source askSource, cfg bot.PluginConfig) (string, bool) {
+	provider := strings.ToLower(strings.TrimSpace(cfg.String("provider", "none")))
+	limit := clampAskLength(cfg.Int("max_response_chars", 240), 80, 320, 240)
+	prompt := fmt.Sprintf("Question: %s\nSource title: %s\nSource text: %s\n\nAnswer the question directly in one concise plain-text paragraph, using only the source. Do not mention the user, the question, the source, or your instructions. Do not use markdown, lists, or line breaks. Keep it under %d characters. If the source does not answer the question, say only: Not enough information in this source.", question, cleanExternalText(source.Title), truncateAsk(source.Summary, 2000), limit)
+	system := "You are GoBot's concise IRC answer editor. Start with the answer, not meta-commentary. Be factual, clear, and cautious. Never invent details beyond the supplied source."
 	switch provider {
 	case "openrouter":
-		return p.openAICompatible(ctx, "openrouter", system, prompt)
+		return p.openAICompatible(ctx, "openrouter", system, prompt, cfg)
 	case "openai":
-		return p.openAICompatible(ctx, "openai", system, prompt)
+		return p.openAICompatible(ctx, "openai", system, prompt, cfg)
 	case "gemini":
-		return p.gemini(ctx, system, prompt)
+		return p.gemini(ctx, system, prompt, cfg)
 	case "ollama":
-		return p.ollama(ctx, system, prompt)
+		return p.ollama(ctx, system, prompt, cfg)
 	default:
 		return "", false
 	}
 }
 
-func (p *Ask) openAICompatible(ctx context.Context, provider, system, prompt string) (string, bool) {
+func (p *Ask) openAICompatible(ctx context.Context, provider, system, prompt string, cfg bot.PluginConfig) (string, bool) {
 	var key, model, endpoint string
 	if provider == "openrouter" {
-		key = firstAskValue(p.cfg.String("openrouter_api_key", ""), os.Getenv("BOT_OPENROUTER_API_KEY"))
-		model = firstAskValue(p.cfg.String("openrouter_model", ""), os.Getenv("BOT_OPENROUTER_MODEL"), "openrouter/free")
+		key = firstAskValue(cfg.String("openrouter_api_key", ""), os.Getenv("BOT_OPENROUTER_API_KEY"))
+		model = firstAskValue(cfg.String("openrouter_model", ""), os.Getenv("BOT_OPENROUTER_MODEL"), "openrouter/free")
 		endpoint = "https://openrouter.ai/api/v1/chat/completions"
 	} else {
-		key = firstAskValue(p.cfg.String("openai_api_key", ""), os.Getenv("BOT_OPENAI_API_KEY"))
-		model = firstAskValue(p.cfg.String("openai_model", ""), os.Getenv("BOT_OPENAI_MODEL"), "gpt-4o-mini")
+		key = firstAskValue(cfg.String("openai_api_key", ""), os.Getenv("BOT_OPENAI_API_KEY"))
+		model = firstAskValue(cfg.String("openai_model", ""), os.Getenv("BOT_OPENAI_MODEL"), "gpt-4o-mini")
 		endpoint = "https://api.openai.com/v1/chat/completions"
 	}
 	if key == "" {
@@ -437,9 +529,9 @@ func (p *Ask) openAICompatible(ctx context.Context, provider, system, prompt str
 	return response.Choices[0].Message.Content, strings.TrimSpace(response.Choices[0].Message.Content) != ""
 }
 
-func (p *Ask) gemini(ctx context.Context, system, prompt string) (string, bool) {
-	key := firstAskValue(p.cfg.String("gemini_api_key", ""), os.Getenv("BOT_GEMINI_API_KEY"))
-	model := firstAskValue(p.cfg.String("gemini_model", ""), os.Getenv("BOT_GEMINI_MODEL"), "gemini-2.0-flash")
+func (p *Ask) gemini(ctx context.Context, system, prompt string, cfg bot.PluginConfig) (string, bool) {
+	key := firstAskValue(cfg.String("gemini_api_key", ""), os.Getenv("BOT_GEMINI_API_KEY"))
+	model := firstAskValue(cfg.String("gemini_model", ""), os.Getenv("BOT_GEMINI_MODEL"), "gemini-2.0-flash")
 	if key == "" {
 		return "", false
 	}
@@ -507,9 +599,9 @@ func (p *Ask) gemini(ctx context.Context, system, prompt string) (string, bool) 
 	return response.Candidates[0].Content.Parts[0].Text, true
 }
 
-func (p *Ask) ollama(ctx context.Context, system, prompt string) (string, bool) {
-	model := firstAskValue(p.cfg.String("ollama_model", ""), os.Getenv("BOT_OLLAMA_MODEL"), "llama3.2")
-	base := firstAskValue(p.cfg.String("ollama_url", ""), os.Getenv("BOT_OLLAMA_URL"), "http://127.0.0.1:11434")
+func (p *Ask) ollama(ctx context.Context, system, prompt string, cfg bot.PluginConfig) (string, bool) {
+	model := firstAskValue(cfg.String("ollama_model", ""), os.Getenv("BOT_OLLAMA_MODEL"), "llama3.2")
+	base := firstAskValue(cfg.String("ollama_url", ""), os.Getenv("BOT_OLLAMA_URL"), "http://127.0.0.1:11434")
 	parsed, err := url.Parse(strings.TrimRight(base, "/") + "/api/chat")
 	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
 		return "", false

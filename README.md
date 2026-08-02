@@ -70,6 +70,11 @@ there.
 | [Security](docs/security.md) | Deployment and runtime security guidance |
 | [Development and CI](docs/development.md) | Project workflow, tests, CI, CodeQL, and Dependabot |
 
+Owners can send GoBot a private `reload` message to apply reloadable plugin
+configuration without dropping the IRC connection. See
+[Configuration](docs/configuration.md#owner-only-private-reload) for the
+authentication and reload boundaries.
+
 ## Project layout
 
 ```text

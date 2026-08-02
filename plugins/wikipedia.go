@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/variablenix/GoBot/bot"
 	"github.com/variablenix/GoBot/storage"
@@ -59,12 +60,19 @@ type wikipediaSummaryResult struct {
 }
 
 func wikipediaSummary(ctx context.Context, query string) (wikipediaSummaryResult, bool) {
-	result, ok := wikipediaSummaryPage(ctx, query)
-	if ok {
+	searchTerm := wikipediaSearchTerm(query)
+	if searchTerm == "" {
+		searchTerm = strings.TrimSpace(query)
+	}
+
+	// Try the cleaned topic first. This avoids sending a full conversational
+	// question to the page endpoint, where an accidental redirect can look like
+	// a successful but unrelated answer.
+	if result, ok := wikipediaSummaryPage(ctx, searchTerm); ok && wikipediaTitleMatches(searchTerm, result.Title) {
 		return result, true
 	}
 
-	searchURL := "https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=" + url.QueryEscape(query) + "&format=json&utf8=1&srlimit=1"
+	searchURL := "https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=" + url.QueryEscape(searchTerm) + "&format=json&utf8=1&srlimit=8"
 	req, err := wikipediaRequest(ctx, searchURL)
 	if err != nil {
 		return wikipediaSummaryResult{}, false
@@ -87,7 +95,71 @@ func wikipediaSummary(ctx context.Context, query string) (wikipediaSummaryResult
 	if err := json.NewDecoder(res.Body).Decode(&search); err != nil || len(search.Query.Search) == 0 {
 		return wikipediaSummaryResult{}, false
 	}
-	return wikipediaSummaryPage(ctx, search.Query.Search[0].Title)
+	for _, candidate := range search.Query.Search {
+		if !wikipediaTitleMatches(searchTerm, candidate.Title) {
+			continue
+		}
+		if result, ok := wikipediaSummaryPage(ctx, candidate.Title); ok {
+			return result, true
+		}
+	}
+	return wikipediaSummaryResult{}, false
+}
+
+// wikipediaSearchTerm turns common conversational question forms into a
+// focused topic. Wikipedia's search endpoint otherwise tends to rank an
+// incidental word in a question above the article the user meant.
+func wikipediaSearchTerm(query string) string {
+	words := strings.FieldsFunc(strings.ToLower(strings.TrimSpace(query)), func(r rune) bool {
+		return !unicode.IsLetter(r) && !unicode.IsNumber(r)
+	})
+	stop := map[string]struct{}{
+		"a": {}, "about": {}, "an": {}, "and": {}, "are": {}, "can": {},
+		"could": {}, "current": {}, "currently": {}, "define": {}, "did": {},
+		"do": {}, "does": {}, "exactly": {}, "explain": {}, "for": {},
+		"happening": {}, "how": {}, "in": {}, "is": {}, "it": {}, "latest": {},
+		"me": {}, "more": {}, "now": {}, "of": {}, "on": {}, "please": {},
+		"recent": {}, "tell": {}, "the": {}, "to": {}, "today": {}, "was": {},
+		"what": {}, "when": {}, "where": {}, "who": {}, "why": {}, "would": {},
+		"you": {}, "know": {},
+	}
+	filtered := make([]string, 0, len(words))
+	for _, word := range words {
+		if _, ignored := stop[word]; !ignored {
+			filtered = append(filtered, word)
+		}
+	}
+	return strings.Join(filtered, " ")
+}
+
+// wikipediaTitleMatches prevents a loosely related first search result from
+// being presented as an answer. One-word topics must appear in the title. For
+// multi-word topics, require two matching words, or the first topic word (the
+// usual subject) to match. This keeps useful lookups such as "TLS protect"
+// while rejecting "UFO disclosure" -> "Disclosure Day (soundtrack)".
+func wikipediaTitleMatches(topic, title string) bool {
+	topicWords := strings.Fields(wikipediaSearchTerm(topic))
+	titleWords := strings.Fields(wikipediaSearchTerm(title))
+	if len(topicWords) == 0 || len(titleWords) == 0 {
+		return false
+	}
+	titleSet := make(map[string]struct{}, len(titleWords))
+	for _, word := range titleWords {
+		titleSet[word] = struct{}{}
+	}
+	matches := 0
+	for _, word := range topicWords {
+		if _, ok := titleSet[word]; ok {
+			matches++
+		}
+	}
+	if len(topicWords) == 1 {
+		return matches == 1
+	}
+	return matches >= 2 || func() bool {
+		_, ok := titleSet[topicWords[0]]
+		return ok
+	}()
 }
 
 func wikipediaSummaryPage(ctx context.Context, title string) (wikipediaSummaryResult, bool) {
