@@ -26,6 +26,12 @@ func TestDuckHuntDefaults(t *testing.T) {
 	if !plugin.cfg.flavorEnabled || plugin.cfg.flavorMinLead != 15*time.Second {
 		t.Fatalf("unexpected flavor defaults: %+v", plugin.cfg)
 	}
+	if plugin.cfg.minHP != 1 || plugin.cfg.maxHP != 5 || plugin.cfg.damagePerShot != 1 || plugin.cfg.trustAttempts != 3 {
+		t.Fatalf("unexpected duck mechanics defaults: %+v", plugin.cfg)
+	}
+	if !plugin.cfg.firearmEnabled || plugin.cfg.magazineSize != 6 || plugin.cfg.startingAmmo != 6 || plugin.cfg.startingPoints != 25 {
+		t.Fatalf("unexpected arcade gear defaults: %+v", plugin.cfg)
+	}
 }
 
 func TestDuckHuntIncludesBefriendAlias(t *testing.T) {
@@ -40,8 +46,56 @@ func TestDuckHuntIncludesBefriendAlias(t *testing.T) {
 	if !found {
 		t.Fatal("expected !bef command alias")
 	}
+	for _, command := range []string{"shop", "store", "buy", "reload", "ammo"} {
+		found = false
+		for _, candidate := range plugin.Commands() {
+			if candidate == command {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("expected %q command", command)
+		}
+	}
 	if !strings.Contains(plugin.Help(), "!bef") {
 		t.Fatal("expected !bef alias in help")
+	}
+}
+
+func TestDuckHuntShopCatalog(t *testing.T) {
+	plugin := &DuckHunt{}
+	if err := plugin.Init(nil, nil); err != nil {
+		t.Fatalf("Init returned error: %v", err)
+	}
+	weapons := plugin.shopWeapons()
+	if len(weapons) != 3 {
+		t.Fatalf("shop has %d weapons, want 3", len(weapons))
+	}
+	if weapon, ok := plugin.findWeapon("gun"); !ok || weapon.Key != "peashooter" {
+		t.Fatalf("generic gun alias resolved to %+v, want peashooter", weapon)
+	}
+	if weapons[1].MagazineSize <= weapons[0].MagazineSize {
+		t.Fatalf("Quacker Blaster should have a larger magazine: %+v", weapons)
+	}
+	if weapons[2].Damage <= weapons[0].Damage || weapons[2].Cost <= weapons[0].Cost {
+		t.Fatalf("Golden Wing should cost more and do more damage: %+v", weapons)
+	}
+}
+
+func TestDuckHuntAnnouncementKeepsDuckASCIICompact(t *testing.T) {
+	announcement := randomDuckAnnouncementForState(&duckHuntState{golden: true, maxHP: 3})
+	if !strings.Contains(announcement, "QUACK!") {
+		t.Fatalf("announcement = %q, want QUACK!", announcement)
+	}
+	if !strings.Contains(announcement, "HP: 3") {
+		t.Fatalf("announcement = %q, want HP: 3", announcement)
+	}
+	if strings.Contains(announcement, "GOLDEN DUCK") {
+		t.Fatalf("announcement = %q, should not put GOLDEN DUCK in the duck body", announcement)
+	}
+	if !strings.Contains(announcement, "\\_") || !strings.Contains(announcement, "o") || !strings.Contains(announcement, "<") {
+		t.Fatalf("announcement = %q, want compact duck ASCII", announcement)
 	}
 }
 
@@ -154,6 +208,44 @@ func TestDuckHuntHitChanceProtectsAgainstInstantShots(t *testing.T) {
 	}
 }
 
+func TestDuckHuntRandomHPStaysWithinConfiguredRange(t *testing.T) {
+	cfg := duckHuntConfig{minHP: 2, maxHP: 5}
+	for i := 0; i < 100; i++ {
+		got := randomDuckHP(cfg)
+		if got < cfg.minHP || got > cfg.maxHP {
+			t.Fatalf("random HP = %d, want %d..%d", got, cfg.minHP, cfg.maxHP)
+		}
+	}
+}
+
+func TestDuckHuntPlayerGearPersists(t *testing.T) {
+	db, err := storage.Open(t.TempDir() + "/bot.db")
+	if err != nil {
+		t.Fatalf("open database: %v", err)
+	}
+	defer db.Close()
+	plugin := &DuckHunt{}
+	if err := plugin.Init(nil, db); err != nil {
+		t.Fatalf("Init returned error: %v", err)
+	}
+	plugin.mu.Lock()
+	player := plugin.loadPlayerLocked("network", "#channel", "Alice")
+	player.SpareMagazines = 2
+	player.Ammo = 3
+	player.Points = 99
+	player.HasGun = true
+	player.Weapon = "quacker"
+	plugin.savePlayerLocked("network", "#channel", "Alice", player)
+	plugin.mu.Unlock()
+
+	plugin.mu.Lock()
+	loaded := plugin.loadPlayerLocked("network", "#channel", "alice")
+	plugin.mu.Unlock()
+	if loaded.SpareMagazines != 2 || loaded.Ammo != 3 || loaded.Points != 99 || loaded.Weapon != "quacker" {
+		t.Fatalf("loaded player = %+v, want persisted gear and points", loaded)
+	}
+}
+
 func TestDuckHuntAnnouncementIncludesColorDuckAndQuack(t *testing.T) {
 	announcement := randomDuckAnnouncement()
 	if !strings.Contains(announcement, "\x03") {
@@ -164,6 +256,16 @@ func TestDuckHuntAnnouncementIncludesColorDuckAndQuack(t *testing.T) {
 	}
 	if !strings.Contains(strings.ToLower(announcement), "quack") {
 		t.Fatal("expected quack text in announcement")
+	}
+}
+
+func TestDuckHuntAnnouncementIncludesHPAndActions(t *testing.T) {
+	announcement := randomDuckAnnouncementForState(&duckHuntState{golden: true, hp: 4, maxHP: 4})
+	if strings.Contains(announcement, "GOLDEN DUCK") || !strings.Contains(announcement, "HP: 4") {
+		t.Fatalf("unexpected announcement: %q", announcement)
+	}
+	if !strings.Contains(announcement, "!bang") || !strings.Contains(announcement, "!bef") {
+		t.Fatalf("announcement does not provide actions: %q", announcement)
 	}
 }
 
