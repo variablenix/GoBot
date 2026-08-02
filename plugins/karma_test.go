@@ -3,6 +3,7 @@ package plugins
 import (
 	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/variablenix/GoBot/bot"
@@ -23,6 +24,19 @@ func TestKarmaRegex(t *testing.T) {
 	match := r.FindStringSubmatch("ouchnet++")
 	if len(match) < 4 || match[2] != "ouchnet" || match[3] != "++" {
 		t.Fatalf("unexpected karma match: %#v", match)
+	}
+}
+
+func TestKarmaUpdateMessageIsColorfulAndCompact(t *testing.T) {
+	message := formatKarmaUpdates([]karmaUpdate{{key: "echo", delta: 1, value: 4}})
+	if !strings.Contains(message, "Karma boost! echo") {
+		t.Fatalf("unexpected karma message: %q", message)
+	}
+	if strings.Count(message, "✨") == 0 || strings.Count(message, "🎯") == 0 || strings.Count(message, "🌟") == 0 || strings.Count(message, "💫") == 0 {
+		t.Fatalf("expected four positive karma emojis: %q", message)
+	}
+	if !strings.Contains(message, "\x03") {
+		t.Fatal("expected IRC color formatting")
 	}
 }
 

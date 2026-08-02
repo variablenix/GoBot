@@ -3,14 +3,18 @@ package bot
 type Config struct {
 	// Server, Identity, and Channels are retained for single-network config
 	// compatibility. New installations should use Networks.
-	Server        ServerConfig
-	Identity      IdentityConfig
-	Channels      []string
-	Networks      []NetworkConfig
-	NetworkName   string
-	CommandPrefix string   `mapstructure:"command_prefix"`
-	OwnerAccounts []string `mapstructure:"owner_accounts"`
-	RateLimit     struct {
+	Server   ServerConfig
+	Identity IdentityConfig
+	Channels []string
+	Networks []NetworkConfig
+	// PluginOverrides can disable individual plugins for a specific channel
+	// on this network. A missing override leaves the global plugin setting in
+	// effect.
+	PluginOverrides map[string]map[string]bool `mapstructure:"plugin_overrides"`
+	NetworkName     string
+	CommandPrefix   string   `mapstructure:"command_prefix"`
+	OwnerAccounts   []string `mapstructure:"owner_accounts"`
+	RateLimit       struct {
 		MessagesPerSecond             float64 `mapstructure:"messages_per_second"`
 		Burst                         int
 		CommandCooldownSeconds        int `mapstructure:"command_cooldown_seconds"`
@@ -51,10 +55,11 @@ type IdentityConfig struct {
 }
 
 type NetworkConfig struct {
-	Name     string
-	Server   ServerConfig
-	Identity IdentityConfig
-	Channels []string
+	Name            string
+	Server          ServerConfig
+	Identity        IdentityConfig
+	Channels        []string
+	PluginOverrides map[string]map[string]bool `mapstructure:"plugin_overrides"`
 }
 type PluginConfig map[string]interface{}
 

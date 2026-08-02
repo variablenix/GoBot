@@ -143,7 +143,7 @@ plugins:
     minimum_users: 2
     min_delay_seconds: 60
     max_delay_seconds: 300
-    timeout_seconds: 30
+    timeout_seconds: 60
     flavor_enabled: true
     flavor_min_lead_seconds: 15
     befriend_enabled: true
@@ -186,9 +186,13 @@ early reaction window have a probability of success; slower shots succeed.
 Each user gets a short retry cooldown. Invalid shots when no duck is active are
 quietly ignored.
 
-Announcements and results use standard mIRC IRC colors for the Duck Hunt
-label, duck, quack, misses, and successful interactions. Clients without color
-support still receive readable text and an ASCII duck.
+If nobody shoots or befriends the duck before `timeout_seconds` expires, it
+responds with one randomized escape line such as `The duck escapes into the
+sky!` or `\\_o< *ZOOM* The speedy duck vanishes in a flash!`. This is one IRC
+message, not a follow-up flood. Announcements and results use standard mIRC
+IRC colors for the Duck Hunt label, duck, quack, misses, and successful
+interactions. Clients without color support still receive readable text and an
+ASCII duck.
 
 Settings:
 

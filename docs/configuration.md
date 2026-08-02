@@ -23,6 +23,12 @@ networks:
     channels:
       - "#example"
       - "#bots"
+    # Optional per-channel opt-outs. Unlisted plugins keep their global setting.
+    plugin_overrides:
+      "#bots":
+        banter: false
+        urltitle: false
+        duckhunt: false
 
   - name: secondary
     server:
@@ -42,7 +48,13 @@ networks:
 
 `networks` takes precedence over the older single-network top-level fields.
 Each network has its own IRC connection, identity, channels, SASL settings,
-and plugin activity.
+and plugin activity. To reduce chatter in one channel without changing the
+global plugin configuration, add `plugin_overrides` under that network. The
+map key is the channel name and each nested key is a canonical plugin name.
+Set a plugin to `false` to disable it in that channel; omitted plugins remain
+enabled. Channel and plugin names are matched case-insensitively. Overrides
+also keep disabled plugins out of `!help` and `!alias`, and event-driven
+plugins such as Duck Hunt are stopped cleanly for that channel.
 
 ## Main settings
 

@@ -48,7 +48,7 @@ func main() {
 
 	networks := cfg.Networks
 	if len(networks) == 0 && cfg.Server.Host != "" {
-		networks = []bot.NetworkConfig{{Name: "default", Server: cfg.Server, Identity: cfg.Identity, Channels: cfg.Channels}}
+		networks = []bot.NetworkConfig{{Name: "default", Server: cfg.Server, Identity: cfg.Identity, Channels: cfg.Channels, PluginOverrides: cfg.PluginOverrides}}
 	}
 	if len(networks) == 0 {
 		panic("no IRC networks configured")
@@ -105,6 +105,7 @@ func main() {
 		networkCfg.Server = network.Server
 		networkCfg.Identity = network.Identity
 		networkCfg.Channels = network.Channels
+		networkCfg.PluginOverrides = network.PluginOverrides
 		active := make([]bot.Plugin, 0)
 		for _, p := range plugins.All() {
 			if c, ok := cfg.Plugins[p.Name()]; ok && !c.Bool("enabled", true) {
