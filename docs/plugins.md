@@ -698,15 +698,21 @@ enables rewriting through `.env`. Keep provider credentials out of
 BOT_ASK_PROVIDER=openrouter
 BOT_ASK_AI_REWRITE=true
 BOT_OPENROUTER_API_KEY=...
-BOT_OPENROUTER_MODEL=openrouter/free
+# A specific instruction-tuned free model is more consistent than a random
+# free-model router for this short source-rewrite task.
+BOT_OPENROUTER_MODEL=google/gemma-4-31b-it:free
 ~~~
 
 OpenAI uses `BOT_OPENAI_API_KEY` and `BOT_OPENAI_MODEL`; Gemini uses
 `BOT_GEMINI_API_KEY` and `BOT_GEMINI_MODEL`. For a local Ollama instance, use
 `BOT_ASK_PROVIDER=ollama`, `BOT_OLLAMA_URL`, and `BOT_OLLAMA_MODEL`. The output
 limits still apply regardless of provider. If a provider returns meta-text
-such as “the user asks” or “the source does not”, GoBot rejects it and keeps
-the source-grounded answer instead.
+such as “the user asks” or “the source does not”, GoBot makes one stricter
+correction request within the original timeout. If that still fails, or the
+provider returns `INSUFFICIENT_SOURCE`, GoBot rejects it and keeps the
+source-grounded answer instead. The question and retrieved source are treated
+as untrusted data in the rewrite prompt; instructions contained in them are
+not followed.
 
 To verify that the key is actually being used, check the service log after one
 fresh `!ask` request:
