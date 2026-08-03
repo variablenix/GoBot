@@ -12,6 +12,12 @@ var ErrNotFound = errors.New("key not found")
 
 type DB struct{ db *bbolt.DB }
 
+type Entry struct {
+	Bucket string
+	Key    string
+	Value  interface{}
+}
+
 func Decode(data []byte, value interface{}) error {
 	return json.Unmarshal(data, value)
 }
@@ -56,6 +62,32 @@ func (d *DB) Set(bucket, key string, value interface{}) error {
 			return err
 		}
 		return bk.Put([]byte(key), b)
+	})
+}
+
+func (d *DB) SetMany(entries ...Entry) error {
+	encoded := make([][]byte, len(entries))
+	for i, entry := range entries {
+		if entry.Bucket == "" || entry.Key == "" {
+			return fmt.Errorf("storage entry requires a bucket and key")
+		}
+		value, err := json.Marshal(entry.Value)
+		if err != nil {
+			return err
+		}
+		encoded[i] = value
+	}
+	return d.db.Update(func(tx *bbolt.Tx) error {
+		for i, entry := range entries {
+			bucket, err := tx.CreateBucketIfNotExists([]byte(entry.Bucket))
+			if err != nil {
+				return err
+			}
+			if err := bucket.Put([]byte(entry.Key), encoded[i]); err != nil {
+				return err
+			}
+		}
+		return nil
 	})
 }
 func (d *DB) Delete(bucket, key string) error {
