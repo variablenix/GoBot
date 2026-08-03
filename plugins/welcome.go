@@ -90,6 +90,6 @@ func (p *Welcome) HandleEvent(b *bot.Bot, m bot.Message) bool {
 	if line == "" {
 		return false
 	}
-	b.Send(m.Target, ircColor(ircCyan, "[Welcome] "+line))
+	b.Send(m.Target, ircColor(ircCyan, line))
 	return true
 }
