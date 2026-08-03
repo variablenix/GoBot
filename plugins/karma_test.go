@@ -32,11 +32,30 @@ func TestKarmaUpdateMessageIsColorfulAndCompact(t *testing.T) {
 	if !strings.Contains(message, "Karma boost! echo") {
 		t.Fatalf("unexpected karma message: %q", message)
 	}
-	if strings.Count(message, "✨") == 0 || strings.Count(message, "🎯") == 0 || strings.Count(message, "🌟") == 0 || strings.Count(message, "💫") == 0 {
-		t.Fatalf("expected four positive karma emojis: %q", message)
+	if !strings.Contains(message, "✨ 🎯 🌟 💫") {
+		t.Fatalf("expected spaced positive karma emojis: %q", message)
 	}
 	if !strings.Contains(message, "\x03") {
 		t.Fatal("expected IRC color formatting")
+	}
+}
+
+func TestKarmaDecorationsKeepEmojiSeparated(t *testing.T) {
+	cases := []struct {
+		name    string
+		updates []karmaUpdate
+		want    string
+	}{
+		{name: "positive", updates: []karmaUpdate{{key: "thing", delta: 1, value: 4}}, want: "✨ 🎯 🌟 💫"},
+		{name: "negative", updates: []karmaUpdate{{key: "thing", delta: -1, value: -1}}, want: "📉 🌀 💥 😬"},
+		{name: "mixed", updates: []karmaUpdate{{key: "thing", delta: 1, value: 1}, {key: "other", delta: -1, value: -1}}, want: "✨ 📊 🔄 🌟"},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			if message := formatKarmaUpdates(test.updates); !strings.Contains(message, test.want) {
+				t.Fatalf("message %q does not contain spaced decoration %q", message, test.want)
+			}
+		})
 	}
 }
 

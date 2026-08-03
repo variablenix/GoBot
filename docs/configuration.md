@@ -152,7 +152,8 @@ progression profile for the channel where it is claimed. Daily bonuses require
 Duck Hunt to be enabled globally and for that channel. Claims are persisted in
 the configured database, so restarting GoBot does not reset the daily limit.
 Successful consecutive UTC-day claims also report a per-user streak; missing a
-day resets the streak to one.
+day resets the streak to one. The streak is tracked by Daily separately from
+Duck Hunt's XP and level progression.
 
 The optional `welcome` plugin listens for users joining a channel. It applies
 the configured probability to each join and then enforces a per-channel
