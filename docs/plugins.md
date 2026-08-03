@@ -615,16 +615,23 @@ The `attack` plugin provides short, playful target-based actions and messages:
 !compliment Alice
 !high5 Alice
 !gift Alice
+!spank Alice
+!attack pokemon Alice
+!strax
 ~~~
 
-The canonical form is `!attack <style> <nick>`. Aliases include `!bite`,
-`!fight`, `!glomp`, `!insult`, `!kill`, `!lart`, `!present`, `!spank`, and
-`!stab`. Action styles use standard IRC CTCP ACTION formatting, so clients
-usually render them like `/me` messages; compliment, flirt, and insult use
-ordinary messages. Targets must be a single IRC-style nickname. Targeting
-GoBot or `self` makes GoBot perform the playful action toward the sender.
-Templates are built in, capped to short safe text, and contain no real-world
-instructions.
+The canonical form is `!attack <style> [nick]`; most styles require a nickname.
+Aliases include `!bite`,
+`!fight`, `!glomp`, `!insult`, `!kill`, `!lart`, `!present`, `!spank`,
+`!stab`, `!bdsm`, `!clinton`, `!trump`, `!lurve`, and `!pokemon`, plus
+CloudBot-style aliases such as `!end`, `!sexup`, `!jackmeoff`, `!dominate`,
+`!spar`, `!challenge`, `!luff`, and `!luv`. `!strax`, `!nk`, and `!westworld`
+also work without a target. Action styles use standard IRC CTCP ACTION
+formatting, so clients usually render them like `/me` messages; compliment,
+flirt, insult, lurve, pokemon, strax, nk, and westworld use ordinary messages.
+Targets must be a single IRC-style nickname. Targeting GoBot or `self` makes
+GoBot perform the playful action toward the sender. Templates are built in,
+capped to short safe text, and contain no real-world instructions.
 
 ## Firearm and weapons catalog
 
@@ -818,8 +825,9 @@ project--
 - tell queues a message and delivers it when the addressed nickname next speaks.
 - karma tracks case-insensitive thing++ and thing-- changes.
 - thing++ and thing-- also work as standalone ordinary chat messages. GoBot
-  confirms each update in one compact line, such as
-  `🆙 Karma boost! thing gained 1 karma ✨ (🎯 1 in #chat | 🌐 2 global)`;
+  confirms each update in one compact line, replacing `<nickname>` with the
+  actual nickname being changed, such as
+  `🆙 Karma boost! KnownSyntax gained 1 karma ✨ (🎯 1 in #chat | 🌐 2 global)`;
   command messages are not treated as karma changes.
 - In a channel, Karma reports the channel total and the global total, for
   example `🎯 9 in #chat | 🌐 19 global`; private messages report global Karma.
