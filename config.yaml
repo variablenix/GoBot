@@ -114,6 +114,7 @@ plugins:
   calc: {enabled: true}
   # Local, operator-editable text catalogs; one line per entry under data/fun.
   fun: {enabled: true, data_dir: "data/fun", max_length: 240}
+  attack: {enabled: true}
   # High-level local firearm/weapons catalog; identification only, no instructions.
   weapons: {enabled: true, data_file: "data/weapons.txt", max_length: 240}
   # Public GitHub lookups; token is optional and should be supplied out-of-band.
