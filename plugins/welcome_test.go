@@ -69,7 +69,11 @@ func TestWelcomeSkipsSelfAndAppliesChannelCooldown(t *testing.T) {
 }
 
 func TestWelcomeUsesMIRCColor(t *testing.T) {
-	if !strings.Contains(ircColor(ircCyan, "[Welcome] hello"), "\x03") {
+	message := ircColor(ircCyan, "hello")
+	if !strings.Contains(message, "\x03") {
 		t.Fatal("expected standard mIRC color control code")
+	}
+	if strings.Contains(message, "[Welcome]") {
+		t.Fatalf("welcome output should contain only the configured sentence: %q", message)
 	}
 }
