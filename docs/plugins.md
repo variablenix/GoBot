@@ -96,8 +96,8 @@ flooded by a greeting for every arrival. The catalog contains short original
 lines and supports the `{nick}` placeholder:
 
 ~~~text
-[Welcome] The Evil Has Landed.
-[Welcome] A wild Pzycho appeared!
+The Evil Has Landed.
+A wild Pzycho appeared!
 ~~~
 
 There is no command to enable it at runtime. Once enabled, it applies to
