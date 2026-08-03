@@ -795,7 +795,7 @@ project--
 - karma tracks case-insensitive thing++ and thing-- changes.
 - thing++ and thing-- also work as standalone ordinary chat messages. GoBot
   confirms each update in one compact line, such as
-  `Karma boost! thing +1 (total +2)`; command messages are not treated as
+  `🆙 Karma boost! thing +1 (total +2)`; command messages are not treated as
   karma changes.
 - Positive karma milestones at +10, +25, +50, and +100 add a highlighted
   trophy notice when the total crosses the threshold.
