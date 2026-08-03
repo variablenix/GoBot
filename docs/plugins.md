@@ -743,7 +743,8 @@ network and nickname. Different users may claim independently; this is not a
 single shared server-wide claim. The reward is added to the Duck Hunt XP
 profile for the channel where the claim is made, so Duck Hunt must be enabled
 globally and in that channel. Claims survive restarts through the configured
-Bolt database.
+Bolt database. Daily tracks the consecutive UTC-day claim streak separately
+from Duck Hunt's XP and level progression.
 
 After changing `config.yaml`, an owner can send GoBot a private `reload`
 message to apply reloadable plugin settings without reconnecting. Changes to
