@@ -29,7 +29,7 @@ func TestKarmaRegex(t *testing.T) {
 
 func TestKarmaUpdateMessageIsColorfulAndCompact(t *testing.T) {
 	message := formatKarmaUpdates([]karmaUpdate{{key: "echo", delta: 1, value: 4}})
-	if !strings.Contains(message, "Karma boost! echo") {
+	if !strings.Contains(message, "🆙 Karma boost! echo") {
 		t.Fatalf("unexpected karma message: %q", message)
 	}
 	if !strings.Contains(message, "✨ 🎯 🌟 💫") {
