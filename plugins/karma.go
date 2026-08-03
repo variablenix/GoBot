@@ -75,6 +75,7 @@ func (p *Karma) Handle(b *bot.Bot, m bot.Message) bool {
 
 type karmaUpdate struct {
 	key          string
+	displayKey   string
 	delta        int
 	channel      string
 	channelValue int
@@ -97,7 +98,8 @@ func (p *Karma) applyTextChanges(network, channel, text string) []karmaUpdate {
 		if match[1] < len(text) && isKarmaWordByte(text[match[1]]) {
 			continue
 		}
-		key := strings.ToLower(text[match[4]:match[5]])
+		displayKey := text[match[4]:match[5]]
+		key := strings.ToLower(displayKey)
 		delta := -1
 		if text[match[6]:match[7]] == "++" {
 			delta = 1
@@ -106,7 +108,7 @@ func (p *Karma) applyTextChanges(network, channel, text string) []karmaUpdate {
 		if err != nil {
 			continue
 		}
-		updates = append(updates, karmaUpdate{key: key, delta: delta, channel: channel, channelValue: channelValue, globalValue: globalValue})
+		updates = append(updates, karmaUpdate{key: key, displayKey: displayKey, delta: delta, channel: channel, channelValue: channelValue, globalValue: globalValue})
 	}
 	return updates
 }
@@ -147,7 +149,7 @@ func formatKarmaUpdates(updates []karmaUpdate) string {
 	milestones := make([]string, 0)
 	for _, update := range updates {
 		if milestone := crossedKarmaMilestone(update); milestone > 0 {
-			milestones = append(milestones, fmt.Sprintf("%s has reached %+d karma! 🏆", update.key, milestone))
+			milestones = append(milestones, fmt.Sprintf("%s has reached %+d karma! 🏆", karmaDisplayName(update), milestone))
 		}
 	}
 	if len(milestones) > 0 {
@@ -171,8 +173,9 @@ func crossedKarmaMilestone(update karmaUpdate) int {
 }
 
 func formatKarmaUpdateDetail(update karmaUpdate) string {
+	name := karmaDisplayName(update)
 	if update.channel == "" {
-		return fmt.Sprintf("%s %+d (global total %+d)", update.key, update.delta, update.globalValue)
+		return fmt.Sprintf("%s %+d (global total %+d)", name, update.delta, update.globalValue)
 	}
 	action := "gained"
 	amount := update.delta
@@ -180,7 +183,14 @@ func formatKarmaUpdateDetail(update karmaUpdate) string {
 		action = "lost"
 		amount = -amount
 	}
-	return fmt.Sprintf("%s %s %d karma", update.key, action, amount)
+	return fmt.Sprintf("%s %s %d karma", name, action, amount)
+}
+
+func karmaDisplayName(update karmaUpdate) string {
+	if update.displayKey != "" {
+		return update.displayKey
+	}
+	return update.key
 }
 
 func formatKarmaScope(update karmaUpdate) string {
