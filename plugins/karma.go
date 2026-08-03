@@ -109,7 +109,7 @@ func formatKarmaUpdates(updates []karmaUpdate) string {
 	}
 	message := ""
 	if positive {
-		message = ircColor(ircGreen, "Karma boost! "+strings.Join(details, ", ")+" ✨ 🎯 🌟 💫")
+		message = ircColor(ircGreen, "🆙 Karma boost! "+strings.Join(details, ", ")+" ✨ 🎯 🌟 💫")
 	} else if negative {
 		message = ircColor(ircRed, "Karma dip! "+strings.Join(details, ", ")+" 📉 🌀 💥 😬")
 	} else {
