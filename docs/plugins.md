@@ -32,6 +32,7 @@ Plugins are enabled or disabled under plugins.<name>.enabled in config.yaml.
 - cats: short cat facts
 - eightball: customizable Magic 8-Ball answers
 - fun: local yo-momma jokes, one-liners, puns, and wisdom
+- attack: playful target-based actions and messages
 - cheer: family-friendly cheers
 - seen, tell, karma, and dice: channel utilities
 - quote, choose, and time: lightweight utilities
@@ -601,6 +602,29 @@ plugins:
 
 The catalogs are local and editable, so operators can remove a line or adapt
 the tone of a channel without changing Go code.
+
+## Attack actions
+
+The `attack` plugin provides short, playful target-based actions and messages:
+
+~~~text
+!attack slap Alice
+!slap Alice
+!hug Alice
+!flirt Alice
+!compliment Alice
+!high5 Alice
+!gift Alice
+~~~
+
+The canonical form is `!attack <style> <nick>`. Aliases include `!bite`,
+`!fight`, `!glomp`, `!insult`, `!kill`, `!lart`, `!present`, `!spank`, and
+`!stab`. Action styles use standard IRC CTCP ACTION formatting, so clients
+usually render them like `/me` messages; compliment, flirt, and insult use
+ordinary messages. Targets must be a single IRC-style nickname. Targeting
+GoBot or `self` makes GoBot perform the playful action toward the sender.
+Templates are built in, capped to short safe text, and contain no real-world
+instructions.
 
 ## Firearm and weapons catalog
 
