@@ -20,6 +20,14 @@ func TestAttackCommandParsing(t *testing.T) {
 	if _, _, ok := parseAttackArguments("attack", "unknown Alice"); ok {
 		t.Fatal("unknown attack style unexpectedly parsed")
 	}
+	style, target, ok = parseAttackArguments("attack", "strax")
+	if !ok || style != "strax" || target != "" {
+		t.Fatalf("optional-target attack parse = (%q, %q, %v)", style, target, ok)
+	}
+	style, target, ok = parseAttackArguments("spank", "Alice")
+	if !ok || style != "spank" || target != "Alice" {
+		t.Fatalf("spank parse = (%q, %q, %v)", style, target, ok)
+	}
 }
 
 func TestAttackTargetsRejectUnsafeText(t *testing.T) {
@@ -73,6 +81,26 @@ func TestAttackDefinitionsHaveSafeTemplates(t *testing.T) {
 			if output == "" || strings.ContainsAny(output, "\r\n\x00") {
 				t.Fatalf("unsafe or empty template for %q: %q", name, output)
 			}
+		}
+	}
+}
+
+func TestAttackCommandCoverage(t *testing.T) {
+	for _, command := range []string{"spank", "bdsm", "clinton", "trump", "lurve", "pokemon", "strax", "nk", "westworld", "sexup", "jackmeoff", "end", "dominate", "luff", "luv", "spar", "challenge"} {
+		if _, ok := attackAliases[command]; !ok {
+			t.Errorf("missing attack command or alias %q", command)
+		}
+	}
+}
+
+func TestAttackCommandsIncludeEveryDefinition(t *testing.T) {
+	commands := make(map[string]bool)
+	for _, command := range (&Attack{}).Commands() {
+		commands[command] = true
+	}
+	for name := range attackDefinitions {
+		if !commands[name] {
+			t.Errorf("definition %q is not exposed as a command", name)
 		}
 	}
 }

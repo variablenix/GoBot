@@ -18,9 +18,10 @@ const (
 )
 
 type attackDefinition struct {
-	name      string
-	response  attackResponse
-	templates []string
+	name           string
+	response       attackResponse
+	templates      []string
+	optionalTarget bool
 }
 
 var attackDefinitions = map[string]attackDefinition{
@@ -28,9 +29,17 @@ var attackDefinitions = map[string]attackDefinition{
 		name: "bite", response: attackAction,
 		templates: []string{"gives {target} a tiny cartoon bite.", "nibbles {target} with maximum theatricality."},
 	},
+	"bdsm": {
+		name: "bdsm", response: attackAction,
+		templates: []string{"offers {target} a clearly consensual, completely theatrical roleplay challenge.", "invites {target} to a consent-first battle of dramatic poses."},
+	},
 	"compliment": {
 		name: "compliment", response: attackMessage,
 		templates: []string{"{target}, your charisma stat is dangerously high.", "{target}, you are doing an excellent job being you."},
+	},
+	"clinton": {
+		name: "clinton", response: attackAction,
+		templates: []string{"gives {target} a famously presidential wave.", "offers {target} an overdramatic campaign-trail high five."},
 	},
 	"fight": {
 		name: "fight", response: attackAction,
@@ -64,6 +73,18 @@ var attackDefinitions = map[string]attackDefinition{
 		name: "lart", response: attackAction,
 		templates: []string{"larts {target} with a giant foam mallet.", "delivers a highly theatrical lart to {target}."},
 	},
+	"lurve": {
+		name: "lurve", response: attackMessage,
+		templates: []string{"{target}, you are lurved with maximum wholesome theatricality.", "{target}, please accept this highly enthusiastic declaration of lurve."},
+	},
+	"nk": {
+		name: "nk", response: attackMessage, optionalTarget: true,
+		templates: []string{"broadcasts a completely fictional, wildly over-the-top propaganda slogan."},
+	},
+	"pokemon": {
+		name: "pokemon", response: attackMessage,
+		templates: []string{"tosses a cartoon Poké Ball near {target}; no actual catching occurs."},
+	},
 	"present": {
 		name: "present", response: attackAction,
 		templates: []string{"gives {target} a suspiciously well-wrapped present.", "presents {target} with a gift containing exactly one surprise."},
@@ -80,16 +101,33 @@ var attackDefinitions = map[string]attackDefinition{
 		name: "stab", response: attackAction,
 		templates: []string{"stabs {target} with a harmless foam sword.", "attempts a dramatic foam-sword stab at {target}."},
 	},
+	"strax": {
+		name: "strax", response: attackMessage, optionalTarget: true,
+		templates: []string{"recites a very serious report about the tactical importance of sandwiches."},
+	},
+	"trump": {
+		name: "trump", response: attackAction,
+		templates: []string{"hands {target} an extremely overconfident gold-star trophy.", "delivers {target} a spectacularly exaggerated thumbs-up."},
+	},
+	"westworld": {
+		name: "westworld", response: attackMessage, optionalTarget: true,
+		templates: []string{"recites a mysterious fictional-western android monologue about loops and dust."},
+	},
 }
 
 var attackCommandOrder = []string{
-	"attack", "bite", "compliment", "fight", "flirt", "glomp", "highfive", "hug", "insult", "kill", "lart", "present", "slap", "spank", "stab",
+	"attack", "bdsm", "bite", "clinton", "compliment", "fight", "flirt", "glomp", "highfive", "hug", "insult", "kill", "lart", "lurve", "nk", "pokemon", "present", "slap", "spank", "stab", "strax", "trump", "westworld",
 }
 
 var attackAliases = map[string]string{
 	"attack":     "attack",
+	"bdsm":       "bdsm",
 	"bite":       "bite",
+	"clinton":    "clinton",
 	"compliment": "compliment",
+	"challenge":  "fight",
+	"dominate":   "bdsm",
+	"end":        "kill",
 	"fight":      "fight",
 	"fite":       "fight",
 	"flirt":      "flirt",
@@ -101,11 +139,22 @@ var attackAliases = map[string]string{
 	"insult":     "insult",
 	"kill":       "kill",
 	"lart":       "lart",
+	"luff":       "lurve",
+	"luv":        "lurve",
+	"lurve":      "lurve",
+	"nk":         "nk",
+	"pokemon":    "pokemon",
 	"present":    "present",
 	"gift":       "present",
+	"sexup":      "flirt",
 	"slap":       "slap",
+	"spar":       "fight",
 	"spank":      "spank",
 	"stab":       "stab",
+	"strax":      "strax",
+	"trump":      "trump",
+	"westworld":  "westworld",
+	"jackmeoff":  "flirt",
 }
 
 // Attack provides short, playful target-based actions inspired by classic IRC
@@ -118,7 +167,7 @@ func (p *Attack) Name() string { return "attack" }
 func (p *Attack) Commands() []string {
 	commands := make([]string, len(attackCommandOrder))
 	copy(commands, attackCommandOrder)
-	commands = append(commands, "fite", "gift", "high5", "hi5")
+	commands = append(commands, "challenge", "dominate", "end", "fite", "gift", "high5", "hi5", "jackmeoff", "luff", "luv", "sexup", "spar")
 	return commands
 }
 
@@ -143,12 +192,15 @@ func (p *Attack) Handle(b *bot.Bot, m bot.Message) bool {
 		b.Send(m.ReplyTarget(), attackUsage(canonical))
 		return true
 	}
-	if !validAttackTarget(target) {
+	definition := attackDefinitions[style]
+	if !definition.optionalTarget && !validAttackTarget(target) {
 		b.Send(m.ReplyTarget(), ircColor(ircYellow, "attack targets must be a single valid nickname"))
 		return true
 	}
-
-	definition := attackDefinitions[style]
+	if target != "" && !validAttackTarget(target) {
+		b.Send(m.ReplyTarget(), ircColor(ircYellow, "attack targets must be a single valid nickname"))
+		return true
+	}
 	actor := cleanExternalText(m.Nick)
 	if actor == "" {
 		actor = "someone"
@@ -174,20 +226,29 @@ func (p *Attack) Handle(b *bot.Bot, m bot.Message) bool {
 func parseAttackArguments(command, arg string) (string, string, bool) {
 	fields := strings.Fields(arg)
 	if command == "attack" {
-		if len(fields) != 2 {
+		if len(fields) < 1 || len(fields) > 2 {
 			return "", "", false
 		}
 		style, ok := attackAliases[strings.ToLower(fields[0])]
 		if !ok || style == "attack" {
 			return "", "", false
 		}
+		if len(fields) == 1 {
+			if !attackDefinitions[style].optionalTarget {
+				return "", "", false
+			}
+			return style, "", true
+		}
 		return style, fields[1], true
 	}
-	if len(fields) != 1 {
+	style, ok := attackAliases[strings.ToLower(command)]
+	if !ok || style == "attack" {
 		return "", "", false
 	}
-	style, ok := attackAliases[command]
-	if !ok || style == "attack" {
+	if len(fields) == 0 && attackDefinitions[style].optionalTarget {
+		return style, "", true
+	}
+	if len(fields) != 1 {
 		return "", "", false
 	}
 	return style, fields[0], true
@@ -195,7 +256,7 @@ func parseAttackArguments(command, arg string) (string, string, bool) {
 
 func attackUsage(command string) string {
 	if command == "attack" {
-		return ircColor(ircYellow, "usage: !attack <style> <nick> (styles: bite, compliment, fight, flirt, glomp, highfive, hug, insult, kill, lart, present, slap, spank, stab)")
+		return ircColor(ircYellow, "usage: !attack <style> [nick] (styles: bdsm, bite, clinton, compliment, fight, flirt, glomp, highfive, hug, insult, kill, lart, lurve, nk, pokemon, present, slap, spank, stab, strax, trump, westworld)")
 	}
 	return ircColor(ircYellow, fmt.Sprintf("usage: !%s <nick>", command))
 }

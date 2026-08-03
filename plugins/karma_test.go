@@ -41,9 +41,12 @@ func TestKarmaUpdateMessageIsColorfulAndCompact(t *testing.T) {
 }
 
 func TestKarmaUpdateIncludesChannelAndGlobalTotals(t *testing.T) {
-	message := formatKarmaUpdates([]karmaUpdate{{key: "project", delta: 1, channel: "#chat", channelValue: 9, globalValue: 19}})
-	if !strings.Contains(message, "project gained 1 karma") || !strings.Contains(message, "(🎯 9 in #chat | 🌐 19 global)") {
+	message := formatKarmaUpdates([]karmaUpdate{{key: "knownsyntax", displayKey: "KnownSyntax", delta: 1, channel: "#chat", channelValue: 9, globalValue: 19}})
+	if !strings.Contains(message, "KnownSyntax gained 1 karma") || !strings.Contains(message, "(🎯 9 in #chat | 🌐 19 global)") {
 		t.Fatalf("message %q does not contain scoped totals", message)
+	}
+	if strings.Contains(message, "knownsyntax gained") {
+		t.Fatalf("karma announcement lost nickname casing: %q", message)
 	}
 }
 
@@ -112,6 +115,9 @@ func TestKarmaTracksChannelAndGlobalTotals(t *testing.T) {
 	channel, global = p.readTotals("secondary", "#chat", "project")
 	if channel != 0 || global != 3 {
 		t.Fatalf("secondary #chat totals = (%d, %d), want (0, 3)", channel, global)
+	}
+	if updates := p.applyTextChanges("primary", "#chat", "KnownSyntax++"); len(updates) != 1 || updates[0].displayKey != "KnownSyntax" {
+		t.Fatalf("expected display nickname to be preserved, got %v", updates)
 	}
 }
 
