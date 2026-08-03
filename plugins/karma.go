@@ -62,6 +62,8 @@ type karmaUpdate struct {
 	value int
 }
 
+var karmaMilestones = []int{10, 25, 50, 100}
+
 func (p *Karma) applyTextChanges(text string) []karmaUpdate {
 	if p.db == nil || p.rx == nil {
 		return nil
@@ -105,13 +107,39 @@ func formatKarmaUpdates(updates []karmaUpdate) string {
 		}
 		details = append(details, fmt.Sprintf("%s %+d (total %+d)", update.key, update.delta, update.value))
 	}
+	message := ""
 	if positive {
-		return ircColor(ircGreen, "Karma boost! "+strings.Join(details, ", ")+" ✨🎯🌟💫")
+		message = ircColor(ircGreen, "Karma boost! "+strings.Join(details, ", ")+" ✨🎯🌟💫")
+	} else if negative {
+		message = ircColor(ircRed, "Karma dip! "+strings.Join(details, ", ")+" 📉🌀💥😬")
+	} else {
+		message = ircColor(ircCyan, "Karma update! "+strings.Join(details, ", ")+" ✨📊🔄🌟")
 	}
-	if negative {
-		return ircColor(ircRed, "Karma dip! "+strings.Join(details, ", ")+" 📉🌀💥😬")
+
+	milestones := make([]string, 0)
+	for _, update := range updates {
+		if milestone := crossedKarmaMilestone(update); milestone > 0 {
+			milestones = append(milestones, fmt.Sprintf("%s has reached %+d karma! 🏆", update.key, milestone))
+		}
 	}
-	return ircColor(ircCyan, "Karma update! "+strings.Join(details, ", ")+" ✨📊🔄🌟")
+	if len(milestones) > 0 {
+		message += " " + ircColor(ircTan, strings.Join(milestones, " "))
+	}
+	return message
+}
+
+func crossedKarmaMilestone(update karmaUpdate) int {
+	if update.delta <= 0 || update.value <= 0 {
+		return 0
+	}
+	previous := update.value - update.delta
+	reached := 0
+	for _, milestone := range karmaMilestones {
+		if previous < milestone && update.value >= milestone {
+			reached = milestone
+		}
+	}
+	return reached
 }
 
 func isKarmaWordByte(value byte) bool {

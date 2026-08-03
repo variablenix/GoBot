@@ -40,6 +40,23 @@ func TestKarmaUpdateMessageIsColorfulAndCompact(t *testing.T) {
 	}
 }
 
+func TestKarmaMilestoneDecoration(t *testing.T) {
+	message := formatKarmaUpdates([]karmaUpdate{{key: "project", delta: 1, value: 25}})
+	if !strings.Contains(message, "project has reached +25 karma! 🏆") {
+		t.Fatalf("missing milestone notice: %q", message)
+	}
+	if !strings.Contains(message, ircTan) {
+		t.Fatalf("expected milestone color formatting: %q", message)
+	}
+
+	if message := formatKarmaUpdates([]karmaUpdate{{key: "project", delta: 1, value: 26}}); strings.Contains(message, "has reached") {
+		t.Fatalf("milestone repeated without crossing a threshold: %q", message)
+	}
+	if message := formatKarmaUpdates([]karmaUpdate{{key: "project", delta: -1, value: -25}}); strings.Contains(message, "has reached") {
+		t.Fatalf("negative karma unexpectedly received a positive milestone: %q", message)
+	}
+}
+
 func TestKarmaChangesPersist(t *testing.T) {
 	db, err := storage.Open(filepath.Join(t.TempDir(), "karma.db"))
 	if err != nil {
