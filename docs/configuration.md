@@ -94,6 +94,7 @@ plugins:
   define: {enabled: true, timeout_seconds: 8, max_length: 240}
   calc: {enabled: true}
   fun: {enabled: true, data_dir: "data/fun", max_length: 240}
+  attack: {enabled: true}
   weapons: {enabled: true, data_file: "data/weapons.txt", max_length: 240}
   github: {enabled: true, timeout_seconds: 8, max_length: 360, token: ""}
   reddit: {enabled: true, timeout_seconds: 8, max_length: 360}
