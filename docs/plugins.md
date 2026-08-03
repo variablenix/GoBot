@@ -793,8 +793,11 @@ project--
 - tell queues a message and delivers it when the addressed nickname next speaks.
 - karma tracks case-insensitive thing++ and thing-- changes.
 - thing++ and thing-- also work as standalone ordinary chat messages. GoBot
-  confirms each update in one compact line, such as `karma updated: thing=+2`;
-  command messages are not treated as karma changes.
+  confirms each update in one compact line, such as
+  `Karma boost! thing +1 (total +2)`; command messages are not treated as
+  karma changes.
+- Positive karma milestones at +10, +25, +50, and +100 add a highlighted
+  trophy notice when the total crosses the threshold.
 - dice accepts NdN notation or a single number such as !roll 20, meaning 1d20.
   It allows up to 100 dice and 10,000 sides per die and uses secure random
   values.
