@@ -28,15 +28,22 @@ func TestKarmaRegex(t *testing.T) {
 }
 
 func TestKarmaUpdateMessageIsColorfulAndCompact(t *testing.T) {
-	message := formatKarmaUpdates([]karmaUpdate{{key: "echo", delta: 1, value: 4}})
+	message := formatKarmaUpdates([]karmaUpdate{{key: "echo", delta: 1, globalValue: 4}})
 	if !strings.Contains(message, "🆙 Karma boost! echo") {
 		t.Fatalf("unexpected karma message: %q", message)
 	}
-	if !strings.Contains(message, "✨ 🎯 🌟 💫") {
+	if !strings.Contains(message, "✨ 🌟 💫") {
 		t.Fatalf("expected spaced positive karma emojis: %q", message)
 	}
 	if !strings.Contains(message, "\x03") {
 		t.Fatal("expected IRC color formatting")
+	}
+}
+
+func TestKarmaUpdateIncludesChannelAndGlobalTotals(t *testing.T) {
+	message := formatKarmaUpdates([]karmaUpdate{{key: "project", delta: 1, channel: "#chat", channelValue: 9, globalValue: 19}})
+	if !strings.Contains(message, "project gained 1 karma") || !strings.Contains(message, "(🎯 9 in #chat | 🌐 19 global)") {
+		t.Fatalf("message %q does not contain scoped totals", message)
 	}
 }
 
@@ -46,9 +53,9 @@ func TestKarmaDecorationsKeepEmojiSeparated(t *testing.T) {
 		updates []karmaUpdate
 		want    string
 	}{
-		{name: "positive", updates: []karmaUpdate{{key: "thing", delta: 1, value: 4}}, want: "✨ 🎯 🌟 💫"},
-		{name: "negative", updates: []karmaUpdate{{key: "thing", delta: -1, value: -1}}, want: "📉 🌀 💥 😬"},
-		{name: "mixed", updates: []karmaUpdate{{key: "thing", delta: 1, value: 1}, {key: "other", delta: -1, value: -1}}, want: "✨ 📊 🔄 🌟"},
+		{name: "positive", updates: []karmaUpdate{{key: "thing", delta: 1, globalValue: 4}}, want: "✨ 🌟 💫"},
+		{name: "negative", updates: []karmaUpdate{{key: "thing", delta: -1, globalValue: -1}}, want: "📉 🌀 💥 😬"},
+		{name: "mixed", updates: []karmaUpdate{{key: "thing", delta: 1, globalValue: 1}, {key: "other", delta: -1, globalValue: -1}}, want: "✨ 📊 🔄 🌟"},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
@@ -60,7 +67,7 @@ func TestKarmaDecorationsKeepEmojiSeparated(t *testing.T) {
 }
 
 func TestKarmaMilestoneDecoration(t *testing.T) {
-	message := formatKarmaUpdates([]karmaUpdate{{key: "project", delta: 1, value: 25}})
+	message := formatKarmaUpdates([]karmaUpdate{{key: "project", delta: 1, channel: "#chat", channelValue: 25, globalValue: 25}})
 	if !strings.Contains(message, "project has reached +25 karma! 🏆") {
 		t.Fatalf("missing milestone notice: %q", message)
 	}
@@ -68,11 +75,69 @@ func TestKarmaMilestoneDecoration(t *testing.T) {
 		t.Fatalf("expected milestone color formatting: %q", message)
 	}
 
-	if message := formatKarmaUpdates([]karmaUpdate{{key: "project", delta: 1, value: 26}}); strings.Contains(message, "has reached") {
+	if message := formatKarmaUpdates([]karmaUpdate{{key: "project", delta: 1, channel: "#chat", channelValue: 26, globalValue: 26}}); strings.Contains(message, "has reached") {
 		t.Fatalf("milestone repeated without crossing a threshold: %q", message)
 	}
-	if message := formatKarmaUpdates([]karmaUpdate{{key: "project", delta: -1, value: -25}}); strings.Contains(message, "has reached") {
+	if message := formatKarmaUpdates([]karmaUpdate{{key: "project", delta: -1, channel: "#chat", channelValue: -25, globalValue: -25}}); strings.Contains(message, "has reached") {
 		t.Fatalf("negative karma unexpectedly received a positive milestone: %q", message)
+	}
+}
+
+func TestKarmaTracksChannelAndGlobalTotals(t *testing.T) {
+	db, err := storage.Open(filepath.Join(t.TempDir(), "karma.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	p := &Karma{}
+	if err := p.Init(bot.PluginConfig{}, db); err != nil {
+		t.Fatal(err)
+	}
+
+	if updates := p.applyTextChanges("primary", "#chat", "project++ project++"); len(updates) != 2 {
+		t.Fatalf("expected two channel updates, got %v", updates)
+	}
+	if updates := p.applyTextChanges("primary", "#other", "project++"); len(updates) != 1 {
+		t.Fatalf("expected one second-channel update, got %v", updates)
+	}
+
+	channel, global := p.readTotals("primary", "#chat", "project")
+	if channel != 2 || global != 3 {
+		t.Fatalf("#chat totals = (%d, %d), want (2, 3)", channel, global)
+	}
+	channel, global = p.readTotals("primary", "#other", "project")
+	if channel != 1 || global != 3 {
+		t.Fatalf("#other totals = (%d, %d), want (1, 3)", channel, global)
+	}
+	channel, global = p.readTotals("secondary", "#chat", "project")
+	if channel != 0 || global != 3 {
+		t.Fatalf("secondary #chat totals = (%d, %d), want (0, 3)", channel, global)
+	}
+}
+
+func TestKarmaPreservesLegacyGlobalTotals(t *testing.T) {
+	db, err := storage.Open(filepath.Join(t.TempDir(), "karma.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	p := &Karma{}
+	if err := p.Init(bot.PluginConfig{}, db); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := p.change("legacy", 5); err != nil {
+		t.Fatal(err)
+	}
+	channel, global := p.readTotals("primary", "#chat", "legacy")
+	if channel != 0 || global != 5 {
+		t.Fatalf("legacy totals = (%d, %d), want (0, 5)", channel, global)
+	}
+	if updates := p.applyTextChanges("primary", "#chat", "legacy++"); len(updates) != 1 {
+		t.Fatalf("expected one migrated update, got %v", updates)
+	}
+	channel, global = p.readTotals("primary", "#chat", "legacy")
+	if channel != 1 || global != 6 {
+		t.Fatalf("updated legacy totals = (%d, %d), want (1, 6)", channel, global)
 	}
 }
 
@@ -86,15 +151,19 @@ func TestKarmaChangesPersist(t *testing.T) {
 	if err := p.Init(bot.PluginConfig{}, db); err != nil {
 		t.Fatal(err)
 	}
-	if updates := p.applyTextChanges("notgo++inside"); len(updates) != 0 {
+	if updates := p.applyTextChanges("primary", "#test", "notgo++inside"); len(updates) != 0 {
 		t.Fatalf("expected embedded update to be ignored, got %v", updates)
 	}
-	updates := p.applyTextChanges("ouchnet++ ouchnet++ ouchnet--")
+	updates := p.applyTextChanges("primary", "#test", "ouchnet++ ouchnet++ ouchnet--")
 	if len(updates) != 3 {
 		t.Fatalf("expected three updates, got %v", updates)
 	}
 	value, err := p.change("ouchnet", 0)
 	if err != nil || value != 1 {
 		t.Fatalf("expected persisted karma +1, got %d, %v", value, err)
+	}
+	channel, global := p.readTotals("primary", "#test", "ouchnet")
+	if channel != 1 || global != 1 {
+		t.Fatalf("scoped totals = (%d, %d), want (1, 1)", channel, global)
 	}
 }

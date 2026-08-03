@@ -155,6 +155,10 @@ Successful consecutive UTC-day claims also report a per-user streak; missing a
 day resets the streak to one. The streak is tracked by Daily separately from
 Duck Hunt's XP and level progression.
 
+Karma totals are tracked per network/channel as well as globally. Existing
+legacy Karma values remain global totals; channel-specific totals begin at zero
+for those pre-existing items and are populated by new channel updates.
+
 The optional `welcome` plugin listens for users joining a channel. It applies
 the configured probability to each join and then enforces a per-channel
 cooldown, so it can add personality without greeting every person in a busy
