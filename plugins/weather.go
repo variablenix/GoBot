@@ -16,6 +16,7 @@ import (
 
 type Weather struct {
 	cfg   bot.PluginConfig
+	db    *storage.DB
 	mu    sync.Mutex
 	cache map[string]weatherCache
 }
@@ -23,9 +24,12 @@ type Weather struct {
 var apiHTTPClient = &http.Client{Timeout: 10 * time.Second}
 
 type weatherCache struct {
-	body string
-	at   time.Time
+	body     string
+	location string
+	at       time.Time
 }
+
+const weatherDefaultsBucket = "weather_defaults"
 
 func (p *Weather) Name() string {
 	return "weather"
@@ -35,10 +39,11 @@ func (p *Weather) Commands() []string {
 	return []string{"weather", "wx", "forecast", "temp"}
 }
 func (p *Weather) Help() string {
-	return "!weather <city> — current weather from Open-Meteo (aliases: !wx, !forecast, !temp; no API key required)"
+	return "!weather [city] — current weather; !weather set <city> saves your default; !weather clear removes it (aliases: !wx, !forecast, !temp; no API key required)"
 }
-func (p *Weather) Init(c bot.PluginConfig, _ *storage.DB) error {
+func (p *Weather) Init(c bot.PluginConfig, db *storage.DB) error {
 	p.cfg = c
+	p.db = db
 	p.cache = map[string]weatherCache{}
 	return nil
 }
@@ -47,14 +52,49 @@ func (p *Weather) Handle(b *bot.Bot, m bot.Message) bool {
 	if !ok || !isWeatherCommand(cmd) {
 		return false
 	}
-	key := strings.TrimSpace(arg)
-	if key == "" {
-		b.Send(m.ReplyTarget(), ircColor(ircYellow, "usage: !weather <city>"))
+	request, valid := parseWeatherRequest(arg)
+	if !valid {
+		b.Send(m.ReplyTarget(), weatherUsage())
 		return true
 	}
+	identity := weatherIdentity(b, m)
+	if request.clear {
+		if identity == "" || p.db == nil {
+			b.Send(m.ReplyTarget(), ircColor(ircRed, "weather defaults are unavailable right now"))
+			return true
+		}
+		if err := p.clearWeatherDefault(identity); err != nil {
+			b.Send(m.ReplyTarget(), ircColor(ircRed, "couldn't clear your weather default"))
+			return true
+		}
+		b.Send(m.ReplyTarget(), ircColor(ircGreen, "weather default cleared"))
+		return true
+	}
+
+	key := request.location
+	if key == "" {
+		if identity == "" || p.db == nil {
+			b.Send(m.ReplyTarget(), weatherUsage())
+			return true
+		}
+		key = p.savedWeatherDefault(identity)
+		if key == "" {
+			b.Send(m.ReplyTarget(), weatherUsage())
+			return true
+		}
+	}
+	cacheKey := strings.ToLower(key)
 	p.mu.Lock()
-	if v, ok := p.cache[strings.ToLower(key)]; ok && time.Since(v.at) < 10*time.Minute {
+	if v, ok := p.cache[cacheKey]; ok && time.Since(v.at) < 10*time.Minute {
 		p.mu.Unlock()
+		if request.setDefault {
+			if err := p.saveWeatherDefault(identity, key); err != nil {
+				b.Send(m.ReplyTarget(), ircColor(ircRed, "couldn't save your weather default"))
+				return true
+			}
+			b.Send(m.ReplyTarget(), weatherDefaultSaved(v.location))
+			return true
+		}
 		b.Send(m.ReplyTarget(), v.body)
 		return true
 	}
@@ -110,12 +150,113 @@ func (p *Weather) Handle(b *bot.Bot, m bot.Message) bool {
 		return true
 	}
 	direction := compassDirection(forecast.Current.WindDirection)
-	body := fmt.Sprintf("%s for %s, %s: %.0f%s, %s, humidity %.0f%%, wind %.0f %s %s, feels like %.0f%s", ircColor(ircCyan, "Weather"), place.Name, strings.ToUpper(place.CountryCode), forecast.Current.Temperature, temperatureSuffix, weatherDescription(forecast.Current.WeatherCode), forecast.Current.Humidity, forecast.Current.WindSpeed, windUnit, direction, forecast.Current.FeelsLike, temperatureSuffix)
+	placeLabel := fmt.Sprintf("%s, %s", place.Name, strings.ToUpper(place.CountryCode))
+	body := fmt.Sprintf("%s for %s: %.0f%s, %s, humidity %.0f%%, wind %.0f %s %s, feels like %.0f%s", ircColor(ircCyan, "Weather"), placeLabel, forecast.Current.Temperature, temperatureSuffix, weatherDescription(forecast.Current.WeatherCode), forecast.Current.Humidity, forecast.Current.WindSpeed, windUnit, direction, forecast.Current.FeelsLike, temperatureSuffix)
 	p.mu.Lock()
-	p.cache[strings.ToLower(key)] = weatherCache{body, time.Now()}
+	p.cache[cacheKey] = weatherCache{body: body, location: placeLabel, at: time.Now()}
 	p.mu.Unlock()
+	if request.setDefault {
+		if err := p.saveWeatherDefault(identity, key); err != nil {
+			b.Send(m.ReplyTarget(), ircColor(ircRed, "couldn't save your weather default"))
+			return true
+		}
+		b.Send(m.ReplyTarget(), weatherDefaultSaved(placeLabel))
+		return true
+	}
 	b.Send(m.ReplyTarget(), body)
 	return true
+}
+
+type weatherRequest struct {
+	location   string
+	setDefault bool
+	clear      bool
+}
+
+func parseWeatherRequest(arg string) (weatherRequest, bool) {
+	arg = strings.TrimSpace(arg)
+	if arg == "" {
+		return weatherRequest{}, true
+	}
+	fields := strings.Fields(arg)
+	command := strings.ToLower(fields[0])
+	rest := strings.TrimSpace(arg[len(fields[0]):])
+	switch command {
+	case "set", "default":
+		location := stripWeatherQuotes(rest)
+		if location == "" {
+			return weatherRequest{}, false
+		}
+		return weatherRequest{location: location, setDefault: true}, true
+	case "clear", "unset", "reset":
+		if strings.TrimSpace(rest) != "" {
+			return weatherRequest{}, false
+		}
+		return weatherRequest{clear: true}, true
+	default:
+		return weatherRequest{location: stripWeatherQuotes(arg)}, true
+	}
+}
+
+func stripWeatherQuotes(value string) string {
+	value = strings.TrimSpace(value)
+	if len(value) >= 2 {
+		first, last := value[0], value[len(value)-1]
+		if (first == '\'' && last == '\'') || (first == '"' && last == '"') {
+			value = strings.TrimSpace(value[1 : len(value)-1])
+		}
+	}
+	return value
+}
+
+func weatherUsage() string {
+	return ircColor(ircYellow, "usage: !weather [city] | !weather set <city> | !weather clear")
+}
+
+func weatherIdentity(b *bot.Bot, m bot.Message) string {
+	account := strings.TrimSpace(m.Account)
+	if account != "" && account != "*" {
+		return "account:" + strings.ToLower(account)
+	}
+	network := strings.ToLower(strings.TrimSpace(b.Config.NetworkName))
+	nick := strings.ToLower(strings.TrimSpace(m.Nick))
+	if network == "" || nick == "" {
+		return ""
+	}
+	return "nick:" + network + "\x00" + nick
+}
+
+func (p *Weather) savedWeatherDefault(identity string) string {
+	raw, err := p.db.Get(weatherDefaultsBucket, identity)
+	if err != nil {
+		return ""
+	}
+	var location string
+	if storage.Decode(raw, &location) != nil {
+		return ""
+	}
+	return strings.TrimSpace(location)
+}
+
+func (p *Weather) saveWeatherDefault(identity, location string) error {
+	if p.db == nil || identity == "" {
+		return fmt.Errorf("weather default storage is unavailable")
+	}
+	return p.db.Set(weatherDefaultsBucket, identity, strings.TrimSpace(location))
+}
+
+func (p *Weather) clearWeatherDefault(identity string) error {
+	if p.db == nil || identity == "" {
+		return fmt.Errorf("weather default storage is unavailable")
+	}
+	return p.db.Delete(weatherDefaultsBucket, identity)
+}
+
+func weatherDefaultSaved(location string) string {
+	if strings.TrimSpace(location) == "" {
+		location = "your saved location"
+	}
+	return ircColor(ircGreen, fmt.Sprintf("weather default saved as %s; use !weather or !wx anytime", location))
 }
 
 func isWeatherCommand(command string) bool {
