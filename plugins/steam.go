@@ -22,6 +22,7 @@ const (
 	steamSearchPageURL = "https://store.steampowered.com/search/"
 	steamGenrePageURL  = "https://store.steampowered.com/tags/en/"
 	steamStorePageURL  = "https://store.steampowered.com/app/"
+	steamChartsPageURL = "https://store.steampowered.com/charts/mostplayed/"
 	steamDefaultMaxLen = 360
 )
 
@@ -265,7 +266,7 @@ func (p *Steam) handleTop(b *bot.Bot, m bot.Message) {
 	if top.PeakInGame > 0 {
 		peak = fmt.Sprintf(" | recent peak %s players", formatSteamNumber(top.PeakInGame))
 	}
-	message := fmt.Sprintf("#1 most-played on Steam: %s%s — %s", game.Name, peak, steamStoreURL(game.SteamAppID))
+	message := fmt.Sprintf("#1 most-played on Steam: %s%s — %s | full charts: %s", game.Name, peak, steamStoreURL(game.SteamAppID), steamChartsPageURL)
 	b.Send(m.ReplyTarget(), message)
 }
 
@@ -274,7 +275,7 @@ func (p *Steam) sendGameInfo(b *bot.Bot, m bot.Message, summary, detail string) 
 		b.Send(m.ReplyTarget(), summary)
 		return
 	}
-	if !m.IsChannel || strings.TrimSpace(m.Nick) == "" {
+	if !steamNeedsPrivateMessage(m, summary, p.maxLength) {
 		for _, part := range splitIRCText(detail, p.maxLength) {
 			b.Send(m.ReplyTarget(), part)
 		}
@@ -284,6 +285,10 @@ func (p *Steam) sendGameInfo(b *bot.Bot, m bot.Message, summary, detail string) 
 		b.Send(m.Nick, part)
 	}
 	b.Send(m.ReplyTarget(), fmt.Sprintf("I'm messaging you the game info, %s.", m.Nick))
+}
+
+func steamNeedsPrivateMessage(m bot.Message, text string, maxLength int) bool {
+	return len([]byte(text)) > maxLength && m.IsChannel && strings.TrimSpace(m.Nick) != ""
 }
 
 func (p *Steam) search(ctx context.Context, query string) (steamSearchResponse, error) {
