@@ -11,6 +11,7 @@ Plugins are enabled or disabled under plugins.<name>.enabled in config.yaml.
 - welcome: optional, probability-based join greetings with a per-channel cooldown
 - urltitle: page titles and YouTube metadata
 - weather: Open-Meteo weather, no key required
+- steam: Steam game search, genre links, and most-played lookup, no key required
 - news: NewsAPI headlines and search
 - ask: source-grounded questions with optional AI rewriting
 - wikipedia: English Wikipedia summaries
@@ -190,6 +191,30 @@ are supported, so `!weather set 'Las Vegas'` works too. After saving it, use
 previous default; `!weather clear` removes it. Defaults are saved by your
 authenticated IRC account when available, or by network and nickname, and
 survive bot restarts. Set `default_units` to metric or imperial.
+
+## Steam
+
+Steam lookups use Steam's public store and charts endpoints and do not require
+an API key:
+
+~~~text
+!steam Portal 2
+!game Baldur's Gate 3
+!steam info 620
+!steam info https://store.steampowered.com/app/620/
+!steam genre FPS
+!steam genre RPG
+!steam top
+~~~
+
+A title search returns one best match, its Steam store link, and a `more
+matches` search link for sequels, DLC, or similarly named games. `genre` opens
+the matching Steam tag page. `top` reports the current #1 most-played Steam
+game and its recent peak when available. Game details are kept concise; if a
+requested details response exceeds the configured IRC message limit, GoBot
+sends the full response by private message and tells the channel that it is
+messaging the requester. Configure `plugins.steam.timeout_seconds` and
+`plugins.steam.max_length` as needed.
 
 ## Horoscope
 
