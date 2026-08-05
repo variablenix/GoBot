@@ -181,11 +181,15 @@ short link:
 !youtube Linux server setup
 ~~~
 
-The response includes the channel, title, and a `https://youtu.be/...` link.
-The command searches video results, which includes music videos and other
-YouTube video content. GoBot uses `BOT_YOUTUBE_API_KEY` when configured for
-the official Data API search and falls back to YouTube's public results page
-when the key is unavailable or the API cannot be used. Configure
+The response is labeled `[YouTube]`, includes the channel, title, and a
+`https://youtu.be/...` link. When `BOT_YOUTUBE_API_KEY` is configured, GoBot
+also adds the video's public view and like totals when YouTube exposes them.
+The statistics are best-effort: a missing like count, an API limitation, or a
+temporary statistics lookup failure does not prevent the search result from
+being returned. The command searches video results, which includes music
+videos and other YouTube video content. GoBot uses the key for the official
+Data API search and statistics lookup, then falls back to YouTube's public
+results page when the key is unavailable or the API cannot be used. Configure
 `plugins.youtube.max_length` and `plugins.youtube.timeout_seconds` as needed.
 The API key is optional, but improves search reliability and avoids depending
 on changes to YouTube's public results HTML.

@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -31,9 +32,13 @@ type YouTube struct {
 }
 
 type youtubeSearchResult struct {
-	VideoID     string
-	Title       string
-	ChannelName string
+	VideoID      string
+	Title        string
+	ChannelName  string
+	ViewCount    int64
+	LikeCount    int64
+	HasViewCount bool
+	HasLikeCount bool
 }
 
 func (p *YouTube) Name() string       { return "youtube" }
@@ -117,10 +122,53 @@ func (p *YouTube) searchAPI(ctx context.Context, query string) (youtubeSearchRes
 	for _, item := range response.Items {
 		result := youtubeSearchResult{VideoID: item.ID.VideoID, Title: cleanTitle(item.Snippet.Title), ChannelName: cleanTitle(item.Snippet.ChannelName)}
 		if validYouTubeSearchResult(result) {
+			p.addStatistics(ctx, result.VideoID, &result)
 			return result, nil
 		}
 	}
 	return youtubeSearchResult{}, fmt.Errorf("no YouTube video found")
+}
+
+// addStatistics enriches a successful search result when the Data API is
+// configured. Statistics are deliberately best-effort: a missing statistic
+// (for example, likes disabled by the creator) must not turn a useful search
+// result into an error.
+func (p *YouTube) addStatistics(ctx context.Context, videoID string, result *youtubeSearchResult) {
+	endpoint, err := url.Parse("https://www.googleapis.com/youtube/v3/videos")
+	if err != nil {
+		return
+	}
+	params := endpoint.Query()
+	params.Set("part", "statistics")
+	params.Set("id", videoID)
+	params.Set("key", p.apiKey)
+	endpoint.RawQuery = params.Encode()
+
+	var response struct {
+		Items []struct {
+			Statistics struct {
+				ViewCount string `json:"viewCount"`
+				LikeCount string `json:"likeCount"`
+			} `json:"statistics"`
+		} `json:"items"`
+	}
+	if err := p.getJSON(ctx, endpoint.String(), &response); err != nil || len(response.Items) == 0 {
+		return
+	}
+	statistics := response.Items[0].Statistics
+	if count, ok := parseYouTubeCount(statistics.ViewCount); ok {
+		result.ViewCount = count
+		result.HasViewCount = true
+	}
+	if count, ok := parseYouTubeCount(statistics.LikeCount); ok {
+		result.LikeCount = count
+		result.HasLikeCount = true
+	}
+}
+
+func parseYouTubeCount(value string) (int64, bool) {
+	count, err := strconv.ParseInt(strings.TrimSpace(value), 10, 64)
+	return count, err == nil && count >= 0
 }
 
 func (p *YouTube) searchPage(ctx context.Context, query string) (youtubeSearchResult, error) {
@@ -262,19 +310,56 @@ func validYouTubeSearchResult(result youtubeSearchResult) bool {
 
 func formatYouTubeSearchResult(result youtubeSearchResult, maxLength int) string {
 	link := "https://youtu.be/" + result.VideoID
-	prefix := "YouTube "
+	prefix := "[YouTube]"
 	if result.ChannelName != "" {
-		prefix += result.ChannelName + " - "
+		prefix += " " + result.ChannelName + " —"
 	}
-	suffix := " URL " + link
-	text := prefix + result.Title
-	if maxLength > 0 && len([]rune(text+suffix)) > maxLength {
-		available := maxLength - len([]rune(prefix+suffix))
-		if available > 1 {
-			text = prefix + truncateRunes(result.Title, available)
+	stats := youtubeStatsText(result)
+	fixedSuffix := " | " + link
+	if stats != "" {
+		fixedSuffix = " | " + stats + fixedSuffix
+	}
+	availableTitle := maxLength - len([]rune(prefix+" "+result.Title+fixedSuffix)) + len([]rune(result.Title))
+	title := result.Title
+	if maxLength > 0 && availableTitle < len([]rune(title)) {
+		if availableTitle > 1 {
+			title = truncateRunes(title, availableTitle)
 		} else {
-			text = prefix
+			title = ""
 		}
 	}
-	return text + suffix
+
+	header := ircColor(ircRed, "[YouTube]")
+	if result.ChannelName != "" {
+		header += " " + ircColor(ircYellow, result.ChannelName) + " —"
+	}
+	header += " " + ircColor(ircCyan, title)
+	parts := []string{header}
+	if result.HasViewCount {
+		parts = append(parts, ircColor(ircYellow, "👁 "+formatYouTubeCount(result.ViewCount)+" views"))
+	}
+	if result.HasLikeCount {
+		parts = append(parts, ircColor(ircGreen, "👍 "+formatYouTubeCount(result.LikeCount)+" likes"))
+	}
+	parts = append(parts, ircColor(ircCyan, link))
+	return strings.Join(parts, " | ")
+}
+
+func youtubeStatsText(result youtubeSearchResult) string {
+	var stats []string
+	if result.HasViewCount {
+		stats = append(stats, "👁 "+formatYouTubeCount(result.ViewCount)+" views")
+	}
+	if result.HasLikeCount {
+		stats = append(stats, "👍 "+formatYouTubeCount(result.LikeCount)+" likes")
+	}
+	return strings.Join(stats, " | ")
+}
+
+func formatYouTubeCount(count int64) string {
+	value := strconv.FormatInt(count, 10)
+	for i := len(value) - 3; i > 0; i -= 3 {
+		value = value[:i] + "," + value[i:]
+	}
+	return value
 }
