@@ -56,6 +56,9 @@ func TestSteamAppIDAndLinks(t *testing.T) {
 	if got := steamGenreURL("FPS"); got != "https://store.steampowered.com/tags/en/FPS/" {
 		t.Fatalf("steamGenreURL = %q", got)
 	}
+	if !strings.Contains(steamChartsPageURL, "/charts/mostplayed/") {
+		t.Fatalf("steamChartsPageURL = %q", steamChartsPageURL)
+	}
 }
 
 func TestSteamFormatting(t *testing.T) {
@@ -134,5 +137,18 @@ func TestSteamHelpDocumentsFeatures(t *testing.T) {
 		if !strings.Contains(help, want) {
 			t.Errorf("help %q does not contain %q", help, want)
 		}
+	}
+}
+
+func TestSteamPrivateMessageDecision(t *testing.T) {
+	long := strings.Repeat("x", 101)
+	if !steamNeedsPrivateMessage(bot.Message{IsChannel: true, Nick: "Alice"}, long, 100) {
+		t.Fatal("expected long channel response to use a private message")
+	}
+	if steamNeedsPrivateMessage(bot.Message{IsChannel: false, Nick: "Alice"}, long, 100) {
+		t.Fatal("did not expect private-message fallback for an existing private message")
+	}
+	if steamNeedsPrivateMessage(bot.Message{IsChannel: true, Nick: "Alice"}, "short", 100) {
+		t.Fatal("did not expect private-message fallback for a short response")
 	}
 }
