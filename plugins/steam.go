@@ -30,7 +30,6 @@ var (
 	steamAppDetailsURL = "https://store.steampowered.com/api/appdetails"
 	steamChartsAPIURL  = "https://api.steampowered.com/ISteamChartsService/GetMostPlayedGames/v1/"
 	steamHTTPClient    = &http.Client{Timeout: 10 * time.Second}
-	steamAppURLRegex   = regexp.MustCompile(`(?i)store\.steampowered\.com/app/([0-9]+)`)
 	steamHTMLTagRegex  = regexp.MustCompile(`<[^>]*>`)
 )
 
@@ -371,8 +370,20 @@ func steamAppID(value string) (int, bool) {
 	if value == "" {
 		return 0, false
 	}
-	if matches := steamAppURLRegex.FindStringSubmatch(value); len(matches) == 2 {
-		value = matches[1]
+	if strings.Contains(value, "://") {
+		parsed, err := url.Parse(value)
+		if err != nil {
+			return 0, false
+		}
+		schemeOK := strings.EqualFold(parsed.Scheme, "https") || strings.EqualFold(parsed.Scheme, "http")
+		if !schemeOK || !strings.EqualFold(parsed.Hostname(), "store.steampowered.com") {
+			return 0, false
+		}
+		parts := strings.Split(strings.Trim(parsed.Path, "/"), "/")
+		if len(parts) < 2 || !strings.EqualFold(parts[0], "app") {
+			return 0, false
+		}
+		value = parts[1]
 	}
 	appID, err := strconv.Atoi(value)
 	return appID, err == nil && appID > 0
