@@ -63,6 +63,7 @@ plugins:
   # Optional YouTube Data API v3 key for reliable title/channel/duration data.
   # Without it, GoBot uses YouTube's public oEmbed/player fallbacks.
   urltitle: {enabled: true, max_title_length: 120, timeout_seconds: 5, youtube_api_key: ""}
+  youtube: {enabled: true, max_length: 320, timeout_seconds: 10, api_key: ""}
   weather: {enabled: true, default_units: imperial}
   steam: {enabled: true, timeout_seconds: 10, max_length: 360}
   news: {enabled: true, api_key: "", max_results: 3}
