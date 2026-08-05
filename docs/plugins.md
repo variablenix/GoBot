@@ -156,9 +156,18 @@ Weather uses Open-Meteo and does not require an API key:
 !wx Seattle
 !forecast Seattle
 !temp Seattle
+!weather set Las Vegas
+!weather
+!wx
+!weather clear
 ~~~
 
-Set default_units to metric or imperial.
+Use `!weather set <city>` to save a personal default location. Quoted city names
+are supported, so `!weather set 'Las Vegas'` works too. After saving it, use
+`!weather` or any weather alias without a city. Setting it again replaces the
+previous default; `!weather clear` removes it. Defaults are saved by your
+authenticated IRC account when available, or by network and nickname, and
+survive bot restarts. Set `default_units` to metric or imperial.
 
 ## Horoscope
 
