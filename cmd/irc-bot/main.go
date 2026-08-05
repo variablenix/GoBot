@@ -200,6 +200,7 @@ func configureViper() {
 	bind("plugins.lastfm.api_key", "BOT_LASTFM_API_KEY")
 	bind("plugins.github.token", "BOT_GITHUB_TOKEN")
 	bind("plugins.urltitle.youtube_api_key", "BOT_YOUTUBE_API_KEY")
+	bind("plugins.youtube.api_key", "BOT_YOUTUBE_API_KEY")
 	bind("plugins.ask.ai_rewrite", "BOT_ASK_AI_REWRITE")
 	bind("plugins.ask.provider", "BOT_ASK_PROVIDER")
 	bind("plugins.ask.openrouter_api_key", "BOT_OPENROUTER_API_KEY")
