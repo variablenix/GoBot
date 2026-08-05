@@ -21,6 +21,7 @@ func All() []bot.Plugin {
 		&Cheer{},
 		&Seen{},
 		&Tell{},
+		&Note{},
 		&Karma{},
 		&Dice{},
 		&Blackjack{},
