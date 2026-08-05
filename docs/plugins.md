@@ -10,6 +10,7 @@ Plugins are enabled or disabled under plugins.<name>.enabled in config.yaml.
 - banter: optional replies when GoBot is directly addressed
 - welcome: optional, probability-based join greetings with a per-channel cooldown
 - urltitle: page titles and YouTube metadata
+- youtube: single-result YouTube video and music search
 - weather: Open-Meteo weather, no key required
 - steam: Steam game search, genre links, and most-played lookup, no key required
 - news: NewsAPI headlines and search
@@ -169,6 +170,25 @@ BOT_YOUTUBE_API_KEY=your-youtube-data-api-key
 
 The key needs YouTube Data API v3 enabled. GoBot requests only snippet and
 contentDetails for the linked video.
+
+## YouTube search
+
+Search YouTube for one regular video or music video and receive a concise
+short link:
+
+~~~text
+!yt SMOKE WEED EVERYDAY
+!youtube Linux server setup
+~~~
+
+The response includes the channel, title, and a `https://youtu.be/...` link.
+The command searches video results, which includes music videos and other
+YouTube video content. GoBot uses `BOT_YOUTUBE_API_KEY` when configured for
+the official Data API search and falls back to YouTube's public results page
+when the key is unavailable or the API cannot be used. Configure
+`plugins.youtube.max_length` and `plugins.youtube.timeout_seconds` as needed.
+The API key is optional, but improves search reliability and avoids depending
+on changes to YouTube's public results HTML.
 
 ## Weather
 

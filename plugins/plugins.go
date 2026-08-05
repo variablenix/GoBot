@@ -8,6 +8,7 @@ func All() []bot.Plugin {
 		&Banter{},
 		&Welcome{},
 		&URLTitle{},
+		&YouTube{},
 		&Weather{},
 		&Steam{},
 		&News{},
