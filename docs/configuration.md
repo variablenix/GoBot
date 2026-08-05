@@ -100,6 +100,7 @@ plugins:
   reddit: {enabled: true, timeout_seconds: 8, max_length: 360}
   daily: {enabled: true, bonus_xp: 25}
   note: {enabled: true, max_notes: 50, max_note_length: 400, expiry_days: 180}
+  steam: {enabled: true, timeout_seconds: 10, max_length: 360}
   # Keyless source-grounded answers by default; AI rewriting is opt-in.
   ask:
     enabled: true
