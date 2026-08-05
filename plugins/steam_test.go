@@ -42,6 +42,7 @@ func TestSteamAppIDAndLinks(t *testing.T) {
 		{value: "620", want: 620, ok: true},
 		{value: "https://store.steampowered.com/app/620/", want: 620, ok: true},
 		{value: "https://store.steampowered.com/app/620/Portal_2/", want: 620, ok: true},
+		{value: "https://evil.example/store.steampowered.com/app/620", ok: false},
 		{value: "not-an-app", ok: false},
 	} {
 		got, ok := steamAppID(test.value)
