@@ -95,6 +95,7 @@ plugins:
   cheer: {enabled: true, cheers_file: "quotes/cheers.txt", automatic_cooldown_seconds: 15}
   seen: {enabled: true}
   tell: {enabled: true}
+  note: {enabled: true, max_notes: 50, max_note_length: 400, expiry_days: 180}
   karma: {enabled: true}
   dice: {enabled: true}
   blackjack: {enabled: true}
