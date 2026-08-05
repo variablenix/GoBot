@@ -24,6 +24,7 @@ Plugins are enabled or disabled under plugins.<name>.enabled in config.yaml.
 - calc: safe local arithmetic and unit conversion
 - github: compact public GitHub repository, issue, release, user, commit, and search lookups
 - grab: save, replay, search, and randomly show memorable channel lines
+- note: private per-account notes with bounded persistence and expiry
 - linux: current Linux kernel release lines from kernel.org
 - weapons: high-level local firearm and weapons-name catalog
 - status: local connection, uptime, and counter status
@@ -76,6 +77,27 @@ If the addressed nickname is GoBot's own configured nickname, it replies with
 a short humorous message instead of queueing a message for itself. A queued
 tell is delivered when that nickname next sends either a channel message or a
 private message to GoBot.
+
+## Personal notes
+
+The `note` plugin stores small, user-invoked notes by authenticated IRC account:
+
+~~~text
+!note add vegas https://example.com
+!note vegas
+!note list
+!note delete vegas
+!note clear
+~~~
+
+`!notes` is an alias for `!note`. Notes are not announced automatically and are
+stored separately for each user. A note response sent in a channel is visible
+there, so use a private message when the note is sensitive. When account tags
+are unavailable, GoBot falls back to the network and nickname. Notes are limited
+to 50 per user by default, with 400 characters per note, and unused notes expire
+after 180 days. Operators can change these limits with `plugins.note.max_notes`,
+`plugins.note.max_note_length`, and `plugins.note.expiry_days`; set
+`expiry_days: 0` to disable expiry.
 
 ## Join greetings
 
