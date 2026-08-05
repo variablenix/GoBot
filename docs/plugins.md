@@ -210,7 +210,8 @@ an API key:
 A title search returns one best match, its Steam store link, and a `more
 matches` search link for sequels, DLC, or similarly named games. `genre` opens
 the matching Steam tag page. `top` reports the current #1 most-played Steam
-game and its recent peak when available. Game details are kept concise; if a
+game and its recent peak when available, plus a link to the full most-played
+charts. Game details are kept concise; if a
 requested details response exceeds the configured IRC message limit, GoBot
 sends the full response by private message and tells the channel that it is
 messaging the requester. Configure `plugins.steam.timeout_seconds` and
