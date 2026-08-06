@@ -50,10 +50,12 @@ There is no setup wizard yet. GoBot is configuration-first:
 3. Copy `.env.example` to `.env` and add secrets if needed.
 4. Register and configure NickServ/SASL if the network requires it.
 5. Build with `make build`.
-6. Start GoBot and watch its logs.
-7. Confirm that it connects and joins the expected channels.
-8. Test `!help`, `!weather`, `!wiki`, and `!karma`.
-9. Invite it to a temporary channel with `/invite <bot-nick> #channel`, or
+6. For a direct launch, export the environment file first:
+   `set -a; . ./.env; set +a`; GoBot does not parse `.env` itself.
+7. Start GoBot and watch its logs.
+8. Confirm that it connects and joins the expected channels.
+9. Test `!help`, `!weather`, `!wiki`, and `!karma`.
+10. Invite it to a temporary channel with `/invite <bot-nick> #channel`, or
    add permanent channels to `config.yaml`.
 
 Keep `.env` private:

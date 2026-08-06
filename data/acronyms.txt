@@ -1,0 +1,18 @@
+# One entry per line: ACRONYM|expansion
+API|Application Programming Interface
+CAP|Client Capability negotiation
+CI|Continuous Integration
+CPU|Central Processing Unit
+DNS|Domain Name System
+HTTP|Hypertext Transfer Protocol
+IRC|Internet Relay Chat
+MTTR|Mean Time To Recovery
+NTP|Network Time Protocol
+OOM|Out Of Memory
+PR|Pull Request
+QA|Quality Assurance
+RCA|Root Cause Analysis
+rDNS|Reverse Domain Name System
+SLA|Service Level Agreement
+TLS|Transport Layer Security
+VPN|Virtual Private Network
