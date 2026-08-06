@@ -76,11 +76,36 @@ func truncateIRCMessage(text string, max int) string {
 // This prevents API responses from changing client formatting or injecting
 // line breaks into a channel response.
 func cleanExternalText(text string) string {
-	text = strings.Map(func(r rune) rune {
-		if r < 0x20 || r == 0x7f {
-			return -1
+	var out strings.Builder
+	for i := 0; i < len(text); {
+		switch text[i] {
+		case '\x02', '\x0f', '\x16', '\x1d', '\x1e', '\x1f':
+			i++
+			continue
+		case '\x03':
+			// Drop the optional foreground/background colour parameters too;
+			// otherwise an external "\x0304warning" would become "04warning".
+			i++
+			for count := 0; i < len(text) && count < 2 && text[i] >= '0' && text[i] <= '9'; count++ {
+				i++
+			}
+			if i < len(text) && text[i] == ',' {
+				i++
+				for count := 0; i < len(text) && count < 2 && text[i] >= '0' && text[i] <= '9'; count++ {
+					i++
+				}
+			}
+			continue
 		}
-		return r
-	}, text)
-	return strings.Join(strings.Fields(text), " ")
+		r, size := utf8.DecodeRuneInString(text[i:])
+		if r == utf8.RuneError && size == 1 {
+			i++
+			continue
+		}
+		if r >= 0x20 && r != 0x7f {
+			out.WriteRune(r)
+		}
+		i += size
+	}
+	return strings.Join(strings.Fields(out.String()), " ")
 }

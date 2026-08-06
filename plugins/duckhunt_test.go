@@ -69,6 +69,17 @@ func TestDuckHuntIncludesBefriendAlias(t *testing.T) {
 	if !strings.Contains(plugin.Help(), "!level") {
 		t.Fatal("expected progression command in help")
 	}
+	if !strings.Contains(plugin.Help(), "magazine aliases: mag, ammo") {
+		t.Fatal("expected magazine aliases in help")
+	}
+}
+
+func TestDuckHuntMagazineAliases(t *testing.T) {
+	for _, alias := range []string{"magazine", "mag", "ammo", " MAG "} {
+		if got := normalizeDuckShopItem(alias); got != "magazine" {
+			t.Fatalf("normalizeDuckShopItem(%q) = %q, want magazine", alias, got)
+		}
+	}
 }
 
 func TestDuckHuntShopCatalog(t *testing.T) {

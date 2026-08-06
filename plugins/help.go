@@ -8,7 +8,7 @@ import (
 	"github.com/variablenix/GoBot/storage"
 )
 
-type Help struct{ plugins []bot.Plugin }
+type Help struct{}
 
 func (p *Help) Name() string                                 { return "help" }
 func (p *Help) Commands() []string                           { return []string{"help"} }

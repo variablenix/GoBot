@@ -9,6 +9,8 @@ import (
 
 	"github.com/variablenix/GoBot/bot"
 	"github.com/variablenix/GoBot/storage"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 // Foods provides short, local food and drink suggestions. The lists live in
@@ -132,7 +134,7 @@ func (p *Foods) Handle(b *bot.Bot, m bot.Message) bool {
 	if target != "" {
 		if matches := p.findMatches(category, target); len(matches) > 0 {
 			match := matches[rand.Intn(len(matches))]
-			label := strings.Title(match.category)
+			label := cases.Title(language.English).String(match.category)
 			if category == "food" {
 				label = "Food"
 			}
@@ -151,7 +153,7 @@ func (p *Foods) Handle(b *bot.Bot, m bot.Message) bool {
 		return true
 	}
 	item := choices[rand.Intn(len(choices))]
-	label := strings.Title(category)
+	label := cases.Title(language.English).String(category)
 	result := fmt.Sprintf("%s pick: %s", label, item)
 	if target != "" {
 		result = fmt.Sprintf("%s pick for %s: %s", label, target, item)

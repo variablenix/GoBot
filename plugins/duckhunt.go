@@ -102,7 +102,7 @@ func (p *DuckHunt) Commands() []string {
 	return []string{"duckhunt", "dh", "ducklaunch", "bang", "befriend", "bef", "ducks", "level", "xp", "profile", "shop", "store", "buy", "reload", "ammo"}
 }
 func (p *DuckHunt) Help() string {
-	return "!bang shoots an active duck; !bef befriends it; !ducklaunch flock starts a random flock; !shop lists arcade gear; !buy <item>, !ammo, and !reload manage it; !ducks [nick] shows points and scores; !level [nick] shows XP and level; !dh status|start|stop controls activity"
+	return "!bang shoots an active duck; !bef befriends it; !ducklaunch flock starts a random flock; !shop lists arcade gear; !buy <item> (magazine aliases: mag, ammo), !ammo, and !reload manage it; !ducks [nick] shows points and scores; !level [nick] shows XP and level; !dh status|start|stop controls activity"
 }
 
 // shopWeapons keeps the arsenal deliberately arcade-like. The names are game
@@ -790,7 +790,7 @@ func (p *DuckHunt) ammo(b *bot.Bot, m bot.Message) {
 
 func duckAmmoHint(player duckPlayer) string {
 	if player.HasGun && player.Ammo == 0 {
-		return " " + ircColor(ircYellow, "Out of ammo—use !reload or !buy magazine.")
+		return " " + ircColor(ircYellow, "Out of ammo—use !reload or !buy magazine (or !buy mag).")
 	}
 	return ""
 }
@@ -810,18 +810,15 @@ func (p *DuckHunt) shop(b *bot.Bot, m bot.Message) {
 		}
 		parts = append(parts, fmt.Sprintf("!buy %s (%s): %d points, %d dmg, %d-cap mag", weapon.Key, name, weapon.Cost, weapon.Damage, weapon.MagazineSize))
 	}
-	parts = append(parts, fmt.Sprintf("!buy magazine: %d points", p.cfg.magazineCost))
+	parts = append(parts, fmt.Sprintf("!buy magazine (or !buy mag): %d points", p.cfg.magazineCost))
 	b.Send(m.ReplyTarget(), "Duck Hunt shop: "+strings.Join(parts, " | "))
 }
 
 func (p *DuckHunt) buy(b *bot.Bot, m bot.Message, arg string) {
-	item := strings.ToLower(strings.TrimSpace(arg))
-	if item == "mag" || item == "ammo" {
-		item = "magazine"
-	}
+	item := normalizeDuckShopItem(arg)
 	if item != "magazine" {
 		if _, ok := p.findWeapon(item); !ok {
-			b.Send(m.ReplyTarget(), ircColor(ircCyan, "usage: !shop or !buy peashooter|quacker|golden|magazine"))
+			b.Send(m.ReplyTarget(), ircColor(ircCyan, "usage: !shop or !buy peashooter|quacker|golden|magazine|mag"))
 			return
 		}
 	}
@@ -872,6 +869,14 @@ func (p *DuckHunt) buy(b *bot.Bot, m bot.Message, arg string) {
 	b.Send(m.ReplyTarget(), fmt.Sprintf("%s: spare magazine purchased for %d points. Spare magazines: %d.", m.Nick, p.cfg.magazineCost, player.SpareMagazines))
 }
 
+func normalizeDuckShopItem(arg string) string {
+	item := strings.ToLower(strings.TrimSpace(arg))
+	if item == "mag" || item == "ammo" {
+		return "magazine"
+	}
+	return item
+}
+
 func (p *DuckHunt) reload(b *bot.Bot, m bot.Message) {
 	if !p.cfg.firearmEnabled {
 		b.Send(m.ReplyTarget(), ircColor(ircYellow, "Duck Hunt arcade gear is disabled."))
@@ -892,7 +897,7 @@ func (p *DuckHunt) reload(b *bot.Bot, m bot.Message) {
 	}
 	if player.SpareMagazines < 1 {
 		p.mu.Unlock()
-		b.Send(m.ReplyTarget(), fmt.Sprintf("%s: no spare magazines. Use !buy magazine.", m.Nick))
+		b.Send(m.ReplyTarget(), fmt.Sprintf("%s: no spare magazines. Use !buy magazine or !buy mag.", m.Nick))
 		return
 	}
 	player.SpareMagazines--

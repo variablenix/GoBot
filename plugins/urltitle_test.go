@@ -106,6 +106,36 @@ func TestTitleLooksLikeURLIsAllowed(t *testing.T) {
 	}
 }
 
+func TestPublicHTTPURLRejectsPrivateAndCredentialBearingTargets(t *testing.T) {
+	for _, raw := range []string{
+		"http://127.0.0.1/",
+		"http://10.0.0.1/",
+		"http://[::1]/",
+		"http://localhost/",
+		"http://user:pass@example.com/",
+	} {
+		u, err := url.Parse(raw)
+		if err != nil {
+			t.Fatalf("parse %q: %v", raw, err)
+		}
+		if publicHTTPURL(u) {
+			t.Errorf("private or credential-bearing URL accepted: %q", raw)
+		}
+	}
+}
+
+func TestSafePublicDialRejectsPrivateLiteral(t *testing.T) {
+	if _, err := safePublicDialContext(context.Background(), "tcp", "127.0.0.1:80"); err == nil {
+		t.Fatal("private literal was allowed through the safe dialer")
+	}
+}
+
+func TestPageTitleRemovesIRCControls(t *testing.T) {
+	if got := pageTitle([]byte("<title>safe\x03,04 title\x01</title>")); got != "safe title" {
+		t.Fatalf("got %q, want sanitized title", got)
+	}
+}
+
 func TestShortYouTubeDisplayURL(t *testing.T) {
 	tests := map[string]string{
 		"https://www.youtube.com/watch?v=abc123": "youtu.be/abc123",

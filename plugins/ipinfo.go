@@ -96,7 +96,6 @@ func lookupIP(ctx context.Context, query string) (ipLookup, error) {
 	// spacing guard protects the service even when several users request data.
 	ipRequestMu.Lock()
 	if wait := time.Until(ipLastRequest.Add(1400 * time.Millisecond)); wait > 0 {
-		ipRequestMu.Unlock()
 		timer := time.NewTimer(wait)
 		select {
 		case <-ctx.Done():
@@ -104,7 +103,6 @@ func lookupIP(ctx context.Context, query string) (ipLookup, error) {
 			return ipLookup{}, ctx.Err()
 		case <-timer.C:
 		}
-		ipRequestMu.Lock()
 	}
 	ipLastRequest = time.Now()
 	ipRequestMu.Unlock()
@@ -142,7 +140,7 @@ func formatIPResult(command string, result ipLookup) string {
 	if command == "asn" {
 		label = "[ASN]"
 	}
-	parts := []string{ircColor(ircGreen, label), ircColor(ircCyan, result.Query)}
+	parts := []string{ircColor(ircGreen, label), ircColor(ircCyan, cleanExternalText(result.Query))}
 	if result.AS != "" {
 		parts = append(parts, cleanExternalText(result.AS))
 	}
