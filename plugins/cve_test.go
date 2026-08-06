@@ -19,6 +19,13 @@ func cveTestResponse(status int, body string) *http.Response {
 	}
 }
 
+func TestCVEHelpIncludesNVDSearchLink(t *testing.T) {
+	help := (&CVE{}).Help()
+	if !strings.Contains(help, nvdSearchURL) {
+		t.Fatalf("CVE help does not include NVD search link: %q", help)
+	}
+}
+
 func TestLookupCVEParsesScoreAndAffectedProducts(t *testing.T) {
 	oldClient := cveHTTPClient
 	t.Cleanup(func() { cveHTTPClient = oldClient })
