@@ -196,19 +196,19 @@ func parseCVEResult(cve nvdCVE) cveResult {
 func cveScore(metrics nvdMetrics) (float64, string, bool) {
 	if len(metrics.CVSSMetricV40) > 0 {
 		data := metrics.CVSSMetricV40[0].CVSSData
-		return data.BaseScore, strings.ToUpper(data.BaseSeverity), data.BaseScore > 0
+		return data.BaseScore, strings.ToUpper(cleanExternalText(data.BaseSeverity)), data.BaseScore > 0
 	}
 	if len(metrics.CVSSMetricV31) > 0 {
 		data := metrics.CVSSMetricV31[0].CVSSData
-		return data.BaseScore, strings.ToUpper(data.BaseSeverity), data.BaseScore > 0
+		return data.BaseScore, strings.ToUpper(cleanExternalText(data.BaseSeverity)), data.BaseScore > 0
 	}
 	if len(metrics.CVSSMetricV30) > 0 {
 		data := metrics.CVSSMetricV30[0].CVSSData
-		return data.BaseScore, strings.ToUpper(data.BaseSeverity), data.BaseScore > 0
+		return data.BaseScore, strings.ToUpper(cleanExternalText(data.BaseSeverity)), data.BaseScore > 0
 	}
 	if len(metrics.CVSSMetricV2) > 0 {
 		data := metrics.CVSSMetricV2[0].CVSSData
-		severity := strings.ToUpper(data.BaseSeverity)
+		severity := strings.ToUpper(cleanExternalText(data.BaseSeverity))
 		if severity == "" {
 			severity = cveV2Severity(data.BaseScore)
 		}
@@ -273,14 +273,20 @@ func cpeProduct(criteria string) string {
 }
 
 func formatCVEResult(result cveResult, maxLength int) string {
-	parts := []string{ircColor(ircRed, "[CVE]"), ircColor(ircCyan, result.ID)}
+	id := strings.ToUpper(cleanExternalText(result.ID))
+	parts := []string{ircColor(ircRed, "[CVE]")}
+	if cveIDPattern.MatchString(id) {
+		parts = append(parts, ircColor(ircCyan, id))
+	}
 	if result.HasScore {
 		parts = append(parts, ircColor(ircYellow, fmt.Sprintf("CVSS %.1f %s", result.Score, result.Severity)))
 	}
 	if len(result.Affected) > 0 {
 		parts = append(parts, "affected: "+strings.Join(result.Affected, ", "))
 	}
-	parts = append(parts, ircColor(ircCyan, nvdVulnerabilityURL+url.PathEscape(result.ID)))
+	if cveIDPattern.MatchString(id) {
+		parts = append(parts, ircColor(ircCyan, nvdVulnerabilityURL+url.PathEscape(id)))
+	}
 	message := strings.Join(parts, " | ")
 	if maxLength > 0 {
 		message = truncateIRCMessage(message, maxLength)

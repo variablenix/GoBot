@@ -102,3 +102,24 @@ func TestBlackjackStatsPersistByAccount(t *testing.T) {
 		t.Fatalf("unexpected leaderboard: %q", p.leaderboard())
 	}
 }
+
+func TestBlackjackStatsNormalizeNegativePersistedStreak(t *testing.T) {
+	db, err := storage.Open(filepath.Join(t.TempDir(), "stats.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	m := bot.Message{Nick: "Echo", Account: "Echo"}
+	if err := db.Set(blackjackStatsBucket, blackjackStatsKey(m), blackjackStats{Hands: 1, CurrentStreak: -99}); err != nil {
+		t.Fatal(err)
+	}
+	p := &Blackjack{db: db}
+	p.recordResult(m, &blackjackGame{
+		player: []blackjackCard{{rank: "K"}, {rank: "9"}},
+		dealer: []blackjackCard{{rank: "9"}, {rank: "7"}},
+	})
+	if got := p.playerStats(m); !strings.Contains(got, "streak 1 (best 1)") {
+		t.Fatalf("negative persisted streak was not normalized: %q", got)
+	}
+}

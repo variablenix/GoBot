@@ -258,9 +258,12 @@ plugins:
 ~~~
 
 Entries use one `ACRONYM|expansion` per line. Blank lines and `#` comments are
-ignored, matching is case-insensitive, and malformed entries are skipped.
-The bundled catalog is intentionally small; edit or replace it without an
-external service:
+ignored, matching is case-insensitive, and malformed entries are skipped. The
+bundled catalog covers common computing, networking, operations, security, and
+software-delivery terms. It is intentionally local and versioned so responses
+remain fast and deterministic; edit or replace it to add organization-specific
+jargon without an external service. The baseline terminology was cross-checked
+against NIST CSRC, IETF RFCs, and the CNCF Cloud Native Glossary.
 
 ~~~yaml
 plugins:
@@ -283,8 +286,9 @@ GoBot chooses a local word, scrambles it, and awards the first exact answer in
 that channel one persisted karma point. A round expires after five minutes;
 `!scramble status` shows the active scramble without revealing the answer.
 The word list is local and editable, and the winning karma plus a separate
-scramble win record are stored in BoltDB. No external API or answer text is
-sent anywhere.
+scramble win record are stored in BoltDB. The bundled list focuses on computing,
+networking, security, and operations vocabulary. No external API or answer text
+is sent anywhere.
 
 ~~~yaml
 plugins:

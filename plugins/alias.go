@@ -67,20 +67,6 @@ func aliasesForEnabled(b *bot.Bot, m bot.Message, name string) ([]string, string
 	return nil, "", false
 }
 
-func aliasesFor(plugins []bot.Plugin, name string) ([]string, string, bool) {
-	for _, plugin := range plugins {
-		if strings.EqualFold(plugin.Name(), name) {
-			return pluginAliases(plugin), plugin.Name(), true
-		}
-		for _, command := range plugin.Commands() {
-			if strings.EqualFold(command, name) {
-				return pluginAliases(plugin), plugin.Name(), true
-			}
-		}
-	}
-	return nil, "", false
-}
-
 func pluginAliases(plugin bot.Plugin) []string {
 	aliases := make([]string, 0)
 	for _, command := range plugin.Commands() {
