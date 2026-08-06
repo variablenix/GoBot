@@ -41,22 +41,25 @@ type duckHuntConfig struct {
 	xpPerHit        int64
 	xpPerKill       int64
 	xpPerBefriend   int64
+	flockMin        int
+	flockMax        int
 }
 
 type duckHuntState struct {
-	channel    string
-	messages   int
-	users      map[string]struct{}
-	nextSpawn  time.Time
-	spawnedAt  time.Time
-	flavorAt   time.Time
-	flavorSent bool
-	active     bool
-	stopped    bool
-	hp         int
-	maxHP      int
-	golden     bool
-	trust      map[string]int
+	channel        string
+	messages       int
+	users          map[string]struct{}
+	nextSpawn      time.Time
+	spawnedAt      time.Time
+	flavorAt       time.Time
+	flavorSent     bool
+	active         bool
+	stopped        bool
+	hp             int
+	maxHP          int
+	golden         bool
+	trust          map[string]int
+	flockRemaining int
 }
 
 type duckScore struct {
@@ -96,10 +99,10 @@ type DuckHunt struct {
 
 func (p *DuckHunt) Name() string { return "duckhunt" }
 func (p *DuckHunt) Commands() []string {
-	return []string{"duckhunt", "dh", "bang", "befriend", "bef", "ducks", "level", "xp", "profile", "shop", "store", "buy", "reload", "ammo"}
+	return []string{"duckhunt", "dh", "ducklaunch", "bang", "befriend", "bef", "ducks", "level", "xp", "profile", "shop", "store", "buy", "reload", "ammo"}
 }
 func (p *DuckHunt) Help() string {
-	return "!bang shoots an active duck; !bef befriends it; !shop lists arcade gear; !buy <item>, !ammo, and !reload manage it; !ducks [nick] shows points and scores; !level [nick] shows XP and level; !dh status|start|stop controls activity"
+	return "!bang shoots an active duck; !bef befriends it; !ducklaunch flock starts a random flock; !shop lists arcade gear; !buy <item>, !ammo, and !reload manage it; !ducks [nick] shows points and scores; !level [nick] shows XP and level; !dh status|start|stop controls activity"
 }
 
 // shopWeapons keeps the arsenal deliberately arcade-like. The names are game
@@ -194,6 +197,8 @@ func (p *DuckHunt) Init(c bot.PluginConfig, db *storage.DB) error {
 	xpPerHit := int64(c.Int("xp_per_hit", 5))
 	xpPerKill := int64(c.Int("xp_per_kill", 25))
 	xpPerBefriend := int64(c.Int("xp_per_befriend", 20))
+	flockMin := c.Int("flock_min", 2)
+	flockMax := c.Int("flock_max", 4)
 
 	if minimumMessages < 1 {
 		minimumMessages = 1
@@ -264,6 +269,15 @@ func (p *DuckHunt) Init(c bot.PluginConfig, db *storage.DB) error {
 	if xpPerBefriend < 0 {
 		xpPerBefriend = 0
 	}
+	if flockMin < 2 {
+		flockMin = 2
+	}
+	if flockMax < flockMin {
+		flockMax = flockMin
+	}
+	if flockMax > 12 {
+		flockMax = 12
+	}
 
 	p.db = db
 	p.cfg = duckHuntConfig{
@@ -291,6 +305,8 @@ func (p *DuckHunt) Init(c bot.PluginConfig, db *storage.DB) error {
 		xpPerHit:        xpPerHit,
 		xpPerKill:       xpPerKill,
 		xpPerBefriend:   xpPerBefriend,
+		flockMin:        flockMin,
+		flockMax:        flockMax,
 	}
 	p.states = make(map[string]*duckHuntState)
 	p.attempts = make(map[string]time.Time)
@@ -348,6 +364,9 @@ func (p *DuckHunt) Handle(b *bot.Bot, m bot.Message) bool {
 	case "duckhunt", "dh":
 		p.control(b, m, arg)
 		return true
+	case "ducklaunch":
+		p.launch(b, m, arg)
+		return true
 	case "bang":
 		p.interact(b, m, false)
 		return true
@@ -379,6 +398,49 @@ func (p *DuckHunt) Handle(b *bot.Bot, m bot.Message) bool {
 	default:
 		return false
 	}
+}
+
+func (p *DuckHunt) launch(b *bot.Bot, m bot.Message, arg string) {
+	if !strings.EqualFold(strings.TrimSpace(arg), "flock") {
+		b.Send(m.ReplyTarget(), ircColor(ircCyan, "usage: !ducklaunch flock — launch a random flock of ducks"))
+		return
+	}
+	now := time.Now()
+	p.mu.Lock()
+	state := p.stateLocked(b.Config.NetworkName, m.Target)
+	if state.stopped {
+		p.mu.Unlock()
+		b.Send(m.ReplyTarget(), ircColor(ircYellow, "Duck Hunt is stopped in this channel; an owner must use !dh start first"))
+		return
+	}
+	if state.active {
+		remaining := state.flockRemaining
+		if remaining < 1 {
+			remaining = 1
+		}
+		p.mu.Unlock()
+		b.Send(m.ReplyTarget(), ircColor(ircYellow, fmt.Sprintf("there is already an active duck hunt with %d duck%s remaining", remaining, duckPlural(uint64(remaining)))))
+		return
+	}
+	flockSize := p.cfg.flockMin
+	if p.cfg.flockMax > p.cfg.flockMin {
+		flockSize += rand.Intn(p.cfg.flockMax - p.cfg.flockMin + 1)
+	}
+	state.active = true
+	state.spawnedAt = now
+	state.nextSpawn = time.Time{}
+	state.flavorAt = time.Time{}
+	state.flavorSent = false
+	state.messages = 0
+	state.users = make(map[string]struct{})
+	state.maxHP = randomDuckHP(p.cfg)
+	state.hp = state.maxHP
+	state.golden = rand.Float64() < p.cfg.goldenChance
+	state.trust = make(map[string]int)
+	state.flockRemaining = flockSize
+	announcement := randomDuckAnnouncementForState(state)
+	p.mu.Unlock()
+	b.Send(m.ReplyTarget(), announcement)
 }
 
 func (p *DuckHunt) recordActivity(network, channel, nick string) {
@@ -429,6 +491,7 @@ func (p *DuckHunt) tick(b *bot.Bot) {
 			state.maxHP = 0
 			state.golden = false
 			state.trust = make(map[string]int)
+			state.flockRemaining = 0
 			continue
 		}
 		if state.stopped {
@@ -438,10 +501,11 @@ func (p *DuckHunt) tick(b *bot.Bot) {
 			if now.Sub(state.spawnedAt) < p.cfg.timeout {
 				continue
 			}
+			escape := randomDuckEscapeForState(state)
 			p.resetCycleLocked(state)
 			messages = append(messages, outgoing{
 				target: state.channel,
-				text:   randomDuckEscape(),
+				text:   escape,
 			})
 			continue
 		}
@@ -470,6 +534,7 @@ func (p *DuckHunt) tick(b *bot.Bot) {
 		state.hp = state.maxHP
 		state.golden = rand.Float64() < p.cfg.goldenChance
 		state.trust = make(map[string]int)
+		state.flockRemaining = 1
 		messages = append(messages, outgoing{
 			target: state.channel,
 			text:   randomDuckAnnouncementForState(state),
@@ -502,6 +567,11 @@ func (p *DuckHunt) control(b *bot.Bot, m bot.Message, arg string) {
 		duckStatus := "no duck is active"
 		if active {
 			duckStatus = "a duck is active"
+			p.mu.Lock()
+			if state := p.states[key]; state != nil && state.flockRemaining > 1 {
+				duckStatus = fmt.Sprintf("a flock is active (%d ducks remaining)", state.flockRemaining)
+			}
+			p.mu.Unlock()
 		}
 		b.Send(m.ReplyTarget(), fmt.Sprintf("%s is %s in %s; %s.", ircColor(ircGreen, "Duck Hunt"), status, m.Target, duckStatus))
 	case "start":
@@ -521,6 +591,7 @@ func (p *DuckHunt) control(b *bot.Bot, m bot.Message, arg string) {
 		state.maxHP = 0
 		state.golden = false
 		state.trust = make(map[string]int)
+		state.flockRemaining = 0
 		p.mu.Unlock()
 		b.Send(m.ReplyTarget(), ircColor(ircGreen, "Duck Hunt enabled in "+m.Target+"."))
 	case "stop":
@@ -542,6 +613,7 @@ func (p *DuckHunt) control(b *bot.Bot, m bot.Message, arg string) {
 		state.maxHP = 0
 		state.golden = false
 		state.trust = make(map[string]int)
+		state.flockRemaining = 0
 		p.mu.Unlock()
 		b.Send(m.ReplyTarget(), ircColor(ircYellow, "Duck Hunt stopped in "+m.Target+"."))
 	default:
@@ -578,7 +650,7 @@ func (p *DuckHunt) interact(b *bot.Bot, m bot.Message, befriend bool) {
 		}
 		if player.Ammo < 1 {
 			p.mu.Unlock()
-			b.Send(m.ReplyTarget(), ircColor(ircYellow, fmt.Sprintf("%s: *click* you're out of ammo; use !reload", m.Nick)))
+			b.Send(m.ReplyTarget(), ircColor(ircYellow, fmt.Sprintf("%s: *click* you're out of ammo; use !reload if you have a spare magazine, or !buy magazine for more ammo", m.Nick)))
 			return
 		}
 		player.Ammo--
@@ -590,8 +662,9 @@ func (p *DuckHunt) interact(b *bot.Bot, m bot.Message, befriend bool) {
 		elapsed = 0
 	}
 	if elapsed < p.cfg.minReaction || (elapsed < 7*time.Second && rand.Float64() > hitChance(elapsed)) {
+		ammoHint := duckAmmoHint(player)
 		p.mu.Unlock()
-		b.Send(m.ReplyTarget(), fmt.Sprintf("%s %s missed the duck! %s", ircColor(ircRed, "*BANG*"), m.Nick, ircColor(ircCyan, fmt.Sprintf("Try again in %d seconds.", int(p.cfg.retryCooldown/time.Second)))))
+		b.Send(m.ReplyTarget(), fmt.Sprintf("%s %s missed the duck! %s%s", ircColor(ircRed, "*BANG*"), m.Nick, ircColor(ircCyan, fmt.Sprintf("Try again in %d seconds.", int(p.cfg.retryCooldown/time.Second))), ammoHint))
 		return
 	}
 	if befriend {
@@ -632,8 +705,9 @@ func (p *DuckHunt) interact(b *bot.Bot, m bot.Message, befriend bool) {
 		player.Points += points
 		player.XP += xp
 		p.savePlayerLocked(b.Config.NetworkName, m.Target, m.Nick, player)
+		ammoHint := duckAmmoHint(player)
 		p.mu.Unlock()
-		b.Send(m.ReplyTarget(), fmt.Sprintf("%s %s hit %s for %d damage! It has %d HP left. %s", ircColor(ircCyan, "*BANG*"), m.Nick, name, damage, remaining, ircColor(ircGreen, fmt.Sprintf("+%d points, +%d XP", points, xp))))
+		b.Send(m.ReplyTarget(), fmt.Sprintf("%s %s hit %s for %d damage! It has %d HP left. %s%s", ircColor(ircCyan, "*BANG*"), m.Nick, name, damage, remaining, ircColor(ircGreen, fmt.Sprintf("+%d points, +%d XP", points, xp)), ammoHint))
 		return
 	}
 	kills := p.incrementScore(b.Config.NetworkName, m.Target, m.Nick)
@@ -645,11 +719,22 @@ func (p *DuckHunt) interact(b *bot.Bot, m bot.Message, befriend bool) {
 	player.Points += bonus
 	player.XP += xp
 	p.savePlayerLocked(b.Config.NetworkName, m.Target, m.Nick, player)
+	ammoHint := duckAmmoHint(player)
+	if state.flockRemaining > 1 {
+		state.flockRemaining--
+		state.maxHP = randomDuckHP(p.cfg)
+		state.hp = state.maxHP
+		state.trust = make(map[string]int)
+		remainingFlock := state.flockRemaining
+		p.mu.Unlock()
+		b.Send(m.ReplyTarget(), fmt.Sprintf("%s %s hit %s for %d damage! It has 0 HP left. %s %d duck%s still in the flock!%s", ircColor(ircGreen, "*BANG*"), m.Nick, ircColor(ircCyan, "a duck in the flock"), damage, ircColor(ircGreen, fmt.Sprintf("+%d points, +%d XP", bonus, xp)), remainingFlock, duckPlural(uint64(remainingFlock)), ammoHint))
+		return
+	}
 	name := duckName(state)
 	p.resetCycleLocked(state)
 	p.mu.Unlock()
 
-	b.Send(m.ReplyTarget(), fmt.Sprintf("%s %s hit %s for %d damage! It has 0 HP left. %s [%s points, %s XP] You have killed %d duck%s in %s.", ircColor(ircGreen, "*BANG*"), m.Nick, name, damage, ircColor(ircGreen, "KWAK!"), ircColor(ircGreen, fmt.Sprintf("+%d", bonus)), ircColor(ircGreen, fmt.Sprintf("+%d", xp)), kills, duckPlural(kills), m.Target))
+	b.Send(m.ReplyTarget(), fmt.Sprintf("%s %s hit %s for %d damage! It has 0 HP left. %s [%s points, %s XP] You have killed %d duck%s in %s.%s", ircColor(ircGreen, "*BANG*"), m.Nick, name, damage, ircColor(ircGreen, "KWAK!"), ircColor(ircGreen, fmt.Sprintf("+%d", bonus)), ircColor(ircGreen, fmt.Sprintf("+%d", xp)), kills, duckPlural(kills), m.Target, ammoHint))
 }
 
 func (p *DuckHunt) ducks(b *bot.Bot, m bot.Message, arg string) {
@@ -701,6 +786,13 @@ func (p *DuckHunt) ammo(b *bot.Bot, m bot.Message) {
 	}
 	weapon := p.weaponForPlayer(player)
 	b.Send(m.ReplyTarget(), fmt.Sprintf("%s: %s ammo %d/%d, spare magazines %d, points %d.", m.Nick, weapon.Name, player.Ammo, weapon.MagazineSize, player.SpareMagazines, player.Points))
+}
+
+func duckAmmoHint(player duckPlayer) string {
+	if player.HasGun && player.Ammo == 0 {
+		return " " + ircColor(ircYellow, "Out of ammo—use !reload or !buy magazine.")
+	}
+	return ""
 }
 
 func (p *DuckHunt) shop(b *bot.Bot, m bot.Message) {
@@ -977,6 +1069,7 @@ func (p *DuckHunt) resetCycleLocked(state *duckHuntState) {
 	state.maxHP = 0
 	state.golden = false
 	state.trust = make(map[string]int)
+	state.flockRemaining = 0
 }
 
 func hitChance(elapsed time.Duration) float64 {
@@ -1055,6 +1148,9 @@ func duckName(state *duckHuntState) string {
 	if state != nil && state.golden {
 		return ircColor(ircYellow, "the GOLDEN DUCK")
 	}
+	if state != nil && state.flockRemaining > 1 {
+		return ircColor(ircCyan, "a duck in the flock")
+	}
 	return ircColor(ircCyan, "the duck")
 }
 
@@ -1093,6 +1189,9 @@ func randomDuckAnnouncement() string {
 }
 
 func randomDuckAnnouncementForState(state *duckHuntState) string {
+	if state != nil && state.flockRemaining > 1 {
+		return fmt.Sprintf("%s %s", ircColor(ircGreen, "[Duck Hunt]"), ircColor(ircYellow, fmt.Sprintf("A flock of %d ducks has landed!", state.flockRemaining))+" Type "+ircColor(ircBold, "!bang")+" to pick them off!")
+	}
 	// Keep the active-duck announcement compact and recognizable in both
 	// graphical and terminal IRC clients. The body uses mIRC orange as a soft
 	// tan approximation, the head is green, and the bill is yellow.
@@ -1110,6 +1209,13 @@ func coloredDuckASCII() string {
 }
 
 func randomDuckEscape() string {
+	return randomDuckEscapeForState(nil)
+}
+
+func randomDuckEscapeForState(state *duckHuntState) string {
+	if state != nil && state.flockRemaining > 1 {
+		return fmt.Sprintf("%s %s", ircColor(ircGreen, "[Duck Hunt]"), ircColor(ircYellow, fmt.Sprintf("The flock of %d ducks scatters into the sky!", state.flockRemaining)))
+	}
 	actions := []string{
 		`The duck escapes into the sky! °°...`,
 		`The duck flaps away, living another day. °°°...`,
