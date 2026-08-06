@@ -1,6 +1,9 @@
 package plugins
 
-import "strings"
+import (
+	"strings"
+	"unicode/utf8"
+)
 
 // These are standard mIRC IRC formatting controls. IRC clients that support
 // colors render them; clients that do not will still receive the plain text.
@@ -16,6 +19,57 @@ const (
 
 func ircColor(color, text string) string {
 	return color + text + ircReset
+}
+
+// truncateIRCMessage limits visible text while preserving IRC formatting
+// controls. It is used for messages assembled from both trusted labels and
+// third-party response fields, where counting raw control bytes would make
+// the configured limit misleading or cut a color sequence in half.
+func truncateIRCMessage(text string, max int) string {
+	if max <= 0 {
+		return text
+	}
+	plain := strings.NewReplacer(
+		ircReset, "",
+		ircBold, "",
+		ircGreen, "",
+		ircRed, "",
+		ircTan, "",
+		ircCyan, "",
+		ircYellow, "",
+	).Replace(text)
+	visible := utf8.RuneCountInString(plain)
+	if visible <= max {
+		return text
+	}
+
+	var out strings.Builder
+	visible = 0
+	for i := 0; i < len(text) && visible < max; {
+		switch text[i] {
+		case '\x02', '\x0f':
+			out.WriteByte(text[i])
+			i++
+			continue
+		case '\x03':
+			start := i
+			i++
+			for i < len(text) && i-start <= 5 && ((text[i] >= '0' && text[i] <= '9') || text[i] == ',') {
+				i++
+			}
+			out.WriteString(text[start:i])
+			continue
+		}
+		r, size := utf8.DecodeRuneInString(text[i:])
+		if r == utf8.RuneError && size == 1 {
+			size = 1
+		}
+		out.WriteString(text[i : i+size])
+		i += size
+		visible++
+	}
+	out.WriteString(ircReset)
+	return out.String()
 }
 
 // cleanExternalText removes IRC control characters from third-party content.

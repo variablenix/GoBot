@@ -64,6 +64,11 @@ plugins:
   # Without it, GoBot uses YouTube's public oEmbed/player fallbacks.
   urltitle: {enabled: true, max_title_length: 120, timeout_seconds: 5, youtube_api_key: ""}
   youtube: {enabled: true, max_length: 320, timeout_seconds: 10, api_key: ""}
+  cve: {enabled: true, timeout_seconds: 8, max_length: 360}
+  # Keyless IP-API lookups. The free endpoint is rate limited and uses HTTP.
+  ipinfo: {enabled: true, timeout_seconds: 8, max_length: 320}
+  # Local operator-maintained ACRONYM|expansion entries.
+  acronym: {enabled: true, data_file: "data/acronyms.txt", max_length: 320}
   weather: {enabled: true, default_units: imperial}
   steam: {enabled: true, timeout_seconds: 10, max_length: 360}
   news: {enabled: true, api_key: "", max_results: 3}
@@ -112,6 +117,7 @@ plugins:
   channelstats: {enabled: true}
   # One persistent claim per user per UTC day; XP is added to Duck Hunt progression.
   daily: {enabled: true, bonus_xp: 25}
+  scramble: {enabled: true, data_file: "data/scramble.txt", timeout_minutes: 5, max_length: 240}
   status: {enabled: true}
   define: {enabled: true, timeout_seconds: 8, max_length: 240}
   calc: {enabled: true}

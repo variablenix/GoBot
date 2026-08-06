@@ -3,6 +3,5 @@
 .act-runner
 .env
 bin
-data
 bot.db
 *.log

@@ -99,8 +99,12 @@ plugins:
   github: {enabled: true, timeout_seconds: 8, max_length: 360, token: ""}
   reddit: {enabled: true, timeout_seconds: 8, max_length: 360}
   daily: {enabled: true, bonus_xp: 25}
+  scramble: {enabled: true, data_file: "data/scramble.txt", timeout_minutes: 5, max_length: 240}
   note: {enabled: true, max_notes: 50, max_note_length: 400, expiry_days: 180}
   youtube: {enabled: true, max_length: 320, timeout_seconds: 10, api_key: ""}
+  cve: {enabled: true, timeout_seconds: 8, max_length: 360}
+  ipinfo: {enabled: true, timeout_seconds: 8, max_length: 320}
+  acronym: {enabled: true, data_file: "data/acronyms.txt", max_length: 320}
   steam: {enabled: true, timeout_seconds: 10, max_length: 360}
   # Keyless source-grounded answers by default; AI rewriting is opt-in.
   ask:

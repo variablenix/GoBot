@@ -167,6 +167,8 @@ plugins:
     xp_per_hit: 5
     xp_per_kill: 25
     xp_per_befriend: 20
+    flock_min: 2
+    flock_max: 4
 ~~~
 
 Once the activity threshold is reached, GoBot waits a random amount of time
@@ -177,6 +179,9 @@ trust through repeated befriending attempts:
 [Duck Hunt] · ° · ° · ° \_o< FLAP FLAP!
 [Duck Hunt] \_o< QUACK! HP: 3 | Type !bang to shoot or !bef to befriend!
 username hit the GOLDEN DUCK for 1 damage! It has 2 HP left. +20 points
+A flock of 2 ducks has landed! Type !bang to pick them off!
+username hit a duck in the flock for 1 damage! It has 0 HP left. +10 XP
+2 ducks still in the flock!
 ~~~
 
 The active-duck announcement stays compact for terminal clients: `\_o< QUACK!`.
@@ -202,6 +207,7 @@ Commands:
 !bang                 shoot an active duck
 !bef                  befriend an active duck, if enabled
 !befriend             same as !bef
+!ducklaunch flock      launch a random flock manually
 !shop / !store        list arcade gear and point prices
 !buy peashooter       buy the starter Peashooter (!buy gun also works)
 !buy quacker          buy the larger Quacker Blaster
@@ -228,6 +234,14 @@ Each user gets a short retry cooldown. A successful shot removes
 `damage_per_shot` HP; the duck remains active until its HP reaches zero. Golden
 ducks are less common and award a larger points bonus.
 
+`!ducklaunch flock` manually starts a flock with a random size between
+`flock_min` and `flock_max` (2–4 by default). Each duck gets its own random HP
+within the configured HP range. A final hit on one flock member reports the
+reward and how many ducks remain; the flock stays active until every member is
+resolved. Automatic activity spawns remain single ducks. Launching while a
+hunt is active is rejected so an existing round cannot be overwritten. Use
+`!ducklaunch` without `flock` for the usage hint.
+
 `!bef` uses a small trust progression. The duck can warm up to a user without
 being tamed immediately; after `befriend_attempts` successful approaches, the
 user befriends it and receives a points bonus. Successful shots also earn
@@ -251,8 +265,11 @@ existing points, gear, and scores.
 New players receive `starting_points`. A player can buy one item at a time;
 buying a different item replaces the current gear and starts a fresh magazine.
 Spare magazines are purchased with `!buy magazine` and loaded with `!reload`.
-Ammo is consumed by `!bang`, while successful hits and befriending replenish
-the player's points over time. If a player fires when no duck is active, the
+Ammo is consumed by `!bang`. When a player runs empty, GoBot says to use
+`!reload` if a spare magazine is available or `!buy magazine` to purchase one;
+successful hits also include that reminder when the shot empties the magazine.
+Successful hits and befriending replenish the player's points over time. If a
+player fires when no duck is active, the
 bot may confiscate their gear and report `[GUN CONFISCATED]`; the player can
 earn more points and visit `!shop` again. This is only a game-state penalty.
 
@@ -292,6 +309,8 @@ Settings:
 - xp_per_kill: XP awarded when a shot resolves the duck; golden ducks double it
 - xp_per_befriend: XP awarded when a player completes the trust progression;
   golden ducks double it
+- flock_min and flock_max: inclusive random flock size for `!ducklaunch flock`;
+  automatic activity spawns remain single ducks
 
 Scores, points, XP, levels, and player gear are stored in BoltDB and survive
 restarts. The progression data is local to each network/channel/nickname.

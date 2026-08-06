@@ -9,6 +9,8 @@ data/*
 !data/fun/*.txt
 !data/welcome.txt
 !data/weapons.txt
+!data/acronyms.txt
+!data/scramble.txt
 .env
 .env.bak
 .act-runner/
