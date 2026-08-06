@@ -1,18 +1,231 @@
 # One entry per line: ACRONYM|expansion
+# Curated for GoBot from common computing, networking, operations, security,
+# and software-delivery terminology. Definitions are kept short so the catalog
+# remains useful in IRC; operators can add local terms without changing code.
+# Reference glossaries: https://csrc.nist.gov/glossary/
+# https://www.rfc-editor.org/ and https://glossary.cncf.io/
+2FA|Two-Factor Authentication
+AI|Artificial Intelligence
+ACL|Access Control List
+AD|Active Directory
+ADR|Architecture Decision Record
+AES|Advanced Encryption Standard
+AGI|Artificial General Intelligence
+ALU|Arithmetic Logic Unit
 API|Application Programming Interface
+AV|Antivirus
+APM|Application Performance Monitoring
+ARP|Address Resolution Protocol
+ASCII|American Standard Code for Information Interchange
+AS|Autonomous System
+ASN|Autonomous System Number
+AWS|Amazon Web Services
+AZ|Availability Zone
+BCP|Business Continuity Plan
+BGP|Border Gateway Protocol
+BLOB|Binary Large Object
+BASH|Bourne Again Shell
+BIOS|Basic Input/Output System
+BOM|Bill of Materials
+BYOD|Bring Your Own Device
+CA|Certificate Authority
 CAP|Client Capability negotiation
+CAPTCHA|Completely Automated Public Turing test to tell Computers and Humans Apart
+CD|Continuous Delivery / Continuous Deployment
+CDN|Content Delivery Network
+CGI|Common Gateway Interface
 CI|Continuous Integration
+CIDR|Classless Inter-Domain Routing
+CLI|Command-Line Interface
+CMDB|Configuration Management Database
+CMS|Content Management System
+CNI|Container Network Interface
+CORS|Cross-Origin Resource Sharing
 CPU|Central Processing Unit
+CRUD|Create, Read, Update, Delete
+CRLF|Carriage Return and Line Feed
+CRI|Container Runtime Interface
+CSRF|Cross-Site Request Forgery
+CSI|Container Storage Interface
+CTCP|Client-to-Client Protocol
+CVE|Common Vulnerabilities and Exposures
+CVSS|Common Vulnerability Scoring System
+CWE|Common Weakness Enumeration
+CSP|Content Security Policy
+DB|Database
+DBMS|Database Management System
+DCC|Direct Client-to-Client
+DHCP|Dynamic Host Configuration Protocol
+DKIM|DomainKeys Identified Mail
+DMARC|Domain-based Message Authentication, Reporting, and Conformance
 DNS|Domain Name System
+DNSSEC|Domain Name System Security Extensions
+DoH|DNS over HTTPS
+DoS|Denial of Service
+DR|Disaster Recovery
+DRP|Disaster Recovery Plan
+DDoS|Distributed Denial of Service
+DLP|Data Loss Prevention
+E2EE|End-to-End Encryption
+EAP|Extensible Authentication Protocol
+EBPF|Extended Berkeley Packet Filter
+EDR|Endpoint Detection and Response
+EOL|End of Life
+EOF|End of File
+ETL|Extract, Transform, Load
+FQDN|Fully Qualified Domain Name
+FTP|File Transfer Protocol
+FIM|File Integrity Monitoring
+GCC|GNU Compiler Collection
+GID|Group Identifier
+GPU|Graphics Processing Unit
+GUI|Graphical User Interface
+GPG|GNU Privacy Guard
+HA|High Availability
+HDD|Hard Disk Drive
+HMAC|Hash-based Message Authentication Code
+HSTS|HTTP Strict Transport Security
+HTML|Hypertext Markup Language
+HSM|Hardware Security Module
 HTTP|Hypertext Transfer Protocol
+HTTPS|Hypertext Transfer Protocol Secure
+IaaS|Infrastructure as a Service
+IAM|Identity and Access Management
+ICANN|Internet Corporation for Assigned Names and Numbers
+ICMP|Internet Control Message Protocol
+IDE|Integrated Development Environment
+IdP|Identity Provider
+IDS|Intrusion Detection System
+IEEE|Institute of Electrical and Electronics Engineers
+IETF|Internet Engineering Task Force
+IMAP|Internet Message Access Protocol
+IP|Internet Protocol
+IPC|Inter-Process Communication
+IoT|Internet of Things
+IPv4|Internet Protocol version 4
+IPv6|Internet Protocol version 6
+IPS|Intrusion Prevention System
 IRC|Internet Relay Chat
+IRCv3|Internet Relay Chat version 3 capabilities
+ISMS|Information Security Management System
+ISP|Internet Service Provider
+ITIL|Information Technology Infrastructure Library
+JSON|JavaScript Object Notation
+JVM|Java Virtual Machine
+JWT|JSON Web Token
+KMS|Key Management Service
+K8s|Kubernetes
+KPI|Key Performance Indicator
+LAN|Local Area Network
+LDAP|Lightweight Directory Access Protocol
+LIFO|Last In, First Out
+LTS|Long-Term Support
+MAC|Media Access Control
+MFA|Multi-Factor Authentication
+MIME|Multipurpose Internet Mail Extensions
+MITM|Man-in-the-Middle
+ML|Machine Learning
+MMR|Matchmaking Rating
+MOTD|Message of the Day
+MTBF|Mean Time Between Failures
 MTTR|Mean Time To Recovery
+MVP|Minimum Viable Product
+NAT|Network Address Translation
+NDA|Non-Disclosure Agreement
+NFS|Network File System
+NIC|Network Interface Controller
+NIST|National Institute of Standards and Technology
+NOC|Network Operations Center
 NTP|Network Time Protocol
+PDU|Protocol Data Unit
+OAuth|Open Authorization
+OCI|Open Container Initiative
+OIDC|OpenID Connect
+OLAP|Online Analytical Processing
+OLTP|Online Transaction Processing
 OOM|Out Of Memory
+OS|Operating System
+OSI|Open Systems Interconnection
+PaaS|Platform as a Service
+PAM|Privileged Access Management
+PCI DSS|Payment Card Industry Data Security Standard
+PEM|Privacy-Enhanced Mail
+PII|Personally Identifiable Information
+PKI|Public Key Infrastructure
+PoC|Proof of Concept
+POP3|Post Office Protocol version 3
+PWA|Progressive Web App
 PR|Pull Request
+PSK|Pre-Shared Key
 QA|Quality Assurance
+QoS|Quality of Service
+RACI|Responsible, Accountable, Consulted, Informed
+RAM|Random Access Memory
 RCA|Root Cause Analysis
-rDNS|Reverse Domain Name System
+RDBMS|Relational Database Management System
+RBAC|Role-Based Access Control
+RDP|Remote Desktop Protocol
+REST|Representational State Transfer
+RFC|Request for Comments
+RPO|Recovery Point Objective
+RPS|Requests Per Second
+RSA|Rivest–Shamir–Adleman
+RTO|Recovery Time Objective
+S3|Simple Storage Service
+SAML|Security Assertion Markup Language
+SASL|Simple Authentication and Security Layer
+SAST|Static Application Security Testing
+SCP|Secure Copy Protocol
+SDK|Software Development Kit
+SDLC|Software Development Life Cycle
+SFTP|SSH File Transfer Protocol
+SIEM|Security Information and Event Management
 SLA|Service Level Agreement
+SLI|Service Level Indicator
+SLO|Service Level Objective
+SMB|Server Message Block
+SMTP|Simple Mail Transfer Protocol
+SNMP|Simple Network Management Protocol
+SOC|Security Operations Center
+SQL|Structured Query Language
+SRE|Site Reliability Engineering
+SOAR|Security Orchestration, Automation, and Response
+SSH|Secure Shell
+SSO|Single Sign-On
+TAC|Total Allowable Cost
+TCP|Transmission Control Protocol
+TDD|Test-Driven Development
+TFTP|Trivial File Transfer Protocol
+TLD|Top-Level Domain
 TLS|Transport Layer Security
+TOTP|Time-Based One-Time Password
+TTL|Time To Live
+TTR|Time To Resolution
+TUI|Text User Interface
+UDP|User Datagram Protocol
+UID|User Identifier
+UI|User Interface
+UAT|User Acceptance Testing
+URI|Uniform Resource Identifier
+URL|Uniform Resource Locator
+USB|Universal Serial Bus
+UTF-8|Unicode Transformation Format 8-bit
+UX|User Experience
+UUID|Universally Unique Identifier
+VLAN|Virtual Local Area Network
+VM|Virtual Machine
 VPN|Virtual Private Network
+VPS|Virtual Private Server
+VPC|Virtual Private Cloud
+WAF|Web Application Firewall
+WAL|Write-Ahead Log
+WAN|Wide Area Network
+WIP|Work In Progress
+W3C|World Wide Web Consortium
+WPA2|Wi-Fi Protected Access 2
+WPA3|Wi-Fi Protected Access 3
+WWW|World Wide Web
+XSS|Cross-Site Scripting
+YAML|YAML Ain't Markup Language
+YARA|Yet Another Recursive Acronym
+rDNS|Reverse DNS
