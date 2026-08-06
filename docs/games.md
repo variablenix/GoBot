@@ -253,7 +253,10 @@ stays focused on gameplay rather than real-world equipment.
 
 Points and XP are separate persistent values. Points are the shop currency
 used by `!buy` and `!reload`; XP measures Duck Hunt progress and determines the
-player's level. Everyone starts at level 1. Level 2 requires 100 total XP,
+player's level. A successful kill is worth more than befriending by default:
+`xp_per_kill` is 25 XP and `xp_per_befriend` is 20 XP, while the corresponding
+point bonuses are 10 and 5. Duck Hunt does not award player HP. Everyone starts
+at level 1. Level 2 requires 100 total XP,
 level 3 requires 300 total XP, level 4 requires 600 total XP, and each later
 level follows the same gradually increasing curve. Normal hits, kills, and
 befriending award the configured XP values; golden ducks award double XP.
