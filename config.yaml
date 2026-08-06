@@ -167,7 +167,7 @@ plugins:
     # Points are shop currency; XP is separate and controls player levels.
     xp_per_hit: 5
     xp_per_kill: 25
-    xp_per_befriend: 20
+    xp_per_befriend: 10
 stats:
   enabled: true
   http_port: 8082

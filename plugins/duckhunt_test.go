@@ -34,7 +34,7 @@ func TestDuckHuntDefaults(t *testing.T) {
 	if !plugin.cfg.firearmEnabled || plugin.cfg.magazineSize != 6 || plugin.cfg.startingAmmo != 6 || plugin.cfg.startingPoints != 25 {
 		t.Fatalf("unexpected arcade gear defaults: %+v", plugin.cfg)
 	}
-	if plugin.cfg.xpPerHit != 5 || plugin.cfg.xpPerKill != 25 || plugin.cfg.xpPerBefriend != 20 || plugin.cfg.flockMin != 2 || plugin.cfg.flockMax != 4 {
+	if plugin.cfg.xpPerHit != 5 || plugin.cfg.xpPerKill != 25 || plugin.cfg.xpPerBefriend != 10 || plugin.cfg.flockMin != 2 || plugin.cfg.flockMax != 4 {
 		t.Fatalf("unexpected progression defaults: %+v", plugin.cfg)
 	}
 }
