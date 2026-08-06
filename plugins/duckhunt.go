@@ -196,7 +196,7 @@ func (p *DuckHunt) Init(c bot.PluginConfig, db *storage.DB) error {
 	gunCost := int64(c.Int("gun_cost", 25))
 	xpPerHit := int64(c.Int("xp_per_hit", 5))
 	xpPerKill := int64(c.Int("xp_per_kill", 25))
-	xpPerBefriend := int64(c.Int("xp_per_befriend", 20))
+	xpPerBefriend := int64(c.Int("xp_per_befriend", 10))
 	flockMin := c.Int("flock_min", 2)
 	flockMax := c.Int("flock_max", 4)
 
