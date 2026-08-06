@@ -33,8 +33,16 @@ func (p *URLTitle) Init(c bot.PluginConfig, _ *storage.DB) error {
 	p.cfg = c
 	p.youtubeAPIKey = strings.TrimSpace(c.String("youtube_api_key", ""))
 	p.rx = regexp.MustCompile(`https?://[^\s<>]+`)
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	// URLTitle fetches attacker-controlled URLs from channel text. Do not use
+	// environment proxies here, and pin each hostname lookup to the address
+	// that passed the public-IP check so a DNS rebinding cannot redirect the
+	// request to a loopback, private, or link-local service.
+	transport.Proxy = nil
+	transport.DialContext = safePublicDialContext
 	p.client = &http.Client{
-		Timeout: time.Duration(c.Int("timeout_seconds", 5)) * time.Second,
+		Timeout:   time.Duration(c.Int("timeout_seconds", 5)) * time.Second,
+		Transport: transport,
 		CheckRedirect: func(req *http.Request, _ []*http.Request) error {
 			if !publicHTTPURL(req.URL) {
 				return fmt.Errorf("redirect target is not a public HTTP URL")
@@ -204,7 +212,7 @@ func pageTitle(body []byte) string {
 }
 
 func cleanTitle(title string) string {
-	return strings.Join(strings.Fields(html.UnescapeString(title)), " ")
+	return cleanExternalText(html.UnescapeString(title))
 }
 
 func truncateRunes(s string, max int) string {
@@ -242,11 +250,6 @@ func titleLooksLikeError(title string) bool {
 func isYouTubeHost(host string) bool {
 	host = strings.ToLower(strings.TrimSuffix(host, "."))
 	return host == "youtube.com" || strings.HasSuffix(host, ".youtube.com") || host == "youtu.be"
-}
-
-func youtubeTitle(ctx context.Context, client *http.Client, videoURL *url.URL) (string, bool) {
-	oembed := "https://www.youtube.com/oembed?url=" + url.QueryEscape(videoURL.String()) + "&format=json"
-	return oembedTitle(ctx, client, oembed)
 }
 
 type youtubeMetadataResult struct {
@@ -586,26 +589,67 @@ func shortYouTubeDisplayURL(u *url.URL) (string, bool) {
 }
 
 func publicHTTPURL(u *url.URL) bool {
-	if u == nil || (u.Scheme != "http" && u.Scheme != "https") || u.Hostname() == "" {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	return publicHTTPURLContext(ctx, u)
+}
+
+func publicHTTPURLContext(ctx context.Context, u *url.URL) bool {
+	if u == nil || (u.Scheme != "http" && u.Scheme != "https") || u.Hostname() == "" || u.User != nil {
 		return false
 	}
 	host := strings.ToLower(strings.TrimSuffix(u.Hostname(), "."))
 	if host == "localhost" || strings.HasSuffix(host, ".localhost") || strings.HasSuffix(host, ".local") {
 		return false
 	}
-	if ip := net.ParseIP(host); ip != nil {
-		return publicIP(ip)
-	}
-	ips, err := net.LookupIP(host)
+	ips, err := lookupPublicIPs(ctx, host)
 	if err != nil || len(ips) == 0 {
 		return false
 	}
+	return true
+}
+
+func lookupPublicIPs(ctx context.Context, host string) ([]net.IP, error) {
+	if ip := net.ParseIP(host); ip != nil {
+		if !publicIP(ip) {
+			return nil, fmt.Errorf("non-public IP address")
+		}
+		return []net.IP{ip}, nil
+	}
+	ips, err := net.DefaultResolver.LookupIP(ctx, "ip", host)
+	if err != nil || len(ips) == 0 {
+		return nil, err
+	}
 	for _, ip := range ips {
 		if !publicIP(ip) {
-			return false
+			return nil, fmt.Errorf("hostname resolves to a non-public IP address")
 		}
 	}
-	return true
+	return ips, nil
+}
+
+func safePublicDialContext(ctx context.Context, network, address string) (net.Conn, error) {
+	host, port, err := net.SplitHostPort(address)
+	if err != nil {
+		return nil, err
+	}
+	ips, err := lookupPublicIPs(ctx, strings.TrimSuffix(host, "."))
+	if err != nil {
+		return nil, err
+	}
+	dialer := &net.Dialer{}
+	var lastErr error
+	for _, ip := range ips {
+		conn, err := dialer.DialContext(ctx, network, net.JoinHostPort(ip.String(), port))
+		if err == nil {
+			return conn, nil
+		}
+		lastErr = err
+	}
+	if lastErr != nil {
+		return nil, lastErr
+	}
+	return nil, fmt.Errorf("no public address available")
 }
 
 func publicIP(ip net.IP) bool {

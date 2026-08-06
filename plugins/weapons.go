@@ -8,6 +8,8 @@ import (
 
 	"github.com/variablenix/GoBot/bot"
 	"github.com/variablenix/GoBot/storage"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 // Weapons serves a high-level, local reference catalog of firearm and weapons
@@ -22,11 +24,6 @@ type Weapons struct {
 type weaponEntry struct {
 	category string
 	name     string
-}
-
-var weaponCategories = []string{
-	"pistol", "revolver", "handgun", "rifle", "carbine", "shotgun", "smg",
-	"machine-gun", "sniper", "launcher", "historical", "explosive", "grenade",
 }
 
 var weaponAliases = map[string]string{
@@ -158,7 +155,7 @@ func displayWeaponCategory(category string) string {
 	if category == "all" || category == "" {
 		return "General"
 	}
-	return strings.Title(strings.ReplaceAll(category, "-", " "))
+	return cases.Title(language.English).String(strings.ReplaceAll(category, "-", " "))
 }
 
 var weaponFallbacks = []weaponEntry{

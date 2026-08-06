@@ -72,3 +72,13 @@ func TestCVEValidation(t *testing.T) {
 		}
 	}
 }
+
+func TestFormatCVEResultDoesNotTrustProviderID(t *testing.T) {
+	message := stripPluginIRC(formatCVEResult(cveResult{ID: "CVE-2024-1234 BAD\r\n"}, 360))
+	if strings.ContainsAny(message, "\x03\r\n") {
+		t.Fatalf("formatted CVE contains IRC controls or line breaks: %q", message)
+	}
+	if strings.Contains(message, "nvd.nist.gov/vuln/detail") {
+		t.Fatalf("invalid provider ID produced a link: %q", message)
+	}
+}

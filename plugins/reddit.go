@@ -317,9 +317,7 @@ func redditSubredditEndpoint(raw string) (string, string, bool) {
 		}
 		name = segments[1]
 	}
-	if strings.HasSuffix(name, "/") {
-		name = strings.TrimSuffix(name, "/")
-	}
+	name = strings.TrimSuffix(name, "/")
 	if !validRedditSubreddit(name) {
 		return "", "", false
 	}
