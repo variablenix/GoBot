@@ -215,7 +215,8 @@ GoBot returns the CVE ID, the best available CVSS score and severity, up to
 three affected vendor/product/version labels, and the NVD detail link. NVD
 records may not have a score yet, and CPE applicability data can be broad, so
 the response omits fields that are unavailable. The lookup accepts only a
-single CVE identifier and never fetches a user-supplied URL.
+single CVE identifier and never fetches a user-supplied URL. For keyword or
+broader searches, use the [NVD CVE search page](https://nvd.nist.gov/vuln/search).
 
 ~~~yaml
 plugins:
