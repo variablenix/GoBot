@@ -19,6 +19,7 @@ import (
 const (
 	nvdCVEURL           = "https://services.nvd.nist.gov/rest/json/cves/2.0"
 	nvdVulnerabilityURL = "https://nvd.nist.gov/vuln/detail/"
+	nvdSearchURL        = "https://nvd.nist.gov/vuln/search"
 	cveDefaultLimit     = 360
 )
 
@@ -45,7 +46,7 @@ type cveResult struct {
 func (p *CVE) Name() string       { return "cve" }
 func (p *CVE) Commands() []string { return []string{"cve", "vuln", "vulnerability"} }
 func (p *CVE) Help() string {
-	return "!cve CVE-YYYY-NNNN — look up CVSS severity, affected software, and the NVD link (no API key required)"
+	return "!cve CVE-YYYY-NNNN — look up CVSS severity, affected software, and the NVD link; browse/search CVEs: " + nvdSearchURL + " (no API key required)"
 }
 
 func (p *CVE) Init(c bot.PluginConfig, _ *storage.DB) error {
@@ -68,7 +69,7 @@ func (p *CVE) Handle(b *bot.Bot, m bot.Message) bool {
 	}
 	cveID := strings.ToUpper(strings.TrimSpace(arg))
 	if !cveIDPattern.MatchString(cveID) {
-		b.Send(m.ReplyTarget(), ircColor(ircYellow, "usage: !cve CVE-YYYY-NNNN"))
+		b.Send(m.ReplyTarget(), ircColor(ircYellow, "usage: !cve CVE-YYYY-NNNN; browse/search CVEs: "+nvdSearchURL))
 		return true
 	}
 
