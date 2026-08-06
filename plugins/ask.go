@@ -413,7 +413,7 @@ func formatAskResponse(nick, answer, sourceURL string, maxLength, maxResponseCha
 	maxResponseChars = clampAskLength(maxResponseChars, 80, 320, 240)
 	nick = cleanExternalText(nick)
 	answer = truncateAsk(answer, maxResponseChars)
-	sourceURL = strings.TrimSpace(sourceURL)
+	sourceURL = cleanExternalText(strings.TrimSpace(sourceURL))
 	if !validHTTPURL(sourceURL) {
 		sourceURL = ""
 	}
@@ -481,7 +481,7 @@ func truncateAskBytes(text string, maxBytes int) string {
 	limit := maxBytes - len([]byte(ellipsis))
 	var out []rune
 	used := 0
-	for _, r := range []rune(text) {
+	for _, r := range text {
 		runeBytes := len(string(r))
 		if used+runeBytes > limit {
 			break

@@ -32,6 +32,11 @@ func (p *Blackjack) recordResult(m bot.Message, game *blackjackGame) {
 	if raw, err := p.db.Get(blackjackStatsBucket, key); err == nil {
 		_ = json.Unmarshal(raw, &stats)
 	}
+	// Treat malformed persisted data defensively; a negative streak must not
+	// be converted to uint64 and become an enormous leaderboard value.
+	if stats.CurrentStreak < 0 {
+		stats.CurrentStreak = 0
+	}
 	stats.Name = blackjackStatsName(m)
 	stats.Hands++
 	playerValue, _ := blackjackHandValue(game.player)
