@@ -1,12 +1,14 @@
 package plugins
 
 import (
+	"context"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/variablenix/GoBot/bot"
 	"github.com/variablenix/GoBot/storage"
+	"go.uber.org/zap"
 )
 
 func TestDuckHuntDefaults(t *testing.T) {
@@ -32,7 +34,7 @@ func TestDuckHuntDefaults(t *testing.T) {
 	if !plugin.cfg.firearmEnabled || plugin.cfg.magazineSize != 6 || plugin.cfg.startingAmmo != 6 || plugin.cfg.startingPoints != 25 {
 		t.Fatalf("unexpected arcade gear defaults: %+v", plugin.cfg)
 	}
-	if plugin.cfg.xpPerHit != 5 || plugin.cfg.xpPerKill != 25 || plugin.cfg.xpPerBefriend != 20 {
+	if plugin.cfg.xpPerHit != 5 || plugin.cfg.xpPerKill != 25 || plugin.cfg.xpPerBefriend != 20 || plugin.cfg.flockMin != 2 || plugin.cfg.flockMax != 4 {
 		t.Fatalf("unexpected progression defaults: %+v", plugin.cfg)
 	}
 }
@@ -49,7 +51,7 @@ func TestDuckHuntIncludesBefriendAlias(t *testing.T) {
 	if !found {
 		t.Fatal("expected !bef command alias")
 	}
-	for _, command := range []string{"shop", "store", "buy", "reload", "ammo", "level", "xp", "profile"} {
+	for _, command := range []string{"ducklaunch", "shop", "store", "buy", "reload", "ammo", "level", "xp", "profile"} {
 		found = false
 		for _, candidate := range plugin.Commands() {
 			if candidate == command {
@@ -300,6 +302,63 @@ func TestDuckHuntAnnouncementIncludesHPAndActions(t *testing.T) {
 	}
 	if !strings.Contains(announcement, "!bang") || !strings.Contains(announcement, "!bef") {
 		t.Fatalf("announcement does not provide actions: %q", announcement)
+	}
+}
+
+func TestDuckHuntFlockAnnouncementAndAmmoHint(t *testing.T) {
+	announcement := randomDuckAnnouncementForState(&duckHuntState{flockRemaining: 2, maxHP: 3})
+	plain := stripPluginIRC(announcement)
+	if !strings.Contains(plain, "A flock of 2 ducks has landed!") || !strings.Contains(plain, "Type !bang to pick them off!") {
+		t.Fatalf("flock announcement = %q", plain)
+	}
+	if hint := stripPluginIRC(duckAmmoHint(duckPlayer{HasGun: true, Ammo: 0})); !strings.Contains(hint, "Out of ammo") || !strings.Contains(hint, "!buy magazine") {
+		t.Fatalf("ammo hint = %q", hint)
+	}
+	if hint := duckAmmoHint(duckPlayer{HasGun: true, Ammo: 1}); hint != "" {
+		t.Fatalf("unexpected ammo hint with ammunition: %q", hint)
+	}
+}
+
+func TestDuckHuntFlockKillLeavesTheRoundActive(t *testing.T) {
+	db, err := storage.Open(t.TempDir() + "/bot.db")
+	if err != nil {
+		t.Fatalf("open database: %v", err)
+	}
+	defer db.Close()
+	plugin := &DuckHunt{}
+	if err := plugin.Init(bot.PluginConfig{"min_reaction_seconds": 0, "minimum_hp": 1, "maximum_hp": 1}, db); err != nil {
+		t.Fatalf("Init returned error: %v", err)
+	}
+	const network, channel, nick = "network", "#chat", "Alice"
+	plugin.mu.Lock()
+	state := plugin.stateLocked(network, channel)
+	state.active = true
+	state.spawnedAt = time.Now().Add(-10 * time.Second)
+	state.hp = 1
+	state.maxHP = 1
+	state.flockRemaining = 2
+	player := plugin.loadPlayerLocked(network, channel, nick)
+	player.HasGun = true
+	player.Weapon = "peashooter"
+	player.Ammo = 2
+	plugin.savePlayerLocked(network, channel, nick, player)
+	plugin.mu.Unlock()
+
+	b := bot.New(bot.Config{NetworkName: network, CommandPrefix: "!"}, db, nil, zap.NewNop())
+	plugin.interact(b, bot.Message{Nick: nick, Target: channel, IsChannel: true}, false)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	b.Queue.Drain(ctx)
+	cancel()
+
+	plugin.mu.Lock()
+	state = plugin.states[duckHuntStateKey(network, channel)]
+	loaded := plugin.loadPlayerLocked(network, channel, nick)
+	plugin.mu.Unlock()
+	if state == nil || !state.active || state.flockRemaining != 1 || state.hp != 1 {
+		t.Fatalf("flock state after first kill = %+v, want active with one duck remaining", state)
+	}
+	if loaded.Ammo != 1 {
+		t.Fatalf("ammo after one flock kill = %d, want 1", loaded.Ammo)
 	}
 }
 

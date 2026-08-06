@@ -9,6 +9,8 @@ GoBot is an extensible Go IRC bot for long-running use on one or more IRC
 networks. It supports TLS/SASL authentication, multiple networks and
 channels, persistent plugin data, rate-limited responses, games, reminders,
 source-grounded question answers, URL titles, and Prometheus metrics.
+It also includes keyless CVE and IP/ASN lookups, local acronym expansion, and
+a persistent word-scramble game.
 
 The repository contains example connection settings so you can see the
 configuration shape. Replace them with the networks, channels, identity, and
@@ -19,6 +21,7 @@ secrets for your own deployment.
 - [What GoBot does](#what-gobot-does)
 - [Quick start](#quick-start)
 - [Documentation map](#documentation-map)
+- [Built-in plugins](docs/plugins.md#plugin-index)
 - [Project layout](#project-layout)
 - [Contributing](CONTRIBUTING.md)
 - [License](#license)
@@ -33,6 +36,8 @@ Each configured network connection:
 - dispatches messages to enabled plugins
 - reconnects with backoff after network failures
 - paces outbound messages to avoid flooding
+- supports optional external lookups with bounded timeouts and local-only
+  catalogs/games where no service is needed
 
 Stateful features store their data in a local BoltDB database. Runtime
 counters are exposed through `/stats` and `/metrics`; cumulative counters
@@ -49,11 +54,13 @@ Requirements:
 1. Review `config.yaml` and add your networks and channels.
 2. Copy `.env.example` to `.env` and add secrets such as SASL or API keys.
 3. Build the binary with `make build` or `./scripts/build.sh`.
-4. Start it from the repository root with `./bin/irc-bot`.
+4. For a direct launch, export the `.env` values before starting the binary:
+   `set -a; . ./.env; set +a; ./bin/irc-bot`. GoBot reads environment variables;
+   it does not parse `.env` itself.
 
 For a service-managed deployment, use the [systemd and deployment
 guide](docs/deployment.md). Docker and Docker Compose are also documented
-there.
+there; those launchers load `.env` for you.
 
 ## Documentation map
 
@@ -84,6 +91,8 @@ plugins/           built-in plugins and tests
 data/foods/        local food, cuisine, and beer suggestion lists
 data/fun/          local joke, pun, one-liner, and wisdom catalogs
 data/welcome.txt   short original join-greeting catalog
+data/acronyms.txt  operator-editable ACRONYM|expansion catalog
+data/scramble.txt  local word-scramble catalog
 data/weapons.txt   local high-level firearm and weapons-name catalog
 data/sports.txt    local sports suggestion list
 data/cars.txt      local car make/model suggestion list

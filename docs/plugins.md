@@ -11,6 +11,9 @@ Plugins are enabled or disabled under plugins.<name>.enabled in config.yaml.
 - welcome: optional, probability-based join greetings with a per-channel cooldown
 - urltitle: page titles and YouTube metadata
 - youtube: single-result YouTube video and music search
+- cve: NVD CVE lookup with CVSS and affected software
+- ipinfo: IP/ASN context through IP-API
+- acronym: local operator-maintained acronym expansion
 - weather: Open-Meteo weather, no key required
 - steam: Steam game search, genre links, and most-played lookup, no key required
 - news: NewsAPI headlines and search
@@ -36,6 +39,7 @@ Plugins are enabled or disabled under plugins.<name>.enabled in config.yaml.
 - eightball: customizable Magic 8-Ball answers
 - fun: local yo-momma jokes, one-liners, puns, and wisdom
 - attack: playful target-based actions and messages
+- scramble: local first-correct-answer word game
 - cheer: family-friendly cheers
 - seen, tell, karma, and dice: channel utilities
 - quote, choose, and time: lightweight utilities
@@ -193,6 +197,103 @@ results page when the key is unavailable or the API cannot be used. Configure
 `plugins.youtube.max_length` and `plugins.youtube.timeout_seconds` as needed.
 The API key is optional, but improves search reliability and avoids depending
 on changes to YouTube's public results HTML.
+
+## CVE lookup
+
+The `cve` plugin queries the NVD's public CVE 2.0 API and requires no API key:
+
+~~~text
+!cve CVE-2024-3094
+!vuln CVE-2024-3094
+~~~
+
+GoBot returns the CVE ID, the best available CVSS score and severity, up to
+three affected vendor/product/version labels, and the NVD detail link. NVD
+records may not have a score yet, and CPE applicability data can be broad, so
+the response omits fields that are unavailable. The lookup accepts only a
+single CVE identifier and never fetches a user-supplied URL.
+
+~~~yaml
+plugins:
+  cve:
+    enabled: true
+    timeout_seconds: 8
+    max_length: 360
+~~~
+
+## IP and ASN context
+
+Use `!ip` or `!asn` with an IP address or hostname:
+
+~~~text
+!ip 8.8.8.8
+!asn 1.1.1.1
+!ip resolver.example.net
+~~~
+
+The response includes the resolved address, ASN, organization, country,
+datacenter/hosting and proxy/VPN/Tor indicators, plus reverse DNS when the
+provider supplies it. GoBot uses IP-API's free keyless JSON endpoint and
+spaces requests to respect its public rate limit. The free endpoint is HTTP,
+so do not use this command for sensitive private data; the lookup target is
+sent to IP-API. Hostnames are passed to IP-API for resolution, but arbitrary
+URLs, paths, and line breaks are rejected. `!asn` is an output alias for an
+address lookup; it does not accept a bare ASN number as a separate BGP query.
+
+~~~yaml
+plugins:
+  ipinfo:
+    enabled: true
+    timeout_seconds: 8
+    max_length: 320
+~~~
+
+## Acronyms
+
+`acronym` is a local text-file expander for operations jargon:
+
+~~~text
+!acronym MTTR
+!acro rDNS
+~~~
+
+Entries use one `ACRONYM|expansion` per line. Blank lines and `#` comments are
+ignored, matching is case-insensitive, and malformed entries are skipped.
+The bundled catalog is intentionally small; edit or replace it without an
+external service:
+
+~~~yaml
+plugins:
+  acronym:
+    enabled: true
+    data_file: "data/acronyms.txt"
+    max_length: 320
+~~~
+
+## Word scramble
+
+Start a local channel round with:
+
+~~~text
+!scramble
+!scramble status
+~~~
+
+GoBot chooses a local word, scrambles it, and awards the first exact answer in
+that channel one persisted karma point. A round expires after five minutes;
+`!scramble status` shows the active scramble without revealing the answer.
+The word list is local and editable, and the winning karma plus a separate
+scramble win record are stored in BoltDB. No external API or answer text is
+sent anywhere.
+
+~~~yaml
+plugins:
+  scramble:
+    enabled: true
+    data_file: "data/scramble.txt"
+    timeout_minutes: 5
+    max_length: 240
+~~~
 
 ## Weather
 
