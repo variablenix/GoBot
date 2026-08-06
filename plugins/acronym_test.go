@@ -2,6 +2,7 @@ package plugins
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -26,5 +27,20 @@ func TestAcronymLoadsCaseInsensitiveEntries(t *testing.T) {
 	}
 	if plain := stripPluginIRC(formatAcronymEntry(entry)); !strings.Contains(plain, "API — Application Programming Interface") {
 		t.Fatalf("formatted acronym = %q", plain)
+	}
+}
+
+func TestBundledAcronymCatalogIsBroadAndValid(t *testing.T) {
+	plugin := &Acronym{}
+	if err := plugin.Init(bot.PluginConfig{"data_file": filepath.Join("..", "data", "acronyms.txt")}, nil); err != nil {
+		t.Fatalf("Init returned error: %v", err)
+	}
+	if len(plugin.entries) < 150 {
+		t.Fatalf("bundled acronym catalog has only %d entries", len(plugin.entries))
+	}
+	for _, key := range []string{"api", "cvss", "dnssec", "ircv3", "mttr", "rbac", "sre", "tls", "xss"} {
+		if entry, ok := plugin.entries[key]; !ok || entry.Expansion == "" {
+			t.Fatalf("bundled catalog missing usable %q entry", key)
+		}
 	}
 }

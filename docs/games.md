@@ -212,7 +212,7 @@ Commands:
 !buy peashooter       buy the starter Peashooter (!buy gun also works)
 !buy quacker          buy the larger Quacker Blaster
 !buy golden           buy the stronger Golden Wing
-!buy magazine         buy a spare magazine
+!buy magazine         buy a spare magazine (`!buy mag` also works)
 !ammo                 show ammo, spare magazines, and points
 !reload               load a spare magazine
 !ducks [nickname]     show persistent scores, points, level, and XP
@@ -264,9 +264,10 @@ existing points, gear, and scores.
 
 New players receive `starting_points`. A player can buy one item at a time;
 buying a different item replaces the current gear and starts a fresh magazine.
-Spare magazines are purchased with `!buy magazine` and loaded with `!reload`.
+Spare magazines are purchased with `!buy magazine` or `!buy mag` and loaded with
+`!reload`.
 Ammo is consumed by `!bang`. When a player runs empty, GoBot says to use
-`!reload` if a spare magazine is available or `!buy magazine` to purchase one;
+`!reload` if a spare magazine is available or `!buy magazine`/`!buy mag` to purchase one;
 successful hits also include that reminder when the shot empties the magazine.
 Successful hits and befriending replenish the player's points over time. If a
 player fires when no duck is active, the
