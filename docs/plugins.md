@@ -50,6 +50,10 @@ Plugins are enabled or disabled under plugins.<name>.enabled in config.yaml.
 Most command responses are rate-limited. See
 [Configuration](configuration.md#rate-limits-and-join-warmup).
 
+The full `!help` menu is kept short in channels. If it would exceed one
+message, GoBot sends the complete menu to the requesting user's PM and posts a
+brief notice in the channel. Plugin-specific help uses the same behavior.
+
 ## Talking to GoBot
 
 With banter enabled, address the bot in a channel:
