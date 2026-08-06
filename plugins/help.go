@@ -8,6 +8,8 @@ import (
 	"github.com/variablenix/GoBot/storage"
 )
 
+const helpChannelMaxBytes = 350
+
 type Help struct{}
 
 func (p *Help) Name() string                                 { return "help" }
@@ -28,12 +30,12 @@ func (p *Help) Handle(b *bot.Bot, m bot.Message) bool {
 				continue
 			}
 			if strings.EqualFold(x.Name(), strings.TrimSpace(arg)) {
-				b.Send(m.ReplyTarget(), ircColor(ircCyan, x.Help()))
+				sendHelpResponse(b, m, ircColor(ircCyan, x.Help()))
 				return true
 			}
 			for _, c := range x.Commands() {
 				if c == strings.ToLower(strings.TrimSpace(arg)) {
-					b.Send(m.ReplyTarget(), ircColor(ircCyan, x.Help()))
+					sendHelpResponse(b, m, ircColor(ircCyan, x.Help()))
 					return true
 				}
 			}
@@ -50,6 +52,24 @@ func (p *Help) Handle(b *bot.Bot, m bot.Message) bool {
 		names = append(names, x.Name())
 	}
 	sort.Strings(names)
-	b.Send(m.ReplyTarget(), ircBold+"plugins:"+ircReset+" "+strings.Join(names, ", ")+" — use !help <plugin> for details")
+	sendHelpResponse(b, m, ircBold+"plugins:"+ircReset+" "+strings.Join(names, ", ")+" — use !help <plugin> for details")
 	return true
+}
+
+func sendHelpResponse(b *bot.Bot, m bot.Message, response string) {
+	parts := splitIRCText(response, helpChannelMaxBytes)
+	if len(parts) <= 1 {
+		b.Send(m.ReplyTarget(), response)
+		return
+	}
+	if m.IsChannel {
+		for _, part := range parts {
+			b.Send(m.Nick, part)
+		}
+		b.Send(m.ReplyTarget(), ircColor(ircCyan, "Check your PM for the full help menu."))
+		return
+	}
+	for _, part := range parts {
+		b.Send(m.ReplyTarget(), part)
+	}
 }

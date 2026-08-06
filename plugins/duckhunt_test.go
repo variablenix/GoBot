@@ -39,6 +39,19 @@ func TestDuckHuntDefaults(t *testing.T) {
 	}
 }
 
+func TestDuckHuntKillRewardsExceedBefriendRewards(t *testing.T) {
+	plugin := &DuckHunt{}
+	if err := plugin.Init(nil, nil); err != nil {
+		t.Fatalf("Init returned error: %v", err)
+	}
+	if plugin.cfg.xpPerKill <= plugin.cfg.xpPerBefriend {
+		t.Fatalf("kill XP %d should exceed befriend XP %d", plugin.cfg.xpPerKill, plugin.cfg.xpPerBefriend)
+	}
+	if xpReward(plugin.cfg.xpPerKill, false) <= xpReward(plugin.cfg.xpPerBefriend, false) {
+		t.Fatal("kill reward should exceed befriend reward")
+	}
+}
+
 func TestDuckHuntIncludesBefriendAlias(t *testing.T) {
 	plugin := &DuckHunt{}
 	found := false
