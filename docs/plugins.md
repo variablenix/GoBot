@@ -1019,6 +1019,8 @@ project--
 - karma tracks case-insensitive thing++ and thing-- changes.
 - luv awards the named nickname one persistent blue-heart point with `!luv
   nickname`; totals are case-insensitive and scoped to the current IRC network.
+  Responses use 💕 for the kindness action and 💙 for the recipient's score,
+  for example: `💕 me spreads kindness to nick. nick now has 58 💙 points!`
 - thing++ and thing-- also work as standalone ordinary chat messages. GoBot
   confirms each update in one compact line, replacing `<nickname>` with the
   actual nickname being changed, such as

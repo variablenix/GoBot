@@ -61,15 +61,17 @@ func (p *Luv) Handle(b *bot.Bot, m bot.Message) bool {
 
 	sender := cleanExternalText(m.Nick)
 	displayTarget := cleanExternalText(target)
+	b.Send(m.ReplyTarget(), formatLuvMessage(sender, displayTarget, total))
+	return true
+}
+
+func formatLuvMessage(sender, target string, total int) string {
 	unit := "points"
 	if total == 1 {
 		unit = "point"
 	}
-	message := fmt.Sprintf("%s %s spreads %s to %s. %s now has %d %s!",
-		ircColor(ircCyan, "💙"), sender, ircColor(ircCyan, "LUV"), displayTarget,
-		displayTarget, total, ircColor(ircCyan, "💙 "+unit))
-	b.Send(m.ReplyTarget(), message)
-	return true
+	return fmt.Sprintf("💕 %s spreads kindness to %s. %s now has %d %s!",
+		sender, target, target, total, ircColor(ircCyan, "💙 "+unit))
 }
 
 func (p *Luv) award(network, target string) (int, error) {
