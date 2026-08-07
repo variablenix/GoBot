@@ -34,7 +34,7 @@ func TestDuckHuntDefaults(t *testing.T) {
 	if !plugin.cfg.firearmEnabled || plugin.cfg.magazineSize != 6 || plugin.cfg.startingAmmo != 6 || plugin.cfg.startingPoints != 25 {
 		t.Fatalf("unexpected arcade gear defaults: %+v", plugin.cfg)
 	}
-	if plugin.cfg.xpPerHit != 5 || plugin.cfg.xpPerKill != 25 || plugin.cfg.xpPerBefriend != 10 || plugin.cfg.flockMin != 2 || plugin.cfg.flockMax != 4 {
+	if plugin.cfg.xpPerHit != 5 || plugin.cfg.xpPerKill != 25 || plugin.cfg.xpPerBefriend != 10 || plugin.cfg.breadCost != 8 || plugin.cfg.flockMin != 2 || plugin.cfg.flockMax != 4 {
 		t.Fatalf("unexpected progression defaults: %+v", plugin.cfg)
 	}
 }
@@ -64,7 +64,7 @@ func TestDuckHuntIncludesBefriendAlias(t *testing.T) {
 	if !found {
 		t.Fatal("expected !bef command alias")
 	}
-	for _, command := range []string{"ducklaunch", "shop", "store", "buy", "reload", "ammo", "level", "xp", "profile"} {
+	for _, command := range []string{"ducklaunch", "shop", "store", "buy", "use", "reload", "ammo", "duckstats", "level", "xp", "profile"} {
 		found = false
 		for _, candidate := range plugin.Commands() {
 			if candidate == command {
@@ -84,6 +84,33 @@ func TestDuckHuntIncludesBefriendAlias(t *testing.T) {
 	}
 	if !strings.Contains(plugin.Help(), "magazine aliases: mag, ammo") {
 		t.Fatal("expected magazine aliases in help")
+	}
+	if !strings.Contains(plugin.Help(), "!duckstats") || !strings.Contains(plugin.Help(), "!use 5|bread") {
+		t.Fatal("expected duckstats and item usage in help")
+	}
+}
+
+func TestDuckHuntUseItemAliases(t *testing.T) {
+	for _, alias := range []string{"5", "bread", " BREAD "} {
+		if got := normalizeDuckUseItem(alias); got != "bread" {
+			t.Fatalf("normalizeDuckUseItem(%q) = %q, want bread", alias, got)
+		}
+	}
+	if got := normalizeDuckUseItem("4"); got == "bread" {
+		t.Fatalf("invalid item ID resolved to bread: %q", got)
+	}
+}
+
+func TestDuckHuntProfileNickValidationRejectsIRCControls(t *testing.T) {
+	for _, nick := range []string{"Alice", "ak[Relay]", "bot_2"} {
+		if !validDuckProfileNick(nick) {
+			t.Errorf("validDuckProfileNick(%q) = false, want true", nick)
+		}
+	}
+	for _, nick := range []string{"", "Alice Smith", "Alice\x03", "Alice\n", strings.Repeat("A", 65)} {
+		if validDuckProfileNick(nick) {
+			t.Errorf("validDuckProfileNick(%q) = true, want false", nick)
+		}
 	}
 }
 
@@ -266,6 +293,9 @@ func TestDuckHuntPlayerGearPersists(t *testing.T) {
 	player.Ammo = 3
 	player.Points = 99
 	player.XP = 123
+	player.Shots = 10
+	player.Hits = 8
+	player.Bread = 1
 	player.HasGun = true
 	player.Weapon = "quacker"
 	plugin.savePlayerLocked("network", "#channel", "Alice", player)
@@ -274,8 +304,77 @@ func TestDuckHuntPlayerGearPersists(t *testing.T) {
 	plugin.mu.Lock()
 	loaded := plugin.loadPlayerLocked("network", "#channel", "alice")
 	plugin.mu.Unlock()
-	if loaded.SpareMagazines != 2 || loaded.Ammo != 3 || loaded.Points != 99 || loaded.XP != 123 || loaded.Weapon != "quacker" {
+	if loaded.SpareMagazines != 2 || loaded.Ammo != 3 || loaded.Points != 99 || loaded.XP != 123 || loaded.Shots != 10 || loaded.Hits != 8 || loaded.Bread != 1 || loaded.Weapon != "quacker" {
 		t.Fatalf("loaded player = %+v, want persisted gear and points", loaded)
+	}
+}
+
+func TestDuckHuntTitlesAndDetailedStats(t *testing.T) {
+	if duckTitle(1) != "Pond Rookie" || duckTitle(6) != "Duck Whisperer" || duckTitle(25) != "Eternal Duckkeeper" || duckTitle(100) != "Eternal Duckkeeper" {
+		t.Fatalf("unexpected Duck Hunt title progression")
+	}
+	if level, title, ok := nextDuckRank(6); !ok || level != 7 || title != "Flock Tactician" {
+		t.Fatalf("next Duck Hunt rank = %d %q %v, want level 7 Flock Tactician", level, title, ok)
+	}
+	plugin := &DuckHunt{}
+	if err := plugin.Init(nil, nil); err != nil {
+		t.Fatalf("Init returned error: %v", err)
+	}
+	player := duckPlayer{XP: xpForLevel(6), Shots: 102, Hits: 86, HasGun: true, Weapon: "peashooter", Ammo: 1, SpareMagazines: 1, Bread: 1}
+	message := stripPluginIRC(plugin.formatDuckStats("mlu", player, duckScore{Ducks: 68, Friends: 5}))
+	for _, want := range []string{"Lv6 Duck Whisperer", "1500 XP (Need 600 XP for Flock Tactician)", "102 shots", "68 killed", "5 befriended", "84% accuracy", "79.1% hit rate", "Armed", "1/6 ammo", "1 spare magazine", "0% jam chance", "Bread x1, Magazine x1"} {
+		if !strings.Contains(message, want) {
+			t.Errorf("Duck Hunt stats %q does not contain %q", message, want)
+		}
+	}
+}
+
+func TestDuckHuntBreadBoostConsumesItemAndStacks(t *testing.T) {
+	db, err := storage.Open(t.TempDir() + "/bot.db")
+	if err != nil {
+		t.Fatalf("open database: %v", err)
+	}
+	defer db.Close()
+	plugin := &DuckHunt{}
+	if err := plugin.Init(bot.PluginConfig{"min_delay_seconds": 60, "max_delay_seconds": 60}, db); err != nil {
+		t.Fatalf("Init returned error: %v", err)
+	}
+	const network, channel, nick = "network", "#chat", "Alice"
+	plugin.mu.Lock()
+	player := plugin.loadPlayerLocked(network, channel, nick)
+	player.Bread = 3
+	player.Points = 20
+	plugin.savePlayerLocked(network, channel, nick, player)
+	state := plugin.stateLocked(network, channel)
+	state.nextSpawn = time.Now().Add(60 * time.Second)
+	plugin.mu.Unlock()
+
+	b := bot.New(bot.Config{NetworkName: network, CommandPrefix: "!"}, db, nil, zap.NewNop())
+	message := bot.Message{Nick: nick, Target: channel, IsChannel: true}
+	plugin.use(b, message, "5")
+	plugin.mu.Lock()
+	state = plugin.states[duckHuntStateKey(network, channel)]
+	player = plugin.loadPlayerLocked(network, channel, nick)
+	firstSpawn := state.nextSpawn
+	plugin.mu.Unlock()
+	if player.Bread != 2 || state.spawnMultiplier != 2 || !state.spawnBoostUntil.After(time.Now()) {
+		t.Fatalf("after first bread use player=%+v state=%+v", player, state)
+	}
+	if !firstSpawn.Before(time.Now().Add(60 * time.Second)) {
+		t.Fatalf("spawn was not accelerated: %v", firstSpawn)
+	}
+
+	plugin.use(b, message, "bread")
+	plugin.use(b, message, "bread")
+	plugin.mu.Lock()
+	state = plugin.states[duckHuntStateKey(network, channel)]
+	player = plugin.loadPlayerLocked(network, channel, nick)
+	plugin.mu.Unlock()
+	if player.Bread != 0 || state.spawnMultiplier != 3 {
+		t.Fatalf("after stacked bread uses player=%+v state=%+v, want no bread and 3x boost", player, state)
+	}
+	if got := plugin.duckSpawnDelayLocked(&duckHuntState{spawnMultiplier: 2, spawnBoostUntil: time.Now().Add(time.Minute)}, time.Now()); got != 30*time.Second {
+		t.Fatalf("2x spawn delay = %s, want 30s", got)
 	}
 }
 
@@ -381,8 +480,8 @@ func TestDuckHuntFlockKillLeavesTheRoundActive(t *testing.T) {
 	if state == nil || !state.active || state.flockRemaining != 1 || state.hp != 1 {
 		t.Fatalf("flock state after first kill = %+v, want active with one duck remaining", state)
 	}
-	if loaded.Ammo != 1 {
-		t.Fatalf("ammo after one flock kill = %d, want 1", loaded.Ammo)
+	if loaded.Ammo != 1 || loaded.Shots != 1 || loaded.Hits != 1 {
+		t.Fatalf("player after one flock kill = %+v, want 1 ammo, 1 shot, and 1 hit", loaded)
 	}
 }
 
