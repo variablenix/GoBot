@@ -160,6 +160,7 @@ plugins:
     befriend_attempts: 3
     golden_duck_probability: 0.15
     firearm_enabled: true
+    weapon_jam_probability: 0.03
     magazine_size: 6
     starting_ammo: 6
     starting_points: 25

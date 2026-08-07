@@ -31,7 +31,7 @@ func TestDuckHuntDefaults(t *testing.T) {
 	if plugin.cfg.minHP != 1 || plugin.cfg.maxHP != 5 || plugin.cfg.damagePerShot != 1 || plugin.cfg.trustAttempts != 3 {
 		t.Fatalf("unexpected duck mechanics defaults: %+v", plugin.cfg)
 	}
-	if !plugin.cfg.firearmEnabled || plugin.cfg.magazineSize != 6 || plugin.cfg.startingAmmo != 6 || plugin.cfg.startingPoints != 25 {
+	if !plugin.cfg.firearmEnabled || plugin.cfg.magazineSize != 6 || plugin.cfg.startingAmmo != 6 || plugin.cfg.startingPoints != 25 || plugin.cfg.jamChance != 0.03 {
 		t.Fatalf("unexpected arcade gear defaults: %+v", plugin.cfg)
 	}
 	if plugin.cfg.xpPerHit != 5 || plugin.cfg.xpPerKill != 25 || plugin.cfg.xpPerBefriend != 10 || plugin.cfg.breadCost != 8 || plugin.cfg.flockMin != 2 || plugin.cfg.flockMax != 4 {
@@ -64,7 +64,7 @@ func TestDuckHuntIncludesBefriendAlias(t *testing.T) {
 	if !found {
 		t.Fatal("expected !bef command alias")
 	}
-	for _, command := range []string{"ducklaunch", "shop", "store", "buy", "use", "reload", "ammo", "duckstats", "level", "xp", "profile"} {
+	for _, command := range []string{"ducklaunch", "shop", "store", "buy", "use", "reload", "unjam", "ammo", "duckstats", "level", "xp", "profile"} {
 		found = false
 		for _, candidate := range plugin.Commands() {
 			if candidate == command {
@@ -263,7 +263,7 @@ func TestDuckHuntGoldenSeedAddsOneKillBounty(t *testing.T) {
 	}
 	defer db.Close()
 	plugin := &DuckHunt{}
-	if err := plugin.Init(bot.PluginConfig{"min_reaction_seconds": 0, "minimum_hp": 1, "maximum_hp": 1}, db); err != nil {
+	if err := plugin.Init(bot.PluginConfig{"min_reaction_seconds": 0, "minimum_hp": 1, "maximum_hp": 1, "weapon_jam_probability": 0}, db); err != nil {
 		t.Fatalf("Init returned error: %v", err)
 	}
 	const network, channel, nick = "network", "#chat", "Alice"
@@ -477,10 +477,66 @@ func TestDuckHuntTitlesAndDetailedStats(t *testing.T) {
 	}
 	player := duckPlayer{XP: xpForLevel(6), Shots: 102, Hits: 86, HasGun: true, Weapon: "peashooter", Ammo: 1, SpareMagazines: 1, Bread: 1}
 	message := stripPluginIRC(plugin.formatDuckStats("mlu", player, duckScore{Ducks: 68, Friends: 5}))
-	for _, want := range []string{"Lv6 Duck Whisperer", "1500 XP (Need 600 XP for Flock Tactician)", "102 shots", "68 killed", "5 befriended", "84% accuracy", "79.1% hit rate", "Armed", "1/6 ammo", "1 spare magazine", "0% jam chance", "Bread x1, Magazine x1"} {
+	for _, want := range []string{"Lv6 Duck Whisperer", "1500 XP (Need 600 XP for Flock Tactician)", "102 shots", "68 killed", "5 befriended", "84% accuracy", "79.1% hit rate", "Armed", "1/6 ammo", "1 spare magazine", "3% jam chance", "Bread x1, Magazine x1"} {
 		if !strings.Contains(message, want) {
 			t.Errorf("Duck Hunt stats %q does not contain %q", message, want)
 		}
+	}
+}
+
+func TestDuckHuntWeaponJamRequiresUnjam(t *testing.T) {
+	db, err := storage.Open(t.TempDir() + "/bot.db")
+	if err != nil {
+		t.Fatalf("open database: %v", err)
+	}
+	defer db.Close()
+	plugin := &DuckHunt{}
+	if err := plugin.Init(bot.PluginConfig{"min_reaction_seconds": 0, "minimum_hp": 1, "maximum_hp": 1, "weapon_jam_probability": 1}, db); err != nil {
+		t.Fatalf("Init returned error: %v", err)
+	}
+	plugin.cfg.jamChance = 1
+	const network, channel, nick = "network", "#chat", "Alice"
+	plugin.mu.Lock()
+	state := plugin.stateLocked(network, channel)
+	state.active = true
+	state.spawnedAt = time.Now().Add(-10 * time.Second)
+	state.hp = 1
+	state.maxHP = 1
+	player := plugin.loadPlayerLocked(network, channel, nick)
+	player.HasGun = true
+	player.Weapon = "peashooter"
+	player.Ammo = 2
+	plugin.savePlayerLocked(network, channel, nick, player)
+	plugin.mu.Unlock()
+
+	b := bot.New(bot.Config{NetworkName: network, CommandPrefix: "!"}, db, nil, zap.NewNop())
+	message := bot.Message{Nick: nick, Target: channel, IsChannel: true}
+	plugin.interact(b, message, false)
+	plugin.mu.Lock()
+	player = plugin.loadPlayerLocked(network, channel, nick)
+	plugin.mu.Unlock()
+	if !player.Jammed || player.Ammo != 1 || player.Shots != 1 || player.Hits != 0 {
+		t.Fatalf("jammed shot state = %+v, want jammed with one ammo, one shot, zero hits", player)
+	}
+
+	plugin.unjam(b, message)
+	plugin.mu.Lock()
+	player = plugin.loadPlayerLocked(network, channel, nick)
+	plugin.mu.Unlock()
+	if player.Jammed {
+		t.Fatalf("unjam did not clear the weapon: %+v", player)
+	}
+
+	plugin.cfg.jamChance = 0
+	plugin.mu.Lock()
+	plugin.attempts = make(map[string]time.Time)
+	plugin.mu.Unlock()
+	plugin.interact(b, message, false)
+	plugin.mu.Lock()
+	player = plugin.loadPlayerLocked(network, channel, nick)
+	plugin.mu.Unlock()
+	if player.Jammed || player.Ammo != 0 || player.Shots != 2 || player.Hits != 1 {
+		t.Fatalf("post-unjam shot state = %+v, want a successful shot", player)
 	}
 }
 
@@ -604,7 +660,7 @@ func TestDuckHuntFlockKillLeavesTheRoundActive(t *testing.T) {
 	}
 	defer db.Close()
 	plugin := &DuckHunt{}
-	if err := plugin.Init(bot.PluginConfig{"min_reaction_seconds": 0, "minimum_hp": 1, "maximum_hp": 1}, db); err != nil {
+	if err := plugin.Init(bot.PluginConfig{"min_reaction_seconds": 0, "minimum_hp": 1, "maximum_hp": 1, "weapon_jam_probability": 0}, db); err != nil {
 		t.Fatalf("Init returned error: %v", err)
 	}
 	const network, channel, nick = "network", "#chat", "Alice"
