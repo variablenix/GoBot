@@ -213,9 +213,9 @@ Commands:
 !buy peashooter       buy the starter Peashooter (!buy gun also works)
 !buy quacker          buy the larger Quacker Blaster
 !buy golden           buy the stronger Golden Wing
-!buy bread            buy Bread for a timed spawn boost
+!buy 1-7              buy a Duck Hunt consumable by numeric item ID
 !buy magazine         buy a spare magazine (`!buy mag` also works)
-!use 5                use Bread (`!use bread` also works)
+!use <1-7|item>       use a Duck Hunt consumable
 !ammo                 show ammo, spare magazines, and points
 !reload               load a spare magazine
 !ducks [nickname]     show persistent scores, points, level, and XP
@@ -263,15 +263,28 @@ title requires 30,000 XP under the default cumulative progression curve.
 Stats include shots fired, ducks killed and befriended, shot accuracy (hits
 divided by shots), hit rate (kills divided by successful hits), armed state,
 ammo, spare magazines, and inventory. Jam chance is currently 0% because
-Duck Hunt does not yet implement weapon jams.
+Duck Hunt does not yet implement weapon jams. It also reports ready one-shot
+effects such as a polished shot or Golden Seed bounty.
 
-Bread is a local consumable. Buy it with `!buy bread` for the configured
-`bread_cost` (8 points by default), then use it with `!use 5` or `!use bread`.
-The first Bread use makes future automatic duck spawns arrive 2.0x faster for
-20 minutes. Additional Bread uses while the boost is active raise the bonus to
-2.5x and then 3.0x, with no further stacking. The boost affects automatic
-activity scheduling, not manually launched flocks, and expires when its timer
-ends or the bot restarts.
+Duck Hunt has seven local consumables. Buy them with `!buy <item>` or their
+numeric IDs, then activate them with `!use <item>`:
+
+- `1` Lucky Feather (12 points): raises the next automatic duck's golden chance
+  for 20 minutes; additional feathers stack up to a +75 percentage-point boost.
+- `2` Duck Whistle (18 points): schedules the next automatic duck in 15 seconds.
+- `3` Decoy Duck (10 points): extends an active hunt by 20 seconds.
+- `4` Gun Brush (12 points): guarantees your next armed shot, if you own a gun.
+- `5` Bread (8 points by default): makes automatic spawns 2.0x faster for 20
+  minutes. Additional uses stack to 2.5x and then 3.0x.
+- `6` Golden Seed (20 points): adds 25 points and 25 XP to your next completed
+  kill.
+- `7` Pond Map (15 points): turns the next automatic duck visit into a random
+  flock.
+
+Item aliases include `feather`, `whistle`, `decoy`, `brush`, `bread`, `seed`,
+and `map`. Effects that cannot currently be applied are not consumed. Timed
+channel effects expire with their timers or when the bot restarts; Bread affects
+automatic activity scheduling, not manually launched flocks.
 
 Points and XP are separate persistent values. Points are the shop currency
 used by `!buy` and `!reload`; XP measures Duck Hunt progress and determines the
@@ -331,8 +344,8 @@ Settings:
 - starting_points: points granted when a player first participates
 - magazine_cost and gun_cost: base shop prices; the enhanced items add their
   own small point premium
-- bread_cost: points required to buy one Bread consumable; Bread is used with
-  `!use 5` or `!use bread` and accelerates future automatic spawns
+- bread_cost: points required to buy one Bread consumable; use `!use 5` or
+  `!use bread` to accelerate future automatic spawns
 - xp_per_hit: XP awarded for a successful non-final hit; golden ducks double it
 - xp_per_kill: XP awarded when a shot resolves the duck; golden ducks double it
 - xp_per_befriend: XP awarded when a player completes the trust progression;

@@ -82,22 +82,41 @@ func TestDuckHuntIncludesBefriendAlias(t *testing.T) {
 	if !strings.Contains(plugin.Help(), "!level") {
 		t.Fatal("expected progression command in help")
 	}
-	if !strings.Contains(plugin.Help(), "magazine aliases: mag, ammo") {
-		t.Fatal("expected magazine aliases in help")
+	if !strings.Contains(plugin.Help(), "items 1-7") || !strings.Contains(plugin.Help(), "!use <1-7|item>") {
+		t.Fatal("expected item catalog in help")
 	}
-	if !strings.Contains(plugin.Help(), "!duckstats") || !strings.Contains(plugin.Help(), "!use 5|bread") {
+	if !strings.Contains(plugin.Help(), "!duckstats") {
 		t.Fatal("expected duckstats and item usage in help")
 	}
 }
 
 func TestDuckHuntUseItemAliases(t *testing.T) {
-	for _, alias := range []string{"5", "bread", " BREAD "} {
-		if got := normalizeDuckUseItem(alias); got != "bread" {
-			t.Fatalf("normalizeDuckUseItem(%q) = %q, want bread", alias, got)
+	plugin := &DuckHunt{}
+	if err := plugin.Init(nil, nil); err != nil {
+		t.Fatalf("Init returned error: %v", err)
+	}
+	for _, test := range []struct {
+		alias string
+		key   string
+	}{
+		{alias: "1", key: "lucky_feather"},
+		{alias: "feather", key: "lucky_feather"},
+		{alias: "2", key: "duck_whistle"},
+		{alias: "whistle", key: "duck_whistle"},
+		{alias: "3", key: "decoy"},
+		{alias: "4", key: "gun-brush"},
+		{alias: "5", key: "bread"},
+		{alias: " BREAD ", key: "bread"},
+		{alias: "6", key: "golden_seed"},
+		{alias: "7", key: "pond_map"},
+	} {
+		item, ok := plugin.findConsumable(test.alias)
+		if !ok || item.Key != strings.ReplaceAll(test.key, "-", "_") {
+			t.Fatalf("findConsumable(%q) = %+v, %v; want %s", test.alias, item, ok, test.key)
 		}
 	}
-	if got := normalizeDuckUseItem("4"); got == "bread" {
-		t.Fatalf("invalid item ID resolved to bread: %q", got)
+	if _, ok := plugin.findConsumable("8"); ok {
+		t.Fatal("invalid item ID resolved to a consumable")
 	}
 }
 
@@ -139,6 +158,136 @@ func TestDuckHuntShopCatalog(t *testing.T) {
 	}
 	if weapons[2].Damage <= weapons[0].Damage || weapons[2].Cost <= weapons[0].Cost {
 		t.Fatalf("Golden Wing should cost more and do more damage: %+v", weapons)
+	}
+}
+
+func TestDuckHuntConsumableCatalogAndInventory(t *testing.T) {
+	plugin := &DuckHunt{}
+	if err := plugin.Init(nil, nil); err != nil {
+		t.Fatalf("Init returned error: %v", err)
+	}
+	items := plugin.consumables()
+	if len(items) != 7 {
+		t.Fatalf("consumable catalog has %d items, want 7", len(items))
+	}
+	player := duckPlayer{}
+	for _, item := range items {
+		if item.ID == "" || item.Key == "" || item.Name == "" || item.Cost <= 0 || item.Description == "" {
+			t.Fatalf("incomplete consumable definition: %+v", item)
+		}
+		setDuckItemCount(&player, item.Key, 1)
+		if got := duckItemCount(player, item.Key); got != 1 {
+			t.Fatalf("duckItemCount(%q) = %d, want 1", item.Key, got)
+		}
+	}
+	if got := duckItems(player); !strings.Contains(got, "Lucky Feather x1") || !strings.Contains(got, "Pond Map x1") {
+		t.Fatalf("inventory summary = %q, want all catalog items", got)
+	}
+	for _, alias := range []string{"1", "lucky-feather", "2", "duck whistle", "3", "decoy-duck", "4", "gun-brush", "5", "6", "golden seed", "7", "pond-map"} {
+		if _, ok := plugin.findConsumable(alias); !ok {
+			t.Fatalf("findConsumable(%q) did not resolve", alias)
+		}
+	}
+}
+
+func TestDuckHuntConsumableEffectsAreDistinctAndNonDestructive(t *testing.T) {
+	db, err := storage.Open(t.TempDir() + "/bot.db")
+	if err != nil {
+		t.Fatalf("open database: %v", err)
+	}
+	defer db.Close()
+	plugin := &DuckHunt{}
+	if err := plugin.Init(bot.PluginConfig{"min_delay_seconds": 60, "max_delay_seconds": 60}, db); err != nil {
+		t.Fatalf("Init returned error: %v", err)
+	}
+	const network, channel, nick = "network", "#chat", "Alice"
+	plugin.mu.Lock()
+	player := plugin.loadPlayerLocked(network, channel, nick)
+	player.HasGun = true
+	player.Weapon = "peashooter"
+	player.LuckyFeathers = 1
+	player.DuckWhistles = 1
+	player.Decoys = 1
+	player.GunBrushes = 1
+	player.Bread = 1
+	player.GoldenSeeds = 1
+	player.PondMaps = 1
+	plugin.savePlayerLocked(network, channel, nick, player)
+	plugin.mu.Unlock()
+
+	b := bot.New(bot.Config{NetworkName: network, CommandPrefix: "!"}, db, nil, zap.NewNop())
+	message := bot.Message{Nick: nick, Target: channel, IsChannel: true}
+	for _, id := range []string{"1", "2", "4", "5", "6", "7"} {
+		plugin.use(b, message, id)
+	}
+	plugin.mu.Lock()
+	state := plugin.states[duckHuntStateKey(network, channel)]
+	player = plugin.loadPlayerLocked(network, channel, nick)
+	plugin.mu.Unlock()
+	if player.LuckyFeathers != 0 || player.DuckWhistles != 0 || player.GunBrushes != 0 || player.Bread != 0 || player.GoldenSeeds != 0 || player.PondMaps != 0 {
+		t.Fatalf("consumables were not consumed: %+v", player)
+	}
+	if !player.FocusedShot || !player.GoldenBounty || !state.nextFlock || state.goldenBoost <= 0 || state.nextSpawn.IsZero() {
+		t.Fatalf("distinct effects were not applied: player=%+v state=%+v", player, state)
+	}
+
+	plugin.use(b, message, "3")
+	plugin.mu.Lock()
+	player = plugin.loadPlayerLocked(network, channel, nick)
+	plugin.mu.Unlock()
+	if player.Decoys != 1 {
+		t.Fatalf("inapplicable Decoy Duck was consumed: %+v", player)
+	}
+	plugin.mu.Lock()
+	state = plugin.states[duckHuntStateKey(network, channel)]
+	state.active = true
+	state.spawnedAt = time.Now().Add(-10 * time.Second)
+	before := state.spawnedAt
+	player.Decoys = 1
+	plugin.savePlayerLocked(network, channel, nick, player)
+	plugin.mu.Unlock()
+	plugin.use(b, message, "3")
+	plugin.mu.Lock()
+	state = plugin.states[duckHuntStateKey(network, channel)]
+	player = plugin.loadPlayerLocked(network, channel, nick)
+	plugin.mu.Unlock()
+	if player.Decoys != 0 || !state.spawnedAt.After(before) {
+		t.Fatalf("applicable Decoy Duck did not extend hunt: player=%+v state=%+v", player, state)
+	}
+}
+
+func TestDuckHuntGoldenSeedAddsOneKillBounty(t *testing.T) {
+	db, err := storage.Open(t.TempDir() + "/bot.db")
+	if err != nil {
+		t.Fatalf("open database: %v", err)
+	}
+	defer db.Close()
+	plugin := &DuckHunt{}
+	if err := plugin.Init(bot.PluginConfig{"min_reaction_seconds": 0, "minimum_hp": 1, "maximum_hp": 1}, db); err != nil {
+		t.Fatalf("Init returned error: %v", err)
+	}
+	const network, channel, nick = "network", "#chat", "Alice"
+	plugin.mu.Lock()
+	state := plugin.stateLocked(network, channel)
+	state.active = true
+	state.spawnedAt = time.Now().Add(-10 * time.Second)
+	state.hp = 1
+	state.maxHP = 1
+	player := plugin.loadPlayerLocked(network, channel, nick)
+	player.HasGun = true
+	player.Weapon = "peashooter"
+	player.Ammo = 1
+	player.GoldenBounty = true
+	plugin.savePlayerLocked(network, channel, nick, player)
+	plugin.mu.Unlock()
+
+	b := bot.New(bot.Config{NetworkName: network, CommandPrefix: "!"}, db, nil, zap.NewNop())
+	plugin.interact(b, bot.Message{Nick: nick, Target: channel, IsChannel: true}, false)
+	plugin.mu.Lock()
+	player = plugin.loadPlayerLocked(network, channel, nick)
+	plugin.mu.Unlock()
+	if player.XP != 50 || player.Points != 60 || player.GoldenBounty {
+		t.Fatalf("golden seed reward = %+v, want 50 XP, 60 points, and consumed bounty", player)
 	}
 }
 
@@ -296,6 +445,12 @@ func TestDuckHuntPlayerGearPersists(t *testing.T) {
 	player.Shots = 10
 	player.Hits = 8
 	player.Bread = 1
+	player.LuckyFeathers = 2
+	player.DuckWhistles = 3
+	player.Decoys = 4
+	player.GunBrushes = 5
+	player.GoldenSeeds = 6
+	player.PondMaps = 7
 	player.HasGun = true
 	player.Weapon = "quacker"
 	plugin.savePlayerLocked("network", "#channel", "Alice", player)
@@ -304,7 +459,7 @@ func TestDuckHuntPlayerGearPersists(t *testing.T) {
 	plugin.mu.Lock()
 	loaded := plugin.loadPlayerLocked("network", "#channel", "alice")
 	plugin.mu.Unlock()
-	if loaded.SpareMagazines != 2 || loaded.Ammo != 3 || loaded.Points != 99 || loaded.XP != 123 || loaded.Shots != 10 || loaded.Hits != 8 || loaded.Bread != 1 || loaded.Weapon != "quacker" {
+	if loaded.SpareMagazines != 2 || loaded.Ammo != 3 || loaded.Points != 99 || loaded.XP != 123 || loaded.Shots != 10 || loaded.Hits != 8 || loaded.Bread != 1 || loaded.LuckyFeathers != 2 || loaded.DuckWhistles != 3 || loaded.Decoys != 4 || loaded.GunBrushes != 5 || loaded.GoldenSeeds != 6 || loaded.PondMaps != 7 || loaded.Weapon != "quacker" {
 		t.Fatalf("loaded player = %+v, want persisted gear and points", loaded)
 	}
 }
