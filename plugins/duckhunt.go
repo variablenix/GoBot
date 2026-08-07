@@ -490,7 +490,7 @@ func (p *DuckHunt) Handle(b *bot.Bot, m bot.Message) bool {
 		if p.cfg.befriendEnabled {
 			p.interact(b, m, true)
 		} else {
-			b.Send(m.ReplyTarget(), "befriending is disabled")
+			b.Send(m.ReplyTarget(), ircColor(ircYellow, "befriending is disabled"))
 		}
 		return true
 	case "ducks":
@@ -712,7 +712,11 @@ func (p *DuckHunt) control(b *bot.Bot, m bot.Message, arg string) {
 			}
 			p.mu.Unlock()
 		}
-		b.Send(m.ReplyTarget(), fmt.Sprintf("%s is %s in %s; %s.", ircColor(ircGreen, "Duck Hunt"), status, m.Target, duckStatus))
+		statusColor := ircGreen
+		if stopped {
+			statusColor = ircYellow
+		}
+		b.Send(m.ReplyTarget(), fmt.Sprintf("%s %s is %s in %s; %s.", ircColor(ircCyan, "🦆"), ircColor(ircGreen, "Duck Hunt"), ircColor(statusColor, status), ircColor(ircCyan, m.Target), ircColor(ircYellow, duckStatus)))
 	case "start":
 		if !b.IsOwner(m) {
 			b.Send(m.ReplyTarget(), ircColor(ircRed, "only a configured owner can start or stop Duck Hunt"))
@@ -930,7 +934,7 @@ func (p *DuckHunt) ducks(b *bot.Bot, m bot.Message, arg string) {
 	player := p.loadPlayerLocked(b.Config.NetworkName, m.Target, nick)
 	p.mu.Unlock()
 	level := duckLevel(player.XP)
-	b.Send(m.ReplyTarget(), fmt.Sprintf("%s: %d killed, %d befriended, %d points, level %d (%d XP; %d to level %d) in %s.", nick, score.Ducks, score.Friends, player.Points, level, player.XP, xpToNextLevel(player.XP), level+1, m.Target))
+	b.Send(m.ReplyTarget(), fmt.Sprintf("%s %s: %s | %s | %s | %s (%d XP; %d to level %d) in %s.", ircColor(ircCyan, "🦆"), ircColor(ircCyan, nick), ircColor(ircGreen, fmt.Sprintf("🏆 %d killed", score.Ducks)), ircColor(ircTan, fmt.Sprintf("💙 %d befriended", score.Friends)), ircColor(ircYellow, fmt.Sprintf("💰 %d points", player.Points)), ircColor(ircCyan, fmt.Sprintf("Lv%d %s", level, duckTitle(level))), player.XP, xpToNextLevel(player.XP), level+1, m.Target))
 }
 
 func (p *DuckHunt) profile(b *bot.Bot, m bot.Message, arg string) {
@@ -947,7 +951,7 @@ func (p *DuckHunt) profile(b *bot.Bot, m bot.Message, arg string) {
 	player := p.loadPlayerLocked(b.Config.NetworkName, m.Target, nick)
 	p.mu.Unlock()
 	level := duckLevel(player.XP)
-	b.Send(m.ReplyTarget(), fmt.Sprintf("%s is level %d %s with %d XP (%d to level %d), %d points, %d killed, and %d befriended in %s.", nick, level, duckTitle(level), player.XP, xpToNextLevel(player.XP), level+1, player.Points, score.Ducks, score.Friends, m.Target))
+	b.Send(m.ReplyTarget(), fmt.Sprintf("%s %s is %s with %s (%d to level %d), %s, %s, and %s in %s.", ircColor(ircCyan, "🦆"), ircColor(ircCyan, nick), ircColor(ircYellow, fmt.Sprintf("level %d %s", level, duckTitle(level))), ircColor(ircGreen, fmt.Sprintf("✨ %d XP", player.XP)), xpToNextLevel(player.XP), level+1, ircColor(ircYellow, fmt.Sprintf("💰 %d points", player.Points)), ircColor(ircGreen, fmt.Sprintf("🏆 %d killed", score.Ducks)), ircColor(ircTan, fmt.Sprintf("💙 %d befriended", score.Friends)), m.Target))
 }
 
 func (p *DuckHunt) duckStats(b *bot.Bot, m bot.Message, arg string) {
@@ -992,21 +996,25 @@ func (p *DuckHunt) formatDuckStats(nick string, player duckPlayer, score duckSco
 	}
 	accuracy := duckPercent(player.Hits, player.Shots, 0)
 	hitRate := duckPercent(score.Ducks, player.Hits, 1)
-	armed := "Unarmed"
+	armed := ircColor(ircYellow, "Unarmed")
 	ammo := "0/0"
 	jamChance := "0%"
 	if player.HasGun {
-		armed = "Armed"
+		armed = ircColor(ircGreen, "🔫 Armed")
 		if player.Jammed {
-			armed = "Armed (Jammed)"
+			armed = ircColor(ircRed, "⚠️ Armed (Jammed)")
 		}
 		weapon := p.weaponForPlayer(player)
-		ammo = fmt.Sprintf("%d/%d", player.Ammo, weapon.MagazineSize)
-		jamChance = fmt.Sprintf("%.0f%%", p.cfg.jamChance*100)
+		ammoColor := ircGreen
+		if player.Ammo == 0 {
+			ammoColor = ircRed
+		}
+		ammo = ircColor(ammoColor, fmt.Sprintf("%d/%d", player.Ammo, weapon.MagazineSize)) + " ammo"
+		jamChance = ircColor(ircYellow, fmt.Sprintf("%.0f%%", p.cfg.jamChance*100))
 	}
-	items := duckItems(player)
-	effects := duckEffects(player)
-	return fmt.Sprintf("%s: Lv%d %s | %d XP (%s) | %d shots | %d killed | %d befriended | %s accuracy | %s hit rate | %s | %s ammo | %d spare magazine%s | %s jam chance | Items: %s | Effects: %s", nick, level, title, player.XP, next, player.Shots, score.Ducks, score.Friends, accuracy, hitRate, armed, ammo, player.SpareMagazines, duckPlural(uint64(player.SpareMagazines)), jamChance, items, effects)
+	items := ircColor(ircTan, "🎒 "+duckItems(player))
+	effects := ircColor(ircCyan, "⚡ "+duckEffects(player))
+	return fmt.Sprintf("%s %s: %s | %s | %s | %s | %s | %s | %s | %s | %s | %d spare magazine%s | %s jam chance | Items: %s | Effects: %s", ircColor(ircCyan, "🦆"), ircColor(ircCyan, nick), ircColor(ircYellow, fmt.Sprintf("🏅 Lv%d %s", level, title)), ircColor(ircGreen, fmt.Sprintf("✨ %d XP", player.XP))+" ("+next+")", ircColor(ircCyan, fmt.Sprintf("🎯 %d shots", player.Shots)), ircColor(ircGreen, fmt.Sprintf("🏆 %d killed", score.Ducks)), ircColor(ircTan, fmt.Sprintf("💙 %d befriended", score.Friends)), ircColor(ircCyan, accuracy+" accuracy"), ircColor(ircCyan, hitRate+" hit rate"), armed, ammo, player.SpareMagazines, duckPlural(uint64(player.SpareMagazines)), jamChance, items, effects)
 }
 
 func duckEffects(player duckPlayer) string {
@@ -1079,9 +1087,17 @@ func (p *DuckHunt) ammo(b *bot.Bot, m bot.Message) {
 	weapon := p.weaponForPlayer(player)
 	jammed := ""
 	if player.Jammed {
-		jammed = " JAMMED—use !unjam."
+		jammed = " " + ircColor(ircRed, "⚠️ JAMMED—use !unjam.")
 	}
-	b.Send(m.ReplyTarget(), fmt.Sprintf("%s: %s ammo %d/%d, spare magazines %d, points %d.%s", m.Nick, weapon.Name, player.Ammo, weapon.MagazineSize, player.SpareMagazines, player.Points, jammed))
+	b.Send(m.ReplyTarget(), fmt.Sprintf("%s %s: %s ammo %s, %s, %s.%s", ircColor(ircCyan, "🔫"), ircColor(ircCyan, m.Nick), ircColor(ircYellow, weapon.Name), formatDuckAmmo(player, weapon), ircColor(ircTan, fmt.Sprintf("🎒 %d spare magazines", player.SpareMagazines)), ircColor(ircGreen, fmt.Sprintf("💰 %d points", player.Points)), jammed))
+}
+
+func formatDuckAmmo(player duckPlayer, weapon duckWeapon) string {
+	color := ircGreen
+	if player.Ammo == 0 {
+		color = ircRed
+	}
+	return ircColor(color, fmt.Sprintf("%d/%d rounds", player.Ammo, weapon.MagazineSize))
 }
 
 func duckAmmoHint(player duckPlayer) string {
@@ -1110,7 +1126,7 @@ func (p *DuckHunt) shop(b *bot.Bot, m bot.Message) {
 		label += " (arcade gear disabled)"
 	}
 	if len(parts) > 0 {
-		b.Send(m.ReplyTarget(), label+": "+strings.Join(parts, " | "))
+		b.Send(m.ReplyTarget(), ircColor(ircCyan, "🛒 "+label)+": "+strings.Join(parts, " | "))
 	}
 	items := make([]string, 0, len(p.consumables()))
 	for _, item := range p.consumables() {
@@ -1118,7 +1134,7 @@ func (p *DuckHunt) shop(b *bot.Bot, m bot.Message) {
 	}
 	for start := 0; start < len(items); start += 4 {
 		end := minInt(start+4, len(items))
-		b.Send(m.ReplyTarget(), "Duck Hunt items: "+strings.Join(items[start:end], " | "))
+		b.Send(m.ReplyTarget(), ircColor(ircTan, "🎒 Duck Hunt items")+": "+strings.Join(items[start:end], " | "))
 	}
 }
 
@@ -1144,27 +1160,27 @@ func (p *DuckHunt) buy(b *bot.Bot, m bot.Message, arg string) {
 		if player.Points < consumable.Cost {
 			points := player.Points
 			p.mu.Unlock()
-			b.Send(m.ReplyTarget(), fmt.Sprintf("%s: %s costs %d points; you have %d.", m.Nick, consumable.Name, consumable.Cost, points))
+			b.Send(m.ReplyTarget(), ircColor(ircYellow, fmt.Sprintf("%s: %s costs %d points; you have %d.", m.Nick, consumable.Name, consumable.Cost, points)))
 			return
 		}
 		player.Points -= consumable.Cost
 		setDuckItemCount(&player, consumable.Key, duckItemCount(player, consumable.Key)+1)
 		p.savePlayerLocked(b.Config.NetworkName, m.Target, m.Nick, player)
 		p.mu.Unlock()
-		b.Send(m.ReplyTarget(), fmt.Sprintf("%s: %s purchased for %d points. Inventory: %d. Use !use %s.", m.Nick, consumable.Name, consumable.Cost, duckItemCount(player, consumable.Key), consumable.ID))
+		b.Send(m.ReplyTarget(), ircColor(ircGreen, fmt.Sprintf("🎒 %s: %s purchased for %d points. Inventory: %d. Use !use %s.", m.Nick, consumable.Name, consumable.Cost, duckItemCount(player, consumable.Key), consumable.ID)))
 		return
 	}
 	if item != "magazine" {
 		weapon, _ := p.findWeapon(item)
 		if player.HasGun && player.Weapon == weapon.Key {
 			p.mu.Unlock()
-			b.Send(m.ReplyTarget(), fmt.Sprintf("%s: you already have the %s.", m.Nick, weapon.Name))
+			b.Send(m.ReplyTarget(), ircColor(ircYellow, fmt.Sprintf("%s: you already have the %s.", m.Nick, weapon.Name)))
 			return
 		}
 		if player.Points < weapon.Cost {
 			points := player.Points
 			p.mu.Unlock()
-			b.Send(m.ReplyTarget(), fmt.Sprintf("%s: the %s costs %d points; you have %d.", m.Nick, weapon.Name, weapon.Cost, points))
+			b.Send(m.ReplyTarget(), ircColor(ircYellow, fmt.Sprintf("%s: the %s costs %d points; you have %d.", m.Nick, weapon.Name, weapon.Cost, points)))
 			return
 		}
 		player.Points -= weapon.Cost
@@ -1174,25 +1190,25 @@ func (p *DuckHunt) buy(b *bot.Bot, m bot.Message, arg string) {
 		player.SpareMagazines = 0
 		p.savePlayerLocked(b.Config.NetworkName, m.Target, m.Nick, player)
 		p.mu.Unlock()
-		b.Send(m.ReplyTarget(), fmt.Sprintf("%s: %s acquired for %d points; ammo %d/%d. Use !bang during a hunt.", m.Nick, weapon.Name, weapon.Cost, player.Ammo, weapon.MagazineSize))
+		b.Send(m.ReplyTarget(), ircColor(ircGreen, fmt.Sprintf("🔫 %s: %s acquired for %d points; ammo %d/%d. Use !bang during a hunt.", m.Nick, weapon.Name, weapon.Cost, player.Ammo, weapon.MagazineSize)))
 		return
 	}
 	if !player.HasGun {
 		p.mu.Unlock()
-		b.Send(m.ReplyTarget(), fmt.Sprintf("%s: buy arcade gear first with !shop.", m.Nick))
+		b.Send(m.ReplyTarget(), ircColor(ircYellow, fmt.Sprintf("%s: buy arcade gear first with !shop.", m.Nick)))
 		return
 	}
 	if player.Points < p.cfg.magazineCost {
 		points := player.Points
 		p.mu.Unlock()
-		b.Send(m.ReplyTarget(), fmt.Sprintf("%s: a spare magazine costs %d points; you have %d.", m.Nick, p.cfg.magazineCost, points))
+		b.Send(m.ReplyTarget(), ircColor(ircYellow, fmt.Sprintf("%s: a spare magazine costs %d points; you have %d.", m.Nick, p.cfg.magazineCost, points)))
 		return
 	}
 	player.Points -= p.cfg.magazineCost
 	player.SpareMagazines++
 	p.savePlayerLocked(b.Config.NetworkName, m.Target, m.Nick, player)
 	p.mu.Unlock()
-	b.Send(m.ReplyTarget(), fmt.Sprintf("%s: spare magazine purchased for %d points. Spare magazines: %d.", m.Nick, p.cfg.magazineCost, player.SpareMagazines))
+	b.Send(m.ReplyTarget(), ircColor(ircGreen, fmt.Sprintf("🎒 %s: spare magazine purchased for %d points. Spare magazines: %d.", m.Nick, p.cfg.magazineCost, player.SpareMagazines)))
 }
 
 func normalizeDuckShopItem(arg string) string {
@@ -1307,7 +1323,12 @@ func (p *DuckHunt) use(b *bot.Bot, m bot.Message, arg string) {
 	}
 	p.savePlayerLocked(b.Config.NetworkName, m.Target, m.Nick, player)
 	p.mu.Unlock()
-	b.Send(m.ReplyTarget(), message)
+	message = "🎒 " + message
+	if consume {
+		b.Send(m.ReplyTarget(), ircColor(ircCyan, message))
+	} else {
+		b.Send(m.ReplyTarget(), ircColor(ircYellow, message))
+	}
 }
 
 func (p *DuckHunt) reload(b *bot.Bot, m bot.Message) {
@@ -1319,30 +1340,30 @@ func (p *DuckHunt) reload(b *bot.Bot, m bot.Message) {
 	player := p.loadPlayerLocked(b.Config.NetworkName, m.Target, m.Nick)
 	if !player.HasGun {
 		p.mu.Unlock()
-		b.Send(m.ReplyTarget(), fmt.Sprintf("%s: you need arcade gear first; use !shop.", m.Nick))
+		b.Send(m.ReplyTarget(), ircColor(ircYellow, fmt.Sprintf("%s: you need arcade gear first; use !shop.", m.Nick)))
 		return
 	}
 	if player.Jammed {
 		p.mu.Unlock()
-		b.Send(m.ReplyTarget(), fmt.Sprintf("%s: your %s is jammed; use !unjam first. Reloading does not clear jams.", m.Nick, p.weaponForPlayer(player).Name))
+		b.Send(m.ReplyTarget(), ircColor(ircRed, fmt.Sprintf("⚠️ %s: your %s is jammed; use !unjam first. Reloading does not clear jams.", m.Nick, p.weaponForPlayer(player).Name)))
 		return
 	}
 	weapon := p.weaponForPlayer(player)
 	if player.Ammo >= weapon.MagazineSize {
 		p.mu.Unlock()
-		b.Send(m.ReplyTarget(), fmt.Sprintf("%s: your %s magazine is already full at %d/%d.", m.Nick, weapon.Name, player.Ammo, weapon.MagazineSize))
+		b.Send(m.ReplyTarget(), ircColor(ircYellow, fmt.Sprintf("%s: your %s magazine is already full at %d/%d.", m.Nick, weapon.Name, player.Ammo, weapon.MagazineSize)))
 		return
 	}
 	if player.SpareMagazines < 1 {
 		p.mu.Unlock()
-		b.Send(m.ReplyTarget(), fmt.Sprintf("%s: no spare magazines. Use !buy magazine or !buy mag.", m.Nick))
+		b.Send(m.ReplyTarget(), ircColor(ircYellow, fmt.Sprintf("%s: no spare magazines. Use !buy magazine or !buy mag.", m.Nick)))
 		return
 	}
 	player.SpareMagazines--
 	player.Ammo = weapon.MagazineSize
 	p.savePlayerLocked(b.Config.NetworkName, m.Target, m.Nick, player)
 	p.mu.Unlock()
-	b.Send(m.ReplyTarget(), fmt.Sprintf("%s: *click* new %s magazine loaded! Ammo: %d/%d; spare magazines: %d.", m.Nick, weapon.Name, player.Ammo, weapon.MagazineSize, player.SpareMagazines))
+	b.Send(m.ReplyTarget(), ircColor(ircGreen, fmt.Sprintf("🔄 %s: *click* new %s magazine loaded! Ammo: %d/%d; spare magazines: %d.", m.Nick, weapon.Name, player.Ammo, weapon.MagazineSize, player.SpareMagazines)))
 }
 
 func (p *DuckHunt) unjam(b *bot.Bot, m bot.Message) {
@@ -1354,12 +1375,12 @@ func (p *DuckHunt) unjam(b *bot.Bot, m bot.Message) {
 	player := p.loadPlayerLocked(b.Config.NetworkName, m.Target, m.Nick)
 	if !player.HasGun {
 		p.mu.Unlock()
-		b.Send(m.ReplyTarget(), fmt.Sprintf("%s: you do not have arcade gear; use !shop first.", m.Nick))
+		b.Send(m.ReplyTarget(), ircColor(ircYellow, fmt.Sprintf("%s: you do not have arcade gear; use !shop first.", m.Nick)))
 		return
 	}
 	if !player.Jammed {
 		p.mu.Unlock()
-		b.Send(m.ReplyTarget(), fmt.Sprintf("%s: your %s is running smoothly; no jam to clear.", m.Nick, p.weaponForPlayer(player).Name))
+		b.Send(m.ReplyTarget(), ircColor(ircCyan, fmt.Sprintf("%s: your %s is running smoothly; no jam to clear.", m.Nick, p.weaponForPlayer(player).Name)))
 		return
 	}
 	player.Jammed = false
@@ -1367,7 +1388,7 @@ func (p *DuckHunt) unjam(b *bot.Bot, m bot.Message) {
 	weapon := p.weaponForPlayer(player)
 	ammo := player.Ammo
 	p.mu.Unlock()
-	b.Send(m.ReplyTarget(), fmt.Sprintf("%s: *click-clack* %s cleared. Ammo: %d/%d; ready to fire.", m.Nick, weapon.Name, ammo, weapon.MagazineSize))
+	b.Send(m.ReplyTarget(), ircColor(ircGreen, fmt.Sprintf("🛠️ %s: *click-clack* %s cleared. Ammo: %d/%d; ready to fire.", m.Nick, weapon.Name, ammo, weapon.MagazineSize)))
 }
 
 func (p *DuckHunt) noDuckBang(b *bot.Bot, m bot.Message) {
@@ -1387,7 +1408,7 @@ func (p *DuckHunt) noDuckBang(b *bot.Bot, m bot.Message) {
 	}
 	p.mu.Unlock()
 	if !hadGun {
-		b.Send(m.ReplyTarget(), fmt.Sprintf("%s BANG... what did you shoot at? There is no duck in the area. %s", m.Nick, ircColor(ircCyan, "Visit !shop before taking aim.")))
+		b.Send(m.ReplyTarget(), ircColor(ircYellow, fmt.Sprintf("%s BANG... what did you shoot at? There is no duck in the area. %s", m.Nick, ircColor(ircCyan, "Visit !shop before taking aim."))))
 		return
 	}
 	messages := []string{

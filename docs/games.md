@@ -270,6 +270,10 @@ shot total, but deals no damage or rewards; `!reload` deliberately does not
 clear a jam. The default jam chance is 3% per armed shot and can be disabled
 with `weapon_jam_probability: 0`.
 
+Duck Hunt command responses use restrained IRC colors and occasional game
+emojis to distinguish rewards, warnings, ammo, gear, inventory, and progression.
+Clients that do not render IRC colors still receive the same readable text.
+
 Duck Hunt has seven local consumables. Buy them with `!buy <item>` or their
 numeric IDs, then activate them with `!use <item>`:
 
