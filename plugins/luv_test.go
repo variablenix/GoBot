@@ -62,3 +62,11 @@ func TestLuvCommandIsCaseInsensitive(t *testing.T) {
 		t.Fatalf("parsed LUV command = %q, %q, %v; want luv, Alice, true", command, arg, ok)
 	}
 }
+
+func TestFormatLuvMessageUsesDistinctActionAndScoreHearts(t *testing.T) {
+	message := stripPluginIRC(formatLuvMessage("me", "nick", 58))
+	want := "💕 me spreads kindness to nick. nick now has 58 💙 points!"
+	if message != want {
+		t.Fatalf("formatted LUV message = %q, want %q", message, want)
+	}
+}
