@@ -48,22 +48,25 @@ type duckHuntConfig struct {
 }
 
 type duckHuntState struct {
-	channel         string
-	messages        int
-	users           map[string]struct{}
-	nextSpawn       time.Time
-	spawnedAt       time.Time
-	flavorAt        time.Time
-	flavorSent      bool
-	active          bool
-	stopped         bool
-	hp              int
-	maxHP           int
-	golden          bool
-	trust           map[string]int
-	flockRemaining  int
-	spawnMultiplier float64
-	spawnBoostUntil time.Time
+	channel          string
+	messages         int
+	users            map[string]struct{}
+	nextSpawn        time.Time
+	spawnedAt        time.Time
+	flavorAt         time.Time
+	flavorSent       bool
+	active           bool
+	stopped          bool
+	hp               int
+	maxHP            int
+	golden           bool
+	trust            map[string]int
+	flockRemaining   int
+	spawnMultiplier  float64
+	spawnBoostUntil  time.Time
+	goldenBoost      float64
+	goldenBoostUntil time.Time
+	nextFlock        bool
 }
 
 type duckScore struct {
@@ -82,6 +85,14 @@ type duckPlayer struct {
 	Shots          uint64 `json:"shots"`
 	Hits           uint64 `json:"hits"`
 	Bread          uint64 `json:"bread"`
+	LuckyFeathers  uint64 `json:"lucky_feathers"`
+	DuckWhistles   uint64 `json:"duck_whistles"`
+	Decoys         uint64 `json:"decoys"`
+	GunBrushes     uint64 `json:"gun_brushes"`
+	GoldenSeeds    uint64 `json:"golden_seeds"`
+	PondMaps       uint64 `json:"pond_maps"`
+	FocusedShot    bool   `json:"focused_shot"`
+	GoldenBounty   bool   `json:"golden_bounty"`
 }
 
 type duckWeapon struct {
@@ -90,6 +101,14 @@ type duckWeapon struct {
 	Cost         int64
 	Damage       int
 	MagazineSize int
+}
+
+type duckConsumable struct {
+	ID          string
+	Key         string
+	Name        string
+	Cost        int64
+	Description string
 }
 
 // DuckHunt is an optional channel activity event. It has no real-money or
@@ -109,7 +128,7 @@ func (p *DuckHunt) Commands() []string {
 	return []string{"duckhunt", "dh", "ducklaunch", "bang", "befriend", "bef", "ducks", "duckstats", "level", "xp", "profile", "shop", "store", "buy", "use", "reload", "ammo"}
 }
 func (p *DuckHunt) Help() string {
-	return "!bang shoots an active duck; !bef befriends it; !ducklaunch flock starts a random flock; !shop lists gear and items; !buy <item> (bread, magazine aliases: mag, ammo); !use 5|bread uses Bread; !ammo and !reload manage ammunition; !ducks [nick] shows scores; !duckstats [nick] shows a detailed title, accuracy, gear, and inventory profile; !level [nick] shows XP and level; !dh status|start|stop controls activity"
+	return "!bang shoots an active duck; !bef befriends it; !ducklaunch flock starts a random flock; !shop lists gear and items; !buy <item> (weapons, magazine/mag/ammo, or items 1-7); !use <1-7|item> activates a Duck Hunt item; !ammo and !reload manage ammunition; !ducks [nick] shows scores; !duckstats [nick] shows a detailed title, accuracy, gear, and inventory profile; !level [nick] shows XP and level; !dh status|start|stop controls activity"
 }
 
 // shopWeapons keeps the arsenal deliberately arcade-like. The names are game
@@ -138,6 +157,81 @@ func (p *DuckHunt) shopWeapons() []duckWeapon {
 			Damage:       baseDamage + 1,
 			MagazineSize: maxInt(2, p.cfg.magazineSize-2),
 		},
+	}
+}
+
+func (p *DuckHunt) consumables() []duckConsumable {
+	return []duckConsumable{
+		{ID: "1", Key: "lucky_feather", Name: "Lucky Feather", Cost: 12, Description: "boosts the next duck's golden chance"},
+		{ID: "2", Key: "duck_whistle", Name: "Duck Whistle", Cost: 18, Description: "calls the next automatic duck sooner"},
+		{ID: "3", Key: "decoy", Name: "Decoy Duck", Cost: 10, Description: "extends an active hunt by 20 seconds"},
+		{ID: "4", Key: "gun_brush", Name: "Gun Brush", Cost: 12, Description: "guarantees your next armed shot"},
+		{ID: "5", Key: "bread", Name: "Bread", Cost: p.cfg.breadCost, Description: "accelerates automatic spawns for 20 minutes"},
+		{ID: "6", Key: "golden_seed", Name: "Golden Seed", Cost: 20, Description: "adds a bonus to your next completed kill"},
+		{ID: "7", Key: "pond_map", Name: "Pond Map", Cost: 15, Description: "turns the next automatic visit into a flock"},
+	}
+}
+
+func (p *DuckHunt) findConsumable(arg string) (duckConsumable, bool) {
+	item := strings.ToLower(strings.TrimSpace(arg))
+	item = strings.Join(strings.Fields(item), "-")
+	aliases := map[string]string{
+		"1": "lucky_feather", "feather": "lucky_feather", "luckyfeather": "lucky_feather", "lucky-feather": "lucky_feather",
+		"2": "duck_whistle", "whistle": "duck_whistle", "duckwhistle": "duck_whistle", "duck-whistle": "duck_whistle",
+		"3": "decoy", "decoyduck": "decoy", "decoy-duck": "decoy",
+		"4": "gun_brush", "brush": "gun_brush", "gunbrush": "gun_brush", "gun-brush": "gun_brush",
+		"5": "bread",
+		"6": "golden_seed", "seed": "golden_seed", "goldenseed": "golden_seed", "golden-seed": "golden_seed",
+		"7": "pond_map", "map": "pond_map", "pondmap": "pond_map", "pond-map": "pond_map",
+	}
+	if canonical, ok := aliases[item]; ok {
+		item = canonical
+	}
+	for _, consumable := range p.consumables() {
+		if consumable.Key == item {
+			return consumable, true
+		}
+	}
+	return duckConsumable{}, false
+}
+
+func duckItemCount(player duckPlayer, key string) uint64 {
+	switch key {
+	case "lucky_feather":
+		return player.LuckyFeathers
+	case "duck_whistle":
+		return player.DuckWhistles
+	case "decoy":
+		return player.Decoys
+	case "gun_brush":
+		return player.GunBrushes
+	case "bread":
+		return player.Bread
+	case "golden_seed":
+		return player.GoldenSeeds
+	case "pond_map":
+		return player.PondMaps
+	default:
+		return 0
+	}
+}
+
+func setDuckItemCount(player *duckPlayer, key string, count uint64) {
+	switch key {
+	case "lucky_feather":
+		player.LuckyFeathers = count
+	case "duck_whistle":
+		player.DuckWhistles = count
+	case "decoy":
+		player.Decoys = count
+	case "gun_brush":
+		player.GunBrushes = count
+	case "bread":
+		player.Bread = count
+	case "golden_seed":
+		player.GoldenSeeds = count
+	case "pond_map":
+		player.PondMaps = count
 	}
 }
 
@@ -440,10 +534,7 @@ func (p *DuckHunt) launch(b *bot.Bot, m bot.Message, arg string) {
 		b.Send(m.ReplyTarget(), ircColor(ircYellow, fmt.Sprintf("there is already an active duck hunt with %d duck%s remaining", remaining, duckPlural(uint64(remaining)))))
 		return
 	}
-	flockSize := p.cfg.flockMin
-	if p.cfg.flockMax > p.cfg.flockMin {
-		flockSize += rand.Intn(p.cfg.flockMax - p.cfg.flockMin + 1)
-	}
+	flockSize := p.randomFlockSize()
 	state.active = true
 	state.spawnedAt = now
 	state.nextSpawn = time.Time{}
@@ -516,6 +607,9 @@ func (p *DuckHunt) tick(b *bot.Bot) {
 			state.flockRemaining = 0
 			state.spawnMultiplier = 0
 			state.spawnBoostUntil = time.Time{}
+			state.goldenBoost = 0
+			state.goldenBoostUntil = time.Time{}
+			state.nextFlock = false
 			continue
 		}
 		if state.stopped {
@@ -556,9 +650,17 @@ func (p *DuckHunt) tick(b *bot.Bot) {
 		state.trust = make(map[string]int)
 		state.maxHP = randomDuckHP(p.cfg)
 		state.hp = state.maxHP
-		state.golden = rand.Float64() < p.cfg.goldenChance
+		state.golden = rand.Float64() < p.goldenChanceLocked(state, now)
+		if !state.goldenBoostUntil.IsZero() && now.Before(state.goldenBoostUntil) {
+			state.goldenBoost = 0
+			state.goldenBoostUntil = time.Time{}
+		}
 		state.trust = make(map[string]int)
 		state.flockRemaining = 1
+		if state.nextFlock {
+			state.flockRemaining = p.randomFlockSize()
+			state.nextFlock = false
+		}
 		messages = append(messages, outgoing{
 			target: state.channel,
 			text:   randomDuckAnnouncementForState(state),
@@ -616,6 +718,11 @@ func (p *DuckHunt) control(b *bot.Bot, m bot.Message, arg string) {
 		state.golden = false
 		state.trust = make(map[string]int)
 		state.flockRemaining = 0
+		state.spawnMultiplier = 0
+		state.spawnBoostUntil = time.Time{}
+		state.goldenBoost = 0
+		state.goldenBoostUntil = time.Time{}
+		state.nextFlock = false
 		p.mu.Unlock()
 		b.Send(m.ReplyTarget(), ircColor(ircGreen, "Duck Hunt enabled in "+m.Target+"."))
 	case "stop":
@@ -638,6 +745,11 @@ func (p *DuckHunt) control(b *bot.Bot, m bot.Message, arg string) {
 		state.golden = false
 		state.trust = make(map[string]int)
 		state.flockRemaining = 0
+		state.spawnMultiplier = 0
+		state.spawnBoostUntil = time.Time{}
+		state.goldenBoost = 0
+		state.goldenBoostUntil = time.Time{}
+		state.nextFlock = false
 		p.mu.Unlock()
 		b.Send(m.ReplyTarget(), ircColor(ircYellow, "Duck Hunt stopped in "+m.Target+"."))
 	default:
@@ -683,12 +795,17 @@ func (p *DuckHunt) interact(b *bot.Bot, m bot.Message, befriend bool) {
 		player.Shots++
 		p.savePlayerLocked(b.Config.NetworkName, m.Target, m.Nick, player)
 	}
+	focusedShot := !befriend && player.FocusedShot
+	if focusedShot {
+		player.FocusedShot = false
+		p.savePlayerLocked(b.Config.NetworkName, m.Target, m.Nick, player)
+	}
 
 	elapsed := now.Sub(state.spawnedAt)
 	if elapsed < 0 {
 		elapsed = 0
 	}
-	if elapsed < p.cfg.minReaction || (elapsed < 7*time.Second && rand.Float64() > hitChance(elapsed)) {
+	if !focusedShot && (elapsed < p.cfg.minReaction || (elapsed < 7*time.Second && rand.Float64() > hitChance(elapsed))) {
 		ammoHint := duckAmmoHint(player)
 		p.mu.Unlock()
 		b.Send(m.ReplyTarget(), fmt.Sprintf("%s %s missed the duck! %s%s", ircColor(ircRed, "*BANG*"), m.Nick, ircColor(ircCyan, fmt.Sprintf("Try again in %d seconds.", int(p.cfg.retryCooldown/time.Second))), ammoHint))
@@ -744,6 +861,11 @@ func (p *DuckHunt) interact(b *bot.Bot, m bot.Message, befriend bool) {
 		bonus *= 2
 	}
 	xp := xpReward(p.cfg.xpPerKill, state.golden)
+	if player.GoldenBounty {
+		bonus += 25
+		xp += 25
+		player.GoldenBounty = false
+	}
 	player.Points += bonus
 	player.XP += xp
 	p.savePlayerLocked(b.Config.NetworkName, m.Target, m.Nick, player)
@@ -850,13 +972,41 @@ func (p *DuckHunt) formatDuckStats(nick string, player duckPlayer, score duckSco
 		ammo = fmt.Sprintf("%d/%d", player.Ammo, weapon.MagazineSize)
 	}
 	items := duckItems(player)
-	return fmt.Sprintf("%s: Lv%d %s | %d XP (%s) | %d shots | %d killed | %d befriended | %s accuracy | %s hit rate | %s | %s ammo | %d spare magazine%s | 0%% jam chance | Items: %s", nick, level, title, player.XP, next, player.Shots, score.Ducks, score.Friends, accuracy, hitRate, armed, ammo, player.SpareMagazines, duckPlural(uint64(player.SpareMagazines)), items)
+	effects := duckEffects(player)
+	return fmt.Sprintf("%s: Lv%d %s | %d XP (%s) | %d shots | %d killed | %d befriended | %s accuracy | %s hit rate | %s | %s ammo | %d spare magazine%s | 0%% jam chance | Items: %s | Effects: %s", nick, level, title, player.XP, next, player.Shots, score.Ducks, score.Friends, accuracy, hitRate, armed, ammo, player.SpareMagazines, duckPlural(uint64(player.SpareMagazines)), items, effects)
+}
+
+func duckEffects(player duckPlayer) string {
+	effects := make([]string, 0, 2)
+	if player.FocusedShot {
+		effects = append(effects, "guaranteed shot ready")
+	}
+	if player.GoldenBounty {
+		effects = append(effects, "golden bounty ready")
+	}
+	if len(effects) == 0 {
+		return "none"
+	}
+	return strings.Join(effects, ", ")
 }
 
 func duckItems(player duckPlayer) string {
-	items := make([]string, 0, 2)
-	if player.Bread > 0 {
-		items = append(items, fmt.Sprintf("Bread x%d", player.Bread))
+	items := make([]string, 0, 8)
+	for _, item := range []struct {
+		name  string
+		count uint64
+	}{
+		{name: "Lucky Feather", count: player.LuckyFeathers},
+		{name: "Duck Whistle", count: player.DuckWhistles},
+		{name: "Decoy Duck", count: player.Decoys},
+		{name: "Gun Brush", count: player.GunBrushes},
+		{name: "Bread", count: player.Bread},
+		{name: "Golden Seed", count: player.GoldenSeeds},
+		{name: "Pond Map", count: player.PondMaps},
+	} {
+		if item.count > 0 {
+			items = append(items, fmt.Sprintf("%s x%d", item.name, item.count))
+		}
 	}
 	if player.SpareMagazines > 0 {
 		items = append(items, fmt.Sprintf("Magazine x%d", player.SpareMagazines))
@@ -905,7 +1055,7 @@ func duckAmmoHint(player duckPlayer) string {
 }
 
 func (p *DuckHunt) shop(b *bot.Bot, m bot.Message) {
-	parts := make([]string, 0, len(p.shopWeapons())+2)
+	parts := make([]string, 0, len(p.shopWeapons())+1)
 	if p.cfg.firearmEnabled {
 		for _, weapon := range p.shopWeapons() {
 			name := weapon.Name
@@ -918,40 +1068,53 @@ func (p *DuckHunt) shop(b *bot.Bot, m bot.Message) {
 		}
 		parts = append(parts, fmt.Sprintf("!buy magazine (or !buy mag): %d points", p.cfg.magazineCost))
 	}
-	parts = append(parts, fmt.Sprintf("!buy bread: %d points; use !use 5 or !use bread for a spawn boost", p.cfg.breadCost))
 	label := "Duck Hunt shop"
 	if !p.cfg.firearmEnabled {
 		label += " (arcade gear disabled)"
 	}
-	b.Send(m.ReplyTarget(), label+": "+strings.Join(parts, " | "))
+	if len(parts) > 0 {
+		b.Send(m.ReplyTarget(), label+": "+strings.Join(parts, " | "))
+	}
+	items := make([]string, 0, len(p.consumables()))
+	for _, item := range p.consumables() {
+		items = append(items, fmt.Sprintf("!buy %s %s: %d points (%s)", item.ID, item.Name, item.Cost, item.Description))
+	}
+	for start := 0; start < len(items); start += 4 {
+		end := minInt(start+4, len(items))
+		b.Send(m.ReplyTarget(), "Duck Hunt items: "+strings.Join(items[start:end], " | "))
+	}
 }
 
 func (p *DuckHunt) buy(b *bot.Bot, m bot.Message, arg string) {
 	item := normalizeDuckShopItem(arg)
-	if item != "magazine" && item != "bread" {
+	consumable, isConsumable := p.findConsumable(item)
+	if isConsumable {
+		item = consumable.Key
+	}
+	if item != "magazine" && !isConsumable {
 		if _, ok := p.findWeapon(item); !ok {
-			b.Send(m.ReplyTarget(), ircColor(ircCyan, "usage: !shop or !buy peashooter|quacker|golden|bread|magazine|mag"))
+			b.Send(m.ReplyTarget(), ircColor(ircCyan, "usage: !shop or !buy peashooter|quacker|golden|1-7|magazine|mag"))
 			return
 		}
 	}
-	if !p.cfg.firearmEnabled && item != "bread" {
+	if !p.cfg.firearmEnabled && !isConsumable {
 		b.Send(m.ReplyTarget(), ircColor(ircYellow, "Duck Hunt arcade gear is disabled."))
 		return
 	}
 	p.mu.Lock()
 	player := p.loadPlayerLocked(b.Config.NetworkName, m.Target, m.Nick)
-	if item == "bread" {
-		if player.Points < p.cfg.breadCost {
+	if isConsumable {
+		if player.Points < consumable.Cost {
 			points := player.Points
 			p.mu.Unlock()
-			b.Send(m.ReplyTarget(), fmt.Sprintf("%s: Bread costs %d points; you have %d.", m.Nick, p.cfg.breadCost, points))
+			b.Send(m.ReplyTarget(), fmt.Sprintf("%s: %s costs %d points; you have %d.", m.Nick, consumable.Name, consumable.Cost, points))
 			return
 		}
-		player.Points -= p.cfg.breadCost
-		player.Bread++
+		player.Points -= consumable.Cost
+		setDuckItemCount(&player, consumable.Key, duckItemCount(player, consumable.Key)+1)
 		p.savePlayerLocked(b.Config.NetworkName, m.Target, m.Nick, player)
 		p.mu.Unlock()
-		b.Send(m.ReplyTarget(), fmt.Sprintf("%s: Bread purchased for %d points. Bread in inventory: %d. Use !use 5 or !use bread.", m.Nick, p.cfg.breadCost, player.Bread))
+		b.Send(m.ReplyTarget(), fmt.Sprintf("%s: %s purchased for %d points. Inventory: %d. Use !use %s.", m.Nick, consumable.Name, consumable.Cost, duckItemCount(player, consumable.Key), consumable.ID))
 		return
 	}
 	if item != "magazine" {
@@ -1004,42 +1167,110 @@ func normalizeDuckShopItem(arg string) string {
 }
 
 func normalizeDuckUseItem(arg string) string {
-	item := strings.ToLower(strings.TrimSpace(arg))
-	if item == "5" {
-		return "bread"
-	}
-	return item
+	return strings.ToLower(strings.TrimSpace(arg))
 }
 
 func (p *DuckHunt) use(b *bot.Bot, m bot.Message, arg string) {
-	if normalizeDuckUseItem(arg) != "bread" {
-		b.Send(m.ReplyTarget(), ircColor(ircYellow, "invalid Duck Hunt item ID; use !use 5 or !use bread"))
+	item, ok := p.findConsumable(normalizeDuckUseItem(arg))
+	if !ok {
+		b.Send(m.ReplyTarget(), ircColor(ircYellow, "invalid Duck Hunt item ID; use !use <1-7|item> or !shop"))
 		return
 	}
 	now := time.Now()
 	p.mu.Lock()
 	player := p.loadPlayerLocked(b.Config.NetworkName, m.Target, m.Nick)
-	if player.Bread < 1 {
+	count := duckItemCount(player, item.Key)
+	if count < 1 {
 		p.mu.Unlock()
-		b.Send(m.ReplyTarget(), fmt.Sprintf("%s: you do not have Bread. Buy one with !buy bread.", m.Nick))
+		b.Send(m.ReplyTarget(), fmt.Sprintf("%s: you do not have %s. Buy one with !buy %s.", m.Nick, item.Name, item.ID))
 		return
 	}
 	state := p.stateLocked(b.Config.NetworkName, m.Target)
-	multiplier := 2.0
-	if state.spawnBoostUntil.After(now) && state.spawnMultiplier > 1 {
-		multiplier = minFloat(3.0, state.spawnMultiplier+0.5)
+	if state.stopped {
+		p.mu.Unlock()
+		b.Send(m.ReplyTarget(), ircColor(ircYellow, "Duck Hunt is stopped in this channel; an owner must use !dh start first"))
+		return
 	}
-	state.spawnMultiplier = multiplier
-	state.spawnBoostUntil = now.Add(20 * time.Minute)
-	if !state.nextSpawn.IsZero() && state.nextSpawn.After(now) {
-		state.nextSpawn = now.Add(time.Duration(float64(state.nextSpawn.Sub(now)) / multiplier))
-		state.flavorAt = randomDuckFlavorTime(now, state.nextSpawn, p.cfg)
-		state.flavorSent = false
+	message := ""
+	consume := true
+	switch item.Key {
+	case "lucky_feather":
+		if state.goldenBoostUntil.After(now) {
+			state.goldenBoost = minFloat(0.75, state.goldenBoost+0.25)
+		} else {
+			state.goldenBoost = 0.25
+		}
+		state.goldenBoostUntil = now.Add(20 * time.Minute)
+		chance := int((p.goldenChanceLocked(state, now) * 100) + 0.5)
+		message = fmt.Sprintf("%s: a Lucky Feather glitters in the reeds! The next duck has a %d%% golden chance for 20 minutes.", m.Nick, chance)
+	case "duck_whistle":
+		if state.active {
+			consume = false
+			message = fmt.Sprintf("%s: the pond already has a duck; save your Duck Whistle for the next call.", m.Nick)
+		} else if !state.nextSpawn.IsZero() && state.nextSpawn.Sub(now) <= 15*time.Second {
+			consume = false
+			message = fmt.Sprintf("%s: a duck is already on the way; save your Duck Whistle.", m.Nick)
+		} else {
+			state.nextSpawn = now.Add(15 * time.Second)
+			state.flavorAt = randomDuckFlavorTime(now, state.nextSpawn, p.cfg)
+			state.flavorSent = false
+			message = fmt.Sprintf("%s: the Duck Whistle echoes across the pond! A duck will arrive in 15 seconds.", m.Nick)
+		}
+	case "decoy":
+		if !state.active {
+			consume = false
+			message = fmt.Sprintf("%s: there is no active hunt for your Decoy Duck to distract.", m.Nick)
+		} else {
+			state.spawnedAt = state.spawnedAt.Add(20 * time.Second)
+			message = fmt.Sprintf("%s: Decoy Duck deployed! The active hunt lasts 20 seconds longer.", m.Nick)
+		}
+	case "gun_brush":
+		if !player.HasGun {
+			consume = false
+			message = fmt.Sprintf("%s: you do not have arcade gear for a Gun Brush. Use !buy peashooter first.", m.Nick)
+		} else if player.FocusedShot {
+			consume = false
+			message = fmt.Sprintf("%s: your next armed shot is already polished and guaranteed.", m.Nick)
+		} else {
+			player.FocusedShot = true
+			message = fmt.Sprintf("%s: you polished your gear! Your next armed shot is guaranteed to hit.", m.Nick)
+		}
+	case "bread":
+		multiplier := 2.0
+		if state.spawnBoostUntil.After(now) && state.spawnMultiplier > 1 {
+			multiplier = minFloat(3.0, state.spawnMultiplier+0.5)
+		}
+		state.spawnMultiplier = multiplier
+		state.spawnBoostUntil = now.Add(20 * time.Minute)
+		if !state.nextSpawn.IsZero() && state.nextSpawn.After(now) {
+			state.nextSpawn = now.Add(time.Duration(float64(state.nextSpawn.Sub(now)) / multiplier))
+			state.flavorAt = randomDuckFlavorTime(now, state.nextSpawn, p.cfg)
+			state.flavorSent = false
+		}
+		message = fmt.Sprintf("%s: You scattered bread around the pond! Ducks will spawn %.1fx faster for 20 minutes.", m.Nick, multiplier)
+	case "golden_seed":
+		if player.GoldenBounty {
+			consume = false
+			message = fmt.Sprintf("%s: a Golden Seed is already planted; your next completed kill has a bonus ready.", m.Nick)
+		} else {
+			player.GoldenBounty = true
+			message = fmt.Sprintf("%s: Golden Seed planted! Your next completed kill earns a +25 point and +25 XP bounty.", m.Nick)
+		}
+	case "pond_map":
+		if state.nextFlock {
+			consume = false
+			message = fmt.Sprintf("%s: a flock route is already mapped for the next automatic visit.", m.Nick)
+		} else {
+			state.nextFlock = true
+			message = fmt.Sprintf("%s: the Pond Map reveals a migration route! The next automatic visit will be a flock.", m.Nick)
+		}
 	}
-	player.Bread--
+	if consume {
+		setDuckItemCount(&player, item.Key, count-1)
+	}
 	p.savePlayerLocked(b.Config.NetworkName, m.Target, m.Nick, player)
 	p.mu.Unlock()
-	b.Send(m.ReplyTarget(), fmt.Sprintf("%s: You scattered bread around the pond! Ducks will spawn %.1fx faster for 20 minutes.", m.Nick, multiplier))
+	b.Send(m.ReplyTarget(), message)
 }
 
 func (p *DuckHunt) reload(b *bot.Bot, m bot.Message) {
@@ -1265,6 +1496,27 @@ func minFloat(a, b float64) float64 {
 		return a
 	}
 	return b
+}
+
+func (p *DuckHunt) randomFlockSize() int {
+	flockSize := p.cfg.flockMin
+	if p.cfg.flockMax > p.cfg.flockMin {
+		flockSize += rand.Intn(p.cfg.flockMax - p.cfg.flockMin + 1)
+	}
+	return flockSize
+}
+
+func (p *DuckHunt) goldenChanceLocked(state *duckHuntState, now time.Time) float64 {
+	chance := p.cfg.goldenChance
+	if state == nil || state.goldenBoostUntil.IsZero() {
+		return chance
+	}
+	if !now.Before(state.goldenBoostUntil) {
+		state.goldenBoost = 0
+		state.goldenBoostUntil = time.Time{}
+		return chance
+	}
+	return minFloat(1, chance+state.goldenBoost)
 }
 
 func (p *DuckHunt) duckSpawnDelayLocked(state *duckHuntState, now time.Time) time.Duration {
