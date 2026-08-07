@@ -6,6 +6,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	"github.com/variablenix/GoBot/bot"
 	"github.com/variablenix/GoBot/storage"
@@ -38,6 +39,7 @@ type duckHuntConfig struct {
 	startingPoints  int64
 	magazineCost    int64
 	gunCost         int64
+	breadCost       int64
 	xpPerHit        int64
 	xpPerKill       int64
 	xpPerBefriend   int64
@@ -46,20 +48,22 @@ type duckHuntConfig struct {
 }
 
 type duckHuntState struct {
-	channel        string
-	messages       int
-	users          map[string]struct{}
-	nextSpawn      time.Time
-	spawnedAt      time.Time
-	flavorAt       time.Time
-	flavorSent     bool
-	active         bool
-	stopped        bool
-	hp             int
-	maxHP          int
-	golden         bool
-	trust          map[string]int
-	flockRemaining int
+	channel         string
+	messages        int
+	users           map[string]struct{}
+	nextSpawn       time.Time
+	spawnedAt       time.Time
+	flavorAt        time.Time
+	flavorSent      bool
+	active          bool
+	stopped         bool
+	hp              int
+	maxHP           int
+	golden          bool
+	trust           map[string]int
+	flockRemaining  int
+	spawnMultiplier float64
+	spawnBoostUntil time.Time
 }
 
 type duckScore struct {
@@ -75,6 +79,9 @@ type duckPlayer struct {
 	SpareMagazines int    `json:"spare_magazines"`
 	Points         int64  `json:"points"`
 	XP             int64  `json:"xp"`
+	Shots          uint64 `json:"shots"`
+	Hits           uint64 `json:"hits"`
+	Bread          uint64 `json:"bread"`
 }
 
 type duckWeapon struct {
@@ -99,10 +106,10 @@ type DuckHunt struct {
 
 func (p *DuckHunt) Name() string { return "duckhunt" }
 func (p *DuckHunt) Commands() []string {
-	return []string{"duckhunt", "dh", "ducklaunch", "bang", "befriend", "bef", "ducks", "level", "xp", "profile", "shop", "store", "buy", "reload", "ammo"}
+	return []string{"duckhunt", "dh", "ducklaunch", "bang", "befriend", "bef", "ducks", "duckstats", "level", "xp", "profile", "shop", "store", "buy", "use", "reload", "ammo"}
 }
 func (p *DuckHunt) Help() string {
-	return "!bang shoots an active duck; !bef befriends it; !ducklaunch flock starts a random flock; !shop lists arcade gear; !buy <item> (magazine aliases: mag, ammo), !ammo, and !reload manage it; !ducks [nick] shows points and scores; !level [nick] shows XP and level; !dh status|start|stop controls activity"
+	return "!bang shoots an active duck; !bef befriends it; !ducklaunch flock starts a random flock; !shop lists gear and items; !buy <item> (bread, magazine aliases: mag, ammo); !use 5|bread uses Bread; !ammo and !reload manage ammunition; !ducks [nick] shows scores; !duckstats [nick] shows a detailed title, accuracy, gear, and inventory profile; !level [nick] shows XP and level; !dh status|start|stop controls activity"
 }
 
 // shopWeapons keeps the arsenal deliberately arcade-like. The names are game
@@ -194,6 +201,7 @@ func (p *DuckHunt) Init(c bot.PluginConfig, db *storage.DB) error {
 	startingPoints := int64(c.Int("starting_points", 25))
 	magazineCost := int64(c.Int("magazine_cost", 15))
 	gunCost := int64(c.Int("gun_cost", 25))
+	breadCost := int64(c.Int("bread_cost", 8))
 	xpPerHit := int64(c.Int("xp_per_hit", 5))
 	xpPerKill := int64(c.Int("xp_per_kill", 25))
 	xpPerBefriend := int64(c.Int("xp_per_befriend", 10))
@@ -260,6 +268,9 @@ func (p *DuckHunt) Init(c bot.PluginConfig, db *storage.DB) error {
 	if gunCost < 0 {
 		gunCost = 0
 	}
+	if breadCost < 0 {
+		breadCost = 0
+	}
 	if xpPerHit < 0 {
 		xpPerHit = 0
 	}
@@ -302,6 +313,7 @@ func (p *DuckHunt) Init(c bot.PluginConfig, db *storage.DB) error {
 		startingPoints:  startingPoints,
 		magazineCost:    magazineCost,
 		gunCost:         gunCost,
+		breadCost:       breadCost,
 		xpPerHit:        xpPerHit,
 		xpPerKill:       xpPerKill,
 		xpPerBefriend:   xpPerBefriend,
@@ -380,6 +392,9 @@ func (p *DuckHunt) Handle(b *bot.Bot, m bot.Message) bool {
 	case "ducks":
 		p.ducks(b, m, arg)
 		return true
+	case "duckstats":
+		p.duckStats(b, m, arg)
+		return true
 	case "level", "xp", "profile":
 		p.profile(b, m, arg)
 		return true
@@ -388,6 +403,9 @@ func (p *DuckHunt) Handle(b *bot.Bot, m bot.Message) bool {
 		return true
 	case "buy":
 		p.buy(b, m, arg)
+		return true
+	case "use":
+		p.use(b, m, arg)
 		return true
 	case "reload":
 		p.reload(b, m)
@@ -460,7 +478,7 @@ func (p *DuckHunt) recordActivity(network, channel, nick string) {
 	state.messages++
 	state.users[strings.ToLower(nick)] = struct{}{}
 	if state.nextSpawn.IsZero() && state.messages >= p.cfg.minimumMessages && len(state.users) >= p.cfg.minimumUsers {
-		state.nextSpawn = now.Add(randomDuckDelay(p.cfg))
+		state.nextSpawn = now.Add(p.duckSpawnDelayLocked(state, now))
 		state.flavorAt = randomDuckFlavorTime(now, state.nextSpawn, p.cfg)
 		state.flavorSent = false
 	}
@@ -476,6 +494,10 @@ func (p *DuckHunt) tick(b *bot.Bot) {
 
 	p.mu.Lock()
 	for _, state := range p.states {
+		if !state.spawnBoostUntil.IsZero() && !now.Before(state.spawnBoostUntil) {
+			state.spawnMultiplier = 0
+			state.spawnBoostUntil = time.Time{}
+		}
 		if !b.PluginEnabledForChannel(p.Name(), state.channel) {
 			// Drop pending activity when the channel override disables this
 			// plugin. New activity can schedule a fresh hunt if it is enabled
@@ -492,6 +514,8 @@ func (p *DuckHunt) tick(b *bot.Bot) {
 			state.golden = false
 			state.trust = make(map[string]int)
 			state.flockRemaining = 0
+			state.spawnMultiplier = 0
+			state.spawnBoostUntil = time.Time{}
 			continue
 		}
 		if state.stopped {
@@ -654,6 +678,9 @@ func (p *DuckHunt) interact(b *bot.Bot, m bot.Message, befriend bool) {
 			return
 		}
 		player.Ammo--
+	}
+	if !befriend {
+		player.Shots++
 		p.savePlayerLocked(b.Config.NetworkName, m.Target, m.Nick, player)
 	}
 
@@ -696,6 +723,7 @@ func (p *DuckHunt) interact(b *bot.Bot, m bot.Message, befriend bool) {
 	}
 	weapon := p.weaponForPlayer(player)
 	damage := weapon.Damage
+	player.Hits++
 	state.hp -= damage
 	if state.hp > 0 {
 		remaining := state.hp
@@ -742,7 +770,7 @@ func (p *DuckHunt) ducks(b *bot.Bot, m bot.Message, arg string) {
 	if nick == "" {
 		nick = m.Nick
 	}
-	if strings.ContainsAny(nick, " \r\n\t") || len([]rune(nick)) > 64 {
+	if !validDuckProfileNick(nick) {
 		b.Send(m.ReplyTarget(), ircColor(ircCyan, "usage: !ducks [nick]"))
 		return
 	}
@@ -760,7 +788,7 @@ func (p *DuckHunt) profile(b *bot.Bot, m bot.Message, arg string) {
 	if nick == "" {
 		nick = m.Nick
 	}
-	if strings.ContainsAny(nick, " \r\n\t") || len([]rune(nick)) > 64 {
+	if !validDuckProfileNick(nick) {
 		b.Send(m.ReplyTarget(), ircColor(ircCyan, "usage: !level [nick]"))
 		return
 	}
@@ -769,7 +797,88 @@ func (p *DuckHunt) profile(b *bot.Bot, m bot.Message, arg string) {
 	player := p.loadPlayerLocked(b.Config.NetworkName, m.Target, nick)
 	p.mu.Unlock()
 	level := duckLevel(player.XP)
-	b.Send(m.ReplyTarget(), fmt.Sprintf("%s is level %d with %d XP (%d to level %d), %d points, %d killed, and %d befriended in %s.", nick, level, player.XP, xpToNextLevel(player.XP), level+1, player.Points, score.Ducks, score.Friends, m.Target))
+	b.Send(m.ReplyTarget(), fmt.Sprintf("%s is level %d %s with %d XP (%d to level %d), %d points, %d killed, and %d befriended in %s.", nick, level, duckTitle(level), player.XP, xpToNextLevel(player.XP), level+1, player.Points, score.Ducks, score.Friends, m.Target))
+}
+
+func (p *DuckHunt) duckStats(b *bot.Bot, m bot.Message, arg string) {
+	nick := strings.TrimSpace(arg)
+	if nick == "" {
+		nick = m.Nick
+	}
+	if !validDuckProfileNick(nick) {
+		b.Send(m.ReplyTarget(), ircColor(ircCyan, "usage: !duckstats [nick]"))
+		return
+	}
+	score := p.readScore(b.Config.NetworkName, m.Target, nick)
+	p.mu.Lock()
+	player := p.loadPlayerLocked(b.Config.NetworkName, m.Target, nick)
+	p.mu.Unlock()
+	b.Send(m.ReplyTarget(), p.formatDuckStats(nick, player, score))
+}
+
+func validDuckProfileNick(nick string) bool {
+	if nick == "" || len([]rune(nick)) > 64 {
+		return false
+	}
+	for _, r := range nick {
+		if unicode.IsSpace(r) || unicode.IsControl(r) {
+			return false
+		}
+	}
+	return true
+}
+
+func (p *DuckHunt) formatDuckStats(nick string, player duckPlayer, score duckScore) string {
+	level := duckLevel(player.XP)
+	title := duckTitle(level)
+	nextRankLevel, nextTitle, hasNextRank := nextDuckRank(level)
+	next := "top title reached"
+	if hasNextRank {
+		nextXP := xpForLevel(nextRankLevel) - player.XP
+		if nextXP < 0 {
+			nextXP = 0
+		}
+		next = fmt.Sprintf("Need %d XP for %s", nextXP, nextTitle)
+	}
+	accuracy := duckPercent(player.Hits, player.Shots, 0)
+	hitRate := duckPercent(score.Ducks, player.Hits, 1)
+	armed := "Unarmed"
+	ammo := "0/0"
+	if player.HasGun {
+		armed = "Armed"
+		weapon := p.weaponForPlayer(player)
+		ammo = fmt.Sprintf("%d/%d", player.Ammo, weapon.MagazineSize)
+	}
+	items := duckItems(player)
+	return fmt.Sprintf("%s: Lv%d %s | %d XP (%s) | %d shots | %d killed | %d befriended | %s accuracy | %s hit rate | %s | %s ammo | %d spare magazine%s | 0%% jam chance | Items: %s", nick, level, title, player.XP, next, player.Shots, score.Ducks, score.Friends, accuracy, hitRate, armed, ammo, player.SpareMagazines, duckPlural(uint64(player.SpareMagazines)), items)
+}
+
+func duckItems(player duckPlayer) string {
+	items := make([]string, 0, 2)
+	if player.Bread > 0 {
+		items = append(items, fmt.Sprintf("Bread x%d", player.Bread))
+	}
+	if player.SpareMagazines > 0 {
+		items = append(items, fmt.Sprintf("Magazine x%d", player.SpareMagazines))
+	}
+	if len(items) == 0 {
+		return "none"
+	}
+	return strings.Join(items, ", ")
+}
+
+func duckPercent(numerator, denominator uint64, decimals int) string {
+	if denominator == 0 {
+		if decimals > 0 {
+			return "0.0%"
+		}
+		return "0%"
+	}
+	value := float64(numerator) * 100 / float64(denominator)
+	if decimals > 0 {
+		return fmt.Sprintf("%.1f%%", value)
+	}
+	return fmt.Sprintf("%.0f%%", value)
 }
 
 func (p *DuckHunt) ammo(b *bot.Bot, m bot.Message) {
@@ -796,38 +905,55 @@ func duckAmmoHint(player duckPlayer) string {
 }
 
 func (p *DuckHunt) shop(b *bot.Bot, m bot.Message) {
-	if !p.cfg.firearmEnabled {
-		b.Send(m.ReplyTarget(), ircColor(ircYellow, "Duck Hunt arcade gear is disabled."))
-		return
-	}
-	parts := make([]string, 0, len(p.shopWeapons())+1)
-	for _, weapon := range p.shopWeapons() {
-		name := weapon.Name
-		if weapon.Key == "golden" {
-			name = ircColor(ircYellow, name)
-		} else {
-			name = ircColor(ircCyan, name)
+	parts := make([]string, 0, len(p.shopWeapons())+2)
+	if p.cfg.firearmEnabled {
+		for _, weapon := range p.shopWeapons() {
+			name := weapon.Name
+			if weapon.Key == "golden" {
+				name = ircColor(ircYellow, name)
+			} else {
+				name = ircColor(ircCyan, name)
+			}
+			parts = append(parts, fmt.Sprintf("!buy %s (%s): %d points, %d dmg, %d-cap mag", weapon.Key, name, weapon.Cost, weapon.Damage, weapon.MagazineSize))
 		}
-		parts = append(parts, fmt.Sprintf("!buy %s (%s): %d points, %d dmg, %d-cap mag", weapon.Key, name, weapon.Cost, weapon.Damage, weapon.MagazineSize))
+		parts = append(parts, fmt.Sprintf("!buy magazine (or !buy mag): %d points", p.cfg.magazineCost))
 	}
-	parts = append(parts, fmt.Sprintf("!buy magazine (or !buy mag): %d points", p.cfg.magazineCost))
-	b.Send(m.ReplyTarget(), "Duck Hunt shop: "+strings.Join(parts, " | "))
+	parts = append(parts, fmt.Sprintf("!buy bread: %d points; use !use 5 or !use bread for a spawn boost", p.cfg.breadCost))
+	label := "Duck Hunt shop"
+	if !p.cfg.firearmEnabled {
+		label += " (arcade gear disabled)"
+	}
+	b.Send(m.ReplyTarget(), label+": "+strings.Join(parts, " | "))
 }
 
 func (p *DuckHunt) buy(b *bot.Bot, m bot.Message, arg string) {
 	item := normalizeDuckShopItem(arg)
-	if item != "magazine" {
+	if item != "magazine" && item != "bread" {
 		if _, ok := p.findWeapon(item); !ok {
-			b.Send(m.ReplyTarget(), ircColor(ircCyan, "usage: !shop or !buy peashooter|quacker|golden|magazine|mag"))
+			b.Send(m.ReplyTarget(), ircColor(ircCyan, "usage: !shop or !buy peashooter|quacker|golden|bread|magazine|mag"))
 			return
 		}
 	}
-	if !p.cfg.firearmEnabled {
+	if !p.cfg.firearmEnabled && item != "bread" {
 		b.Send(m.ReplyTarget(), ircColor(ircYellow, "Duck Hunt arcade gear is disabled."))
 		return
 	}
 	p.mu.Lock()
 	player := p.loadPlayerLocked(b.Config.NetworkName, m.Target, m.Nick)
+	if item == "bread" {
+		if player.Points < p.cfg.breadCost {
+			points := player.Points
+			p.mu.Unlock()
+			b.Send(m.ReplyTarget(), fmt.Sprintf("%s: Bread costs %d points; you have %d.", m.Nick, p.cfg.breadCost, points))
+			return
+		}
+		player.Points -= p.cfg.breadCost
+		player.Bread++
+		p.savePlayerLocked(b.Config.NetworkName, m.Target, m.Nick, player)
+		p.mu.Unlock()
+		b.Send(m.ReplyTarget(), fmt.Sprintf("%s: Bread purchased for %d points. Bread in inventory: %d. Use !use 5 or !use bread.", m.Nick, p.cfg.breadCost, player.Bread))
+		return
+	}
 	if item != "magazine" {
 		weapon, _ := p.findWeapon(item)
 		if player.HasGun && player.Weapon == weapon.Key {
@@ -875,6 +1001,45 @@ func normalizeDuckShopItem(arg string) string {
 		return "magazine"
 	}
 	return item
+}
+
+func normalizeDuckUseItem(arg string) string {
+	item := strings.ToLower(strings.TrimSpace(arg))
+	if item == "5" {
+		return "bread"
+	}
+	return item
+}
+
+func (p *DuckHunt) use(b *bot.Bot, m bot.Message, arg string) {
+	if normalizeDuckUseItem(arg) != "bread" {
+		b.Send(m.ReplyTarget(), ircColor(ircYellow, "invalid Duck Hunt item ID; use !use 5 or !use bread"))
+		return
+	}
+	now := time.Now()
+	p.mu.Lock()
+	player := p.loadPlayerLocked(b.Config.NetworkName, m.Target, m.Nick)
+	if player.Bread < 1 {
+		p.mu.Unlock()
+		b.Send(m.ReplyTarget(), fmt.Sprintf("%s: you do not have Bread. Buy one with !buy bread.", m.Nick))
+		return
+	}
+	state := p.stateLocked(b.Config.NetworkName, m.Target)
+	multiplier := 2.0
+	if state.spawnBoostUntil.After(now) && state.spawnMultiplier > 1 {
+		multiplier = minFloat(3.0, state.spawnMultiplier+0.5)
+	}
+	state.spawnMultiplier = multiplier
+	state.spawnBoostUntil = now.Add(20 * time.Minute)
+	if !state.nextSpawn.IsZero() && state.nextSpawn.After(now) {
+		state.nextSpawn = now.Add(time.Duration(float64(state.nextSpawn.Sub(now)) / multiplier))
+		state.flavorAt = randomDuckFlavorTime(now, state.nextSpawn, p.cfg)
+		state.flavorSent = false
+	}
+	player.Bread--
+	p.savePlayerLocked(b.Config.NetworkName, m.Target, m.Nick, player)
+	p.mu.Unlock()
+	b.Send(m.ReplyTarget(), fmt.Sprintf("%s: You scattered bread around the pond! Ducks will spawn %.1fx faster for 20 minutes.", m.Nick, multiplier))
 }
 
 func (p *DuckHunt) reload(b *bot.Bot, m bot.Message) {
@@ -1095,6 +1260,28 @@ func randomDuckDelay(c duckHuntConfig) time.Duration {
 	return c.minDelay + time.Duration(rand.Intn(span+1))*time.Second
 }
 
+func minFloat(a, b float64) float64 {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func (p *DuckHunt) duckSpawnDelayLocked(state *duckHuntState, now time.Time) time.Duration {
+	delay := randomDuckDelay(p.cfg)
+	multiplier := 1.0
+	if state != nil && state.spawnBoostUntil.After(now) && state.spawnMultiplier > 1 {
+		multiplier = state.spawnMultiplier
+	}
+	if multiplier > 1 {
+		delay = time.Duration(float64(delay) / multiplier)
+		if delay < time.Second {
+			delay = time.Second
+		}
+	}
+	return delay
+}
+
 func randomDuckHP(c duckHuntConfig) int {
 	if c.maxHP <= c.minHP {
 		return c.minHP
@@ -1138,6 +1325,49 @@ func duckLevel(xp int64) int {
 		level++
 	}
 	return level
+}
+
+var duckRankTitles = []struct {
+	level int
+	title string
+}{
+	{level: 1, title: "Pond Rookie"},
+	{level: 2, title: "Feather Finder"},
+	{level: 3, title: "Waddle Scout"},
+	{level: 4, title: "Duck Tracker"},
+	{level: 5, title: "Quack Ranger"},
+	{level: 6, title: "Duck Whisperer"},
+	{level: 7, title: "Flock Tactician"},
+	{level: 8, title: "Golden Wing"},
+	{level: 9, title: "Pond Guardian"},
+	{level: 10, title: "Legendary Hunter"},
+	{level: 12, title: "Mythic Mallard"},
+	{level: 15, title: "Quackmaster"},
+	{level: 20, title: "Grand Duckmaster"},
+	{level: 25, title: "Eternal Duckkeeper"},
+}
+
+func duckTitle(level int) string {
+	if level < 1 {
+		level = 1
+	}
+	title := duckRankTitles[0].title
+	for _, rank := range duckRankTitles {
+		if rank.level > level {
+			break
+		}
+		title = rank.title
+	}
+	return title
+}
+
+func nextDuckRank(level int) (int, string, bool) {
+	for _, rank := range duckRankTitles {
+		if rank.level > level {
+			return rank.level, rank.title, true
+		}
+	}
+	return 0, "", false
 }
 
 func xpToNextLevel(xp int64) int64 {
