@@ -140,7 +140,6 @@ var attackAliases = map[string]string{
 	"kill":       "kill",
 	"lart":       "lart",
 	"luff":       "lurve",
-	"luv":        "lurve",
 	"lurve":      "lurve",
 	"nk":         "nk",
 	"pokemon":    "pokemon",
@@ -167,7 +166,7 @@ func (p *Attack) Name() string { return "attack" }
 func (p *Attack) Commands() []string {
 	commands := make([]string, len(attackCommandOrder))
 	copy(commands, attackCommandOrder)
-	commands = append(commands, "challenge", "dominate", "end", "fite", "gift", "high5", "hi5", "jackmeoff", "luff", "luv", "sexup", "spar")
+	commands = append(commands, "challenge", "dominate", "end", "fite", "gift", "high5", "hi5", "jackmeoff", "luff", "sexup", "spar")
 	return commands
 }
 
