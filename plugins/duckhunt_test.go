@@ -484,6 +484,19 @@ func TestDuckHuntTitlesAndDetailedStats(t *testing.T) {
 	}
 }
 
+func TestDuckHuntDetailedStatsUsesColorAndLightweightEmojis(t *testing.T) {
+	plugin := &DuckHunt{}
+	if err := plugin.Init(nil, nil); err != nil {
+		t.Fatalf("Init returned error: %v", err)
+	}
+	message := plugin.formatDuckStats("Alice", duckPlayer{XP: 100, HasGun: true, Weapon: "peashooter", Ammo: 3}, duckScore{Ducks: 1, Friends: 2})
+	for _, want := range []string{ircCyan, ircYellow, ircGreen, ircTan, "🦆", "✨", "🎯", "🎒"} {
+		if !strings.Contains(message, want) {
+			t.Errorf("Duck Hunt stats %q does not contain color or emoji marker %q", message, want)
+		}
+	}
+}
+
 func TestDuckHuntWeaponJamRequiresUnjam(t *testing.T) {
 	db, err := storage.Open(t.TempDir() + "/bot.db")
 	if err != nil {
