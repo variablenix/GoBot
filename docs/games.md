@@ -218,6 +218,7 @@ Commands:
 !use <1-7|item>       use a Duck Hunt consumable
 !ammo                 show ammo, spare magazines, and points
 !reload               load a spare magazine
+!unjam                clear a jammed weapon without using ammunition
 !ducks [nickname]     show persistent scores, points, level, and XP
 !duckstats [nickname] show detailed title, accuracy, gear, and item stats
 !level [nickname]     show level, XP, points, and Duck Hunt scores
@@ -262,9 +263,12 @@ Eternal Duckkeeper at level 25. Levels continue beyond that title, but the top
 title requires 30,000 XP under the default cumulative progression curve.
 Stats include shots fired, ducks killed and befriended, shot accuracy (hits
 divided by shots), hit rate (kills divided by successful hits), armed state,
-ammo, spare magazines, and inventory. Jam chance is currently 0% because
-Duck Hunt does not yet implement weapon jams. It also reports ready one-shot
-effects such as a polished shot or Golden Seed bounty.
+ammo, spare magazines, jam chance, and inventory. A jammed weapon is shown as
+`Armed (Jammed)` and must be cleared with `!unjam` before another shot can be
+attempted. A jam consumes the attempted shot's ammunition and counts it in the
+shot total, but deals no damage or rewards; `!reload` deliberately does not
+clear a jam. The default jam chance is 3% per armed shot and can be disabled
+with `weapon_jam_probability: 0`.
 
 Duck Hunt has seven local consumables. Buy them with `!buy <item>` or their
 numeric IDs, then activate them with `!use <item>`:
@@ -338,6 +342,8 @@ Settings:
 - befriend_attempts: trust approaches needed to befriend the duck
 - golden_duck_probability: chance that a spawn is a higher-value golden duck
 - firearm_enabled: enable the arcade gear and ammo sub-game
+- weapon_jam_probability: chance that an armed shot jams (3% by default; set
+  to `0` to disable; values above 25% are capped)
 - magazine_size and starting_ammo: baseline Peashooter capacity and ammunition
   loaded when a player buys gear; the Quacker Blaster and Golden Wing adjust
   the baseline capacity/damage
