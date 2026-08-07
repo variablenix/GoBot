@@ -39,6 +39,7 @@ Plugins are enabled or disabled under plugins.<name>.enabled in config.yaml.
 - eightball: customizable Magic 8-Ball answers
 - fun: local yo-momma jokes, one-liners, puns, and wisdom
 - attack: playful target-based actions and messages
+- luv: persistent blue-heart points for spreading kindness
 - scramble: local first-correct-answer word game
 - cheer: family-friendly cheers
 - seen, tell, karma, and dice: channel utilities
@@ -816,7 +817,7 @@ Aliases include `!bite`,
 `!fight`, `!glomp`, `!insult`, `!kill`, `!lart`, `!present`, `!spank`,
 `!stab`, `!bdsm`, `!clinton`, `!trump`, `!lurve`, and `!pokemon`, plus
 CloudBot-style aliases such as `!end`, `!sexup`, `!jackmeoff`, `!dominate`,
-`!spar`, `!challenge`, `!luff`, and `!luv`. `!strax`, `!nk`, and `!westworld`
+`!spar`, `!challenge`, and `!luff`. `!strax`, `!nk`, and `!westworld`
 also work without a target. Action styles use standard IRC CTCP ACTION
 formatting, so clients usually render them like `/me` messages; compliment,
 flirt, insult, lurve, pokemon, strax, nk, and westworld use ordinary messages.
@@ -991,6 +992,7 @@ max_summary_length controls response length.
 !seen nickname
 !tell nickname message for them
 !karma project
+!luv nickname
 project++
 project--
 !roll d20
@@ -1015,6 +1017,8 @@ project--
   BoltDB.
 - tell queues a message and delivers it when the addressed nickname next speaks.
 - karma tracks case-insensitive thing++ and thing-- changes.
+- luv awards the named nickname one persistent blue-heart point with `!luv
+  nickname`; totals are case-insensitive and scoped to the current IRC network.
 - thing++ and thing-- also work as standalone ordinary chat messages. GoBot
   confirms each update in one compact line, replacing `<nickname>` with the
   actual nickname being changed, such as

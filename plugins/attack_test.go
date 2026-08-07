@@ -86,7 +86,7 @@ func TestAttackDefinitionsHaveSafeTemplates(t *testing.T) {
 }
 
 func TestAttackCommandCoverage(t *testing.T) {
-	for _, command := range []string{"spank", "bdsm", "clinton", "trump", "lurve", "pokemon", "strax", "nk", "westworld", "sexup", "jackmeoff", "end", "dominate", "luff", "luv", "spar", "challenge"} {
+	for _, command := range []string{"spank", "bdsm", "clinton", "trump", "lurve", "pokemon", "strax", "nk", "westworld", "sexup", "jackmeoff", "end", "dominate", "luff", "spar", "challenge"} {
 		if _, ok := attackAliases[command]; !ok {
 			t.Errorf("missing attack command or alias %q", command)
 		}

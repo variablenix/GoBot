@@ -104,6 +104,7 @@ plugins:
   tell: {enabled: true}
   note: {enabled: true, max_notes: 50, max_note_length: 400, expiry_days: 180}
   karma: {enabled: true}
+  luv: {enabled: true}
   dice: {enabled: true}
   blackjack: {enabled: true}
   # Optional turn-based 8-ball and 9-ball games; no wagers or virtual currency.
