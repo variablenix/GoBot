@@ -165,6 +165,7 @@ plugins:
     starting_points: 25
     magazine_cost: 15
     gun_cost: 25
+    bread_cost: 8
     # Points are shop currency; XP is separate and controls player levels.
     xp_per_hit: 5
     xp_per_kill: 25

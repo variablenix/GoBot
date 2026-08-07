@@ -163,6 +163,7 @@ plugins:
     starting_points: 25
     magazine_cost: 15
     gun_cost: 25
+    bread_cost: 8
     # Points are shop currency; XP is separate and controls player levels.
     xp_per_hit: 5
     xp_per_kill: 25
@@ -208,14 +209,17 @@ Commands:
 !bef                  befriend an active duck, if enabled
 !befriend             same as !bef
 !ducklaunch flock      launch a random flock manually
-!shop / !store        list arcade gear and point prices
+!shop / !store        list arcade gear, consumables, and point prices
 !buy peashooter       buy the starter Peashooter (!buy gun also works)
 !buy quacker          buy the larger Quacker Blaster
 !buy golden           buy the stronger Golden Wing
+!buy bread            buy Bread for a timed spawn boost
 !buy magazine         buy a spare magazine (`!buy mag` also works)
+!use 5                use Bread (`!use bread` also works)
 !ammo                 show ammo, spare magazines, and points
 !reload               load a spare magazine
 !ducks [nickname]     show persistent scores, points, level, and XP
+!duckstats [nickname] show detailed title, accuracy, gear, and item stats
 !level [nickname]     show level, XP, points, and Duck Hunt scores
 !xp [nickname]        alias for !level
 !profile [nickname]   alias for !level
@@ -251,6 +255,24 @@ has a larger magazine, and the Golden Wing costs more but deals extra damage.
 The catalog uses arcade-style names and simple game statistics so the feature
 stays focused on gameplay rather than real-world equipment.
 
+`!duckstats` adds a detailed profile without changing the existing `!ducks`,
+`!level`, `!xp`, or `!profile` commands. Titles progress from Pond Rookie at
+level 1 through Duck Whisperer at level 6, Legendary Hunter at level 10, and
+Eternal Duckkeeper at level 25. Levels continue beyond that title, but the top
+title requires 30,000 XP under the default cumulative progression curve.
+Stats include shots fired, ducks killed and befriended, shot accuracy (hits
+divided by shots), hit rate (kills divided by successful hits), armed state,
+ammo, spare magazines, and inventory. Jam chance is currently 0% because
+Duck Hunt does not yet implement weapon jams.
+
+Bread is a local consumable. Buy it with `!buy bread` for the configured
+`bread_cost` (8 points by default), then use it with `!use 5` or `!use bread`.
+The first Bread use makes future automatic duck spawns arrive 2.0x faster for
+20 minutes. Additional Bread uses while the boost is active raise the bonus to
+2.5x and then 3.0x, with no further stacking. The boost affects automatic
+activity scheduling, not manually launched flocks, and expires when its timer
+ends or the bot restarts.
+
 Points and XP are separate persistent values. Points are the shop currency
 used by `!buy` and `!reload`; XP measures Duck Hunt progress and determines the
 player's level. A successful kill is worth more than befriending by default:
@@ -265,9 +287,9 @@ another player's public Duck Hunt totals. Existing BoltDB player records are
 compatible: players from older versions simply begin with 0 XP and keep their
 existing points, gear, and scores.
 
-New players receive `starting_points`. A player can buy one item at a time;
-buying a different item replaces the current gear and starts a fresh magazine.
-Spare magazines are purchased with `!buy magazine` or `!buy mag` and loaded with
+New players receive `starting_points`. A player can own one weapon at a time;
+buying a different weapon replaces the current gear and starts a fresh magazine.
+Consumables such as Bread remain in the inventory. Spare magazines are purchased with `!buy magazine` or `!buy mag` and loaded with
 `!reload`.
 Ammo is consumed by `!bang`. When a player runs empty, GoBot says to use
 `!reload` if a spare magazine is available or `!buy magazine`/`!buy mag` to purchase one;
@@ -309,6 +331,8 @@ Settings:
 - starting_points: points granted when a player first participates
 - magazine_cost and gun_cost: base shop prices; the enhanced items add their
   own small point premium
+- bread_cost: points required to buy one Bread consumable; Bread is used with
+  `!use 5` or `!use bread` and accelerates future automatic spawns
 - xp_per_hit: XP awarded for a successful non-final hit; golden ducks double it
 - xp_per_kill: XP awarded when a shot resolves the duck; golden ducks double it
 - xp_per_befriend: XP awarded when a player completes the trust progression;
