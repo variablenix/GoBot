@@ -34,6 +34,7 @@ type duckHuntConfig struct {
 	trustAttempts   int
 	goldenChance    float64
 	firearmEnabled  bool
+	jamChance       float64
 	magazineSize    int
 	startingAmmo    int
 	startingPoints  int64
@@ -93,6 +94,7 @@ type duckPlayer struct {
 	PondMaps       uint64 `json:"pond_maps"`
 	FocusedShot    bool   `json:"focused_shot"`
 	GoldenBounty   bool   `json:"golden_bounty"`
+	Jammed         bool   `json:"jammed"`
 }
 
 type duckWeapon struct {
@@ -125,10 +127,10 @@ type DuckHunt struct {
 
 func (p *DuckHunt) Name() string { return "duckhunt" }
 func (p *DuckHunt) Commands() []string {
-	return []string{"duckhunt", "dh", "ducklaunch", "bang", "befriend", "bef", "ducks", "duckstats", "level", "xp", "profile", "shop", "store", "buy", "use", "reload", "ammo"}
+	return []string{"duckhunt", "dh", "ducklaunch", "bang", "befriend", "bef", "ducks", "duckstats", "level", "xp", "profile", "shop", "store", "buy", "use", "reload", "unjam", "ammo"}
 }
 func (p *DuckHunt) Help() string {
-	return "!bang shoots an active duck; !bef befriends it; !ducklaunch flock starts a random flock; !shop lists gear and items; !buy <item> (weapons, magazine/mag/ammo, or items 1-7); !use <1-7|item> activates a Duck Hunt item; !ammo and !reload manage ammunition; !ducks [nick] shows scores; !duckstats [nick] shows a detailed title, accuracy, gear, and inventory profile; !level [nick] shows XP and level; !dh status|start|stop controls activity"
+	return "!bang shoots an active duck; !bef befriends it; !ducklaunch flock starts a random flock; !shop lists gear and items; !buy <item> (weapons, magazine/mag/ammo, or items 1-7); !use <1-7|item> activates a Duck Hunt item; !ammo, !reload, and !unjam manage gear; !ducks [nick] shows scores; !duckstats [nick] shows a detailed title, accuracy, gear, and inventory profile; !level [nick] shows XP and level; !dh status|start|stop controls activity"
 }
 
 // shopWeapons keeps the arsenal deliberately arcade-like. The names are game
@@ -290,6 +292,7 @@ func (p *DuckHunt) Init(c bot.PluginConfig, db *storage.DB) error {
 	trustAttempts := c.Int("befriend_attempts", 3)
 	goldenChance := c.Float("golden_duck_probability", 0.15)
 	firearmEnabled := c.Bool("firearm_enabled", true)
+	jamChance := c.Float("weapon_jam_probability", 0.03)
 	magazineSize := c.Int("magazine_size", 6)
 	startingAmmo := c.Int("starting_ammo", magazineSize)
 	startingPoints := int64(c.Int("starting_points", 25))
@@ -343,6 +346,12 @@ func (p *DuckHunt) Init(c bot.PluginConfig, db *storage.DB) error {
 	}
 	if goldenChance > 1 {
 		goldenChance = 1
+	}
+	if jamChance < 0 {
+		jamChance = 0
+	}
+	if jamChance > 0.25 {
+		jamChance = 0.25
 	}
 	if magazineSize < 1 {
 		magazineSize = 1
@@ -402,6 +411,7 @@ func (p *DuckHunt) Init(c bot.PluginConfig, db *storage.DB) error {
 		trustAttempts:   trustAttempts,
 		goldenChance:    goldenChance,
 		firearmEnabled:  firearmEnabled,
+		jamChance:       jamChance,
 		magazineSize:    magazineSize,
 		startingAmmo:    startingAmmo,
 		startingPoints:  startingPoints,
@@ -503,6 +513,9 @@ func (p *DuckHunt) Handle(b *bot.Bot, m bot.Message) bool {
 		return true
 	case "reload":
 		p.reload(b, m)
+		return true
+	case "unjam":
+		p.unjam(b, m)
 		return true
 	case "ammo":
 		p.ammo(b, m)
@@ -778,10 +791,17 @@ func (p *DuckHunt) interact(b *bot.Bot, m bot.Message, befriend bool) {
 	}
 	p.attempts[attemptKey] = now
 	player := p.loadPlayerLocked(b.Config.NetworkName, m.Target, m.Nick)
+	focusedShot := !befriend && player.FocusedShot
 	if !befriend && p.cfg.firearmEnabled {
 		if !player.HasGun {
 			p.mu.Unlock()
 			b.Send(m.ReplyTarget(), ircColor(ircYellow, fmt.Sprintf("%s: click... visit !shop and buy some arcade gear first", m.Nick)))
+			return
+		}
+		if player.Jammed {
+			weaponName := p.weaponForPlayer(player).Name
+			p.mu.Unlock()
+			b.Send(m.ReplyTarget(), ircColor(ircYellow, fmt.Sprintf("%s: *click* your %s is jammed; use !unjam before firing again", m.Nick, weaponName)))
 			return
 		}
 		if player.Ammo < 1 {
@@ -793,9 +813,17 @@ func (p *DuckHunt) interact(b *bot.Bot, m bot.Message, befriend bool) {
 	}
 	if !befriend {
 		player.Shots++
+		if p.cfg.firearmEnabled && !focusedShot && rand.Float64() < p.cfg.jamChance {
+			player.Jammed = true
+			p.savePlayerLocked(b.Config.NetworkName, m.Target, m.Nick, player)
+			ammoHint := duckAmmoHint(player)
+			weaponName := p.weaponForPlayer(player).Name
+			p.mu.Unlock()
+			b.Send(m.ReplyTarget(), fmt.Sprintf("%s %s's %s jammed! No damage dealt. Use %s to clear it.%s", ircColor(ircRed, "*KRRK*"), m.Nick, weaponName, ircColor(ircBold, "!unjam"), ammoHint))
+			return
+		}
 		p.savePlayerLocked(b.Config.NetworkName, m.Target, m.Nick, player)
 	}
-	focusedShot := !befriend && player.FocusedShot
 	if focusedShot {
 		player.FocusedShot = false
 		p.savePlayerLocked(b.Config.NetworkName, m.Target, m.Nick, player)
@@ -966,14 +994,19 @@ func (p *DuckHunt) formatDuckStats(nick string, player duckPlayer, score duckSco
 	hitRate := duckPercent(score.Ducks, player.Hits, 1)
 	armed := "Unarmed"
 	ammo := "0/0"
+	jamChance := "0%"
 	if player.HasGun {
 		armed = "Armed"
+		if player.Jammed {
+			armed = "Armed (Jammed)"
+		}
 		weapon := p.weaponForPlayer(player)
 		ammo = fmt.Sprintf("%d/%d", player.Ammo, weapon.MagazineSize)
+		jamChance = fmt.Sprintf("%.0f%%", p.cfg.jamChance*100)
 	}
 	items := duckItems(player)
 	effects := duckEffects(player)
-	return fmt.Sprintf("%s: Lv%d %s | %d XP (%s) | %d shots | %d killed | %d befriended | %s accuracy | %s hit rate | %s | %s ammo | %d spare magazine%s | 0%% jam chance | Items: %s | Effects: %s", nick, level, title, player.XP, next, player.Shots, score.Ducks, score.Friends, accuracy, hitRate, armed, ammo, player.SpareMagazines, duckPlural(uint64(player.SpareMagazines)), items, effects)
+	return fmt.Sprintf("%s: Lv%d %s | %d XP (%s) | %d shots | %d killed | %d befriended | %s accuracy | %s hit rate | %s | %s ammo | %d spare magazine%s | %s jam chance | Items: %s | Effects: %s", nick, level, title, player.XP, next, player.Shots, score.Ducks, score.Friends, accuracy, hitRate, armed, ammo, player.SpareMagazines, duckPlural(uint64(player.SpareMagazines)), jamChance, items, effects)
 }
 
 func duckEffects(player duckPlayer) string {
@@ -1044,7 +1077,11 @@ func (p *DuckHunt) ammo(b *bot.Bot, m bot.Message) {
 		return
 	}
 	weapon := p.weaponForPlayer(player)
-	b.Send(m.ReplyTarget(), fmt.Sprintf("%s: %s ammo %d/%d, spare magazines %d, points %d.", m.Nick, weapon.Name, player.Ammo, weapon.MagazineSize, player.SpareMagazines, player.Points))
+	jammed := ""
+	if player.Jammed {
+		jammed = " JAMMED—use !unjam."
+	}
+	b.Send(m.ReplyTarget(), fmt.Sprintf("%s: %s ammo %d/%d, spare magazines %d, points %d.%s", m.Nick, weapon.Name, player.Ammo, weapon.MagazineSize, player.SpareMagazines, player.Points, jammed))
 }
 
 func duckAmmoHint(player duckPlayer) string {
@@ -1285,6 +1322,11 @@ func (p *DuckHunt) reload(b *bot.Bot, m bot.Message) {
 		b.Send(m.ReplyTarget(), fmt.Sprintf("%s: you need arcade gear first; use !shop.", m.Nick))
 		return
 	}
+	if player.Jammed {
+		p.mu.Unlock()
+		b.Send(m.ReplyTarget(), fmt.Sprintf("%s: your %s is jammed; use !unjam first. Reloading does not clear jams.", m.Nick, p.weaponForPlayer(player).Name))
+		return
+	}
 	weapon := p.weaponForPlayer(player)
 	if player.Ammo >= weapon.MagazineSize {
 		p.mu.Unlock()
@@ -1301,6 +1343,31 @@ func (p *DuckHunt) reload(b *bot.Bot, m bot.Message) {
 	p.savePlayerLocked(b.Config.NetworkName, m.Target, m.Nick, player)
 	p.mu.Unlock()
 	b.Send(m.ReplyTarget(), fmt.Sprintf("%s: *click* new %s magazine loaded! Ammo: %d/%d; spare magazines: %d.", m.Nick, weapon.Name, player.Ammo, weapon.MagazineSize, player.SpareMagazines))
+}
+
+func (p *DuckHunt) unjam(b *bot.Bot, m bot.Message) {
+	if !p.cfg.firearmEnabled {
+		b.Send(m.ReplyTarget(), ircColor(ircYellow, "Duck Hunt arcade gear is disabled."))
+		return
+	}
+	p.mu.Lock()
+	player := p.loadPlayerLocked(b.Config.NetworkName, m.Target, m.Nick)
+	if !player.HasGun {
+		p.mu.Unlock()
+		b.Send(m.ReplyTarget(), fmt.Sprintf("%s: you do not have arcade gear; use !shop first.", m.Nick))
+		return
+	}
+	if !player.Jammed {
+		p.mu.Unlock()
+		b.Send(m.ReplyTarget(), fmt.Sprintf("%s: your %s is running smoothly; no jam to clear.", m.Nick, p.weaponForPlayer(player).Name))
+		return
+	}
+	player.Jammed = false
+	p.savePlayerLocked(b.Config.NetworkName, m.Target, m.Nick, player)
+	weapon := p.weaponForPlayer(player)
+	ammo := player.Ammo
+	p.mu.Unlock()
+	b.Send(m.ReplyTarget(), fmt.Sprintf("%s: *click-clack* %s cleared. Ammo: %d/%d; ready to fire.", m.Nick, weapon.Name, ammo, weapon.MagazineSize))
 }
 
 func (p *DuckHunt) noDuckBang(b *bot.Bot, m bot.Message) {
