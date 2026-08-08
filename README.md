@@ -31,6 +31,7 @@ secrets for your own deployment.
 Each configured network connection:
 
 - connects over TLS and can authenticate with SASL PLAIN or certificate-based SASL EXTERNAL
+- can perform an explicit one-time CertFP enrollment with existing SASL credentials; see [NickServ and SASL](docs/nickserv-sasl.md)
 - joins any number of configured channels
 - listens for channel, private, and invite events
 - dispatches messages to enabled plugins

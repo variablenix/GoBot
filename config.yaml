@@ -21,6 +21,11 @@ networks:
       sasl_mechanism: plain # plain or external
       sasl_user: ""
       sasl_pass: ""
+      # One-time enrollment helper: with a client_cert configured, use PLAIN
+      # credentials and ask NickServ to associate that certificate. Disable
+      # after NickServ confirms, then switch sasl_mechanism to external.
+      certfp_enroll: false
+      nickserv_name: NickServ
       # If SASL does not stick on a network, optionally fall back to NickServ.
       nickserv_fallback: false
       # If the network renames the bot to Guest..., try to reclaim the nick.

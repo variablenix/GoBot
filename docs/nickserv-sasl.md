@@ -97,8 +97,57 @@ BOT_TLS_CLIENT_CERT=/home/ak/irc-bot/GoBot/secrets/echo-ouch.pem
 BOT_TLS_CLIENT_KEY=
 ~~~
 
-The server must advertise SASL and the `EXTERNAL` mechanism. All DNS backends
-behind a shared IRC hostname should expose the same capability set.
+### Enroll a certificate without WeeChat
+
+WeeChat is not required to register the certificate. GoBot has an explicit,
+temporary enrollment mode that presents the client certificate while still
+authenticating with the existing SASL password, then sends `CERT ADD` to
+NickServ after registration completes.
+
+Temporarily use:
+
+~~~yaml
+server:
+  client_cert: /home/ak/irc-bot/GoBot/secrets/echo-ouch.pem
+  client_key: ""
+identity:
+  sasl_mechanism: plain
+  sasl_user: Echo
+  sasl_pass: ""
+  certfp_enroll: true
+  nickserv_name: NickServ
+~~~
+
+Keep the password in `.env`:
+
+~~~env
+BOT_SASL_USER=Echo
+BOT_SASL_PASS=your-existing-nickserv-password
+BOT_CERTFP_ENROLL=true
+~~~
+
+After restarting GoBot, look for `requesting NickServ CertFP enrollment` and
+the confirmation from NickServ. Then disable enrollment and switch to the
+passwordless mode:
+
+~~~yaml
+identity:
+  sasl_mechanism: external
+  sasl_user: ""
+  sasl_pass: ""
+  certfp_enroll: false
+~~~
+
+Remove `BOT_SASL_PASS` (and the temporary `BOT_CERTFP_ENROLL`) from the
+service environment, restart GoBot, and verify that the log reports SASL
+EXTERNAL success. Enrollment is rejected unless the connection uses TLS,
+SASL PLAIN, and a configured client certificate. GoBot never logs the SASL
+password or private key and never stores the certificate fingerprint in the
+configuration.
+
+For the final passwordless mode, the server must advertise SASL and the
+`EXTERNAL` mechanism. All DNS backends behind a shared IRC hostname should
+expose the same capability set.
 
 If a network renames the bot to Guest..., review the optional nickserv_fallback
 and nickserv_ghost identity settings.
