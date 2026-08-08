@@ -75,7 +75,7 @@ server:
   port: 6697
   tls: true
   verify_cert: true
-  client_cert: /home/ak/irc-bot/GoBot/secrets/echo-ouch.pem
+  client_cert: /opt/gobot/secrets/ouch-client.pem
 identity:
   nick: Echo
   sasl_mechanism: external
@@ -93,7 +93,7 @@ For one-network deployments, these environment variables are also supported:
 
 ~~~env
 BOT_SASL_MECHANISM=external
-BOT_TLS_CLIENT_CERT=/home/ak/irc-bot/GoBot/secrets/echo-ouch.pem
+BOT_TLS_CLIENT_CERT=/opt/gobot/secrets/ouch-client.pem
 BOT_TLS_CLIENT_KEY=
 ~~~
 
@@ -108,7 +108,7 @@ Temporarily use:
 
 ~~~yaml
 server:
-  client_cert: /home/ak/irc-bot/GoBot/secrets/echo-ouch.pem
+  client_cert: /opt/gobot/secrets/ouch-client.pem
   client_key: ""
 identity:
   sasl_mechanism: plain

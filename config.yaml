@@ -9,7 +9,7 @@ networks:
       verify_cert: true
       # Optional client certificate for SASL EXTERNAL/CertFP. OuchNet's
       # combined certificate/private-key PEM format is supported.
-      # client_cert: "/home/ak/irc-bot/GoBot/secrets/echo-ouch.pem"
+      # client_cert: "/opt/gobot/secrets/ouch-client.pem"
       # client_key: "" # only needed when the private key is separate
     identity:
       nick: GoBot
