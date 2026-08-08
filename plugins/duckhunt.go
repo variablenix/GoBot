@@ -1721,7 +1721,7 @@ func xpToNextLevel(xp int64) int64 {
 
 func duckName(state *duckHuntState) string {
 	if state != nil && state.golden {
-		return ircColor(ircYellow, "the GOLDEN DUCK")
+		return "the " + ircColor(ircYellow, "GOLDEN DUCK")
 	}
 	if state != nil && state.flockRemaining > 1 {
 		return ircColor(ircCyan, "a duck in the flock")

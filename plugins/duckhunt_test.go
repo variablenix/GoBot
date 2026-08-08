@@ -307,6 +307,17 @@ func TestDuckHuntAnnouncementKeepsDuckASCIICompact(t *testing.T) {
 	}
 }
 
+func TestDuckHuntGoldenDuckColorStartsAtLabel(t *testing.T) {
+	got := duckName(&duckHuntState{golden: true})
+	want := "the " + ircColor(ircYellow, "GOLDEN DUCK")
+	if got != want {
+		t.Fatalf("golden duck name = %q, want %q", got, want)
+	}
+	if strings.HasPrefix(got, ircYellow) {
+		t.Fatal("the article must not be yellow")
+	}
+}
+
 func TestDuckHuntSchedulesAfterActivityThreshold(t *testing.T) {
 	plugin := &DuckHunt{}
 	if err := plugin.Init(bot.PluginConfig{
