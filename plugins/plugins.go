@@ -56,5 +56,11 @@ func All() []bot.Plugin {
 		&Fun{},
 		&Attack{},
 		&Weapons{},
+		&Paste{},
+		&Crypto{},
+		&Pkg{},
+		&Port{},
+		&Audit{},
+		&Docker{},
 	}
 }
