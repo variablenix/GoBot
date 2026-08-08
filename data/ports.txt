@@ -1,0 +1,1034 @@
+ # Local IANA service catalog. The first 0-1023 entries cover well-known ports;
+ # names and descriptions are intentionally compact for IRC responses.
+20 FTP file transfer data
+21 FTP file transfer control
+22 SSH secure shell
+25 SMTP mail transfer
+53 DNS domain name system
+80 HTTP web server
+110 POP3 post office protocol
+143 IMAP internet message access
+443 HTTPS secure web server
+465 SMTPS SMTP over TLS
+587 SMTP-submission mail submission
+993 IMAPS IMAP over TLS
+995 POP3S POP3 over TLS
+3306 MySQL MySQL database
+5432 PostgreSQL PostgreSQL database
+6379 Redis Redis data store
+6667 IRC internet relay chat
+6697 IRC-TLS IRC over TLS
+8080 HTTP-alt alternate HTTP
+8443 HTTPS-alt alternate HTTPS
+27017 MongoDB MongoDB database
+0 reserved Reserved
+1 tcpmux TCP Port Service Multiplexer
+2 reserved Reserved
+3 reserved Reserved
+4 reserved Unassigned
+5 rje Remote Job Entry
+6 reserved Unassigned
+7 echo Echo
+8 reserved Unassigned
+9 discard Discard
+10 reserved Unassigned
+11 systat Active Users
+12 reserved Unassigned
+13 daytime Daytime
+14 reserved Unassigned
+15 reserved Unassigned [was netstat]
+16 reserved Unassigned
+17 qotd Quote of the Day
+18 msp Message Send Protocol (historic)
+19 chargen Character Generator
+23 telnet Telnet
+24 reserved any private mail system
+26 reserved Unassigned
+27 nsw-fe NSW User System FE
+28 reserved Unassigned
+29 msg-icp MSG ICP
+30 reserved Unassigned
+31 msg-auth MSG Authentication
+32 reserved Unassigned
+33 dsp Display Support Protocol
+34 reserved Unassigned
+35 reserved any private printer server
+36 reserved Unassigned
+37 time Time
+38 rap Route Access Protocol
+39 rlp Resource Location Protocol
+40 reserved Unassigned
+41 graphics Graphics
+42 name Host Name Server
+43 nicname Who Is
+44 mpm-flags MPM FLAGS Protocol
+45 mpm Message Processing Module [recv]
+46 mpm-snd MPM [default send]
+47 reserved Reserved
+48 auditd Digital Audit Daemon
+49 tacacs Login Host Protocol (TACACS)
+50 re-mail-ck Remote Mail Checking Protocol
+51 reserved Reserved
+52 xns-time XNS Time Protocol
+54 xns-ch XNS Clearinghouse
+55 isi-gl ISI Graphics Language
+56 xns-auth XNS Authentication
+57 reserved any private terminal access
+58 xns-mail XNS Mail
+59 reserved any private file service
+60 reserved Unassigned
+61 reserved Reserved
+62 acas ACA Services
+63 whoispp whois++ IANA assigned this well-formed service name as a replacement for "whois++".
+64 covia Communications Integrator (CI)
+65 tacacs-ds TACACS-Database Service
+66 sql-net Oracle SQL*NET IANA assigned this well-formed service name as a replacement for "sql*net".
+67 bootps Bootstrap Protocol Server
+68 bootpc Bootstrap Protocol Client
+69 tftp Trivial File Transfer
+70 gopher Gopher
+71 netrjs-1 Remote Job Service
+72 netrjs-2 Remote Job Service
+73 netrjs-3 Remote Job Service
+74 netrjs-4 Remote Job Service
+75 reserved any private dial out service
+76 deos Distributed External Object Store
+77 reserved any private RJE service
+78 vettcp vettcp
+79 finger Finger
+81 reserved Unassigned
+82 xfer XFER Utility
+83 mit-ml-dev MIT ML Device
+84 ctf Common Trace Facility
+85 mit-ml-dev MIT ML Device
+86 mfcobol Micro Focus Cobol
+87 reserved any private terminal link
+88 kerberos Kerberos
+89 su-mit-tg SU/MIT Telnet Gateway
+90 dnsix DNSIX Securit Attribute Token Map
+91 mit-dov MIT Dover Spooler
+92 npp Network Printing Protocol
+93 dcp Device Control Protocol
+94 objcall Tivoli Object Dispatcher
+95 supdup SUPDUP
+96 dixie DIXIE Protocol Specification
+97 swift-rvf Swift Remote Virtural File Protocol
+98 tacnews TAC News
+99 metagram Metagram Relay
+100 reserved Unassigned
+101 hostname NIC Host Name Server
+102 iso-tsap ISO-TSAP Class 0
+103 gppitnp Genesis Point-to-Point Trans Net
+104 acr-nema ACR-NEMA Digital Imag. & Comm. 300
+105 cso CCSO name server protocol
+106 3com-tsmux 3COM-TSMUX
+107 rtelnet Remote Telnet Service
+108 snagas SNA Gateway Access Server
+109 pop2 Post Office Protocol - Version 2
+111 sunrpc SUN Remote Procedure Call
+112 mcidas McIDAS Data Transmission Protocol
+113 ident
+114 reserved unassigned
+115 sftp Simple File Transfer Protocol
+116 ansanotify ANSA REX Notify
+117 uucp-path UUCP Path Service
+118 sqlserv SQL Services
+119 nntp Network News Transfer Protocol
+120 cfdptkt CFDPTKT
+121 erpc Encore Expedited Remote Pro.Call
+122 smakynet SMAKYNET
+123 ntp Network Time Protocol
+124 ansatrader ANSA REX Trader
+125 locus-map Locus PC-Interface Net Map Ser
+126 nxedit NXEdit
+127 locus-con Locus PC-Interface Conn Server
+128 gss-xlicen GSS X License Verification
+129 pwdgen Password Generator Protocol
+130 cisco-fna cisco FNATIVE
+131 cisco-tna cisco TNATIVE
+132 cisco-sys cisco SYSMAINT
+133 statsrv Statistics Service
+134 ingres-net INGRES-NET Service
+135 epmap DCE endpoint resolution
+136 profile PROFILE Naming System
+137 netbios-ns NETBIOS Name Service
+138 netbios-dgm NETBIOS Datagram Service
+139 netbios-ssn NETBIOS Session Service
+140 emfis-data EMFIS Data Service
+141 emfis-cntl EMFIS Control Service
+142 bl-idm Britton-Lee IDM
+144 uma Universal Management Architecture
+145 uaac UAAC Protocol
+146 iso-tp0 ISO-IP0
+147 iso-ip ISO-IP
+148 jargon Jargon
+149 aed-512 AED 512 Emulation Service
+150 sql-net SQL-NET
+151 hems HEMS
+152 bftp Background File Transfer Program
+153 sgmp SGMP
+154 netsc-prod NETSC
+155 netsc-dev NETSC
+156 sqlsrv SQL Service
+157 knet-cmp KNET/VM Command/Message Protocol
+158 pcmail-srv PCMail Server
+159 nss-routing NSS-Routing
+160 sgmp-traps SGMP-TRAPS
+161 snmp SNMP
+162 snmptrap SNMPTRAP
+163 cmip-man CMIP/TCP Manager
+164 cmip-agent CMIP/TCP Agent
+165 xns-courier Xerox
+166 s-net Sirius Systems
+167 namp NAMP
+168 rsvd RSVD
+169 send SEND
+170 print-srv Network PostScript
+171 multiplex Network Innovations Multiplex
+172 cl-1 Network Innovations CL/1 IANA assigned this well-formed service name as a replacement for "cl/1".
+173 xyplex-mux Xyplex
+174 mailq MAILQ
+175 vmnet VMNET
+176 genrad-mux GENRAD-MUX
+177 xdmcp X Display Manager Control Protocol
+178 nextstep NextStep Window Server
+179 bgp Border Gateway Protocol
+180 ris Intergraph
+181 unify Unify
+182 audit Unisys Audit SITP
+183 ocbinder OCBinder
+184 ocserver OCServer
+185 remote-kis Remote-KIS
+186 kis KIS Protocol
+187 aci Application Communication Interface
+188 mumps Plus Five's MUMPS
+189 qft Queued File Transport
+190 gacp Gateway Access Control Protocol
+191 prospero Prospero Directory Service
+192 osu-nms OSU Network Monitoring System
+193 srmp Spider Remote Monitoring Protocol
+194 irc Internet Relay Chat Protocol
+195 dn6-nlm-aud DNSIX Network Level Module Audit
+196 dn6-smm-red DNSIX Session Mgt Module Audit Redir
+197 dls Directory Location Service
+198 dls-mon Directory Location Service Monitor
+199 smux SMUX
+200 src IBM System Resource Controller
+201 at-rtmp AppleTalk Routing Maintenance
+202 at-nbp AppleTalk Name Binding
+203 at-3 AppleTalk Unused
+204 at-echo AppleTalk Echo
+205 at-5 AppleTalk Unused
+206 at-zis AppleTalk Zone Information
+207 at-7 AppleTalk Unused
+208 at-8 AppleTalk Unused
+209 qmtp The Quick Mail Transfer Protocol
+210 z39-50 ANSI Z39.50 IANA assigned this well-formed service name as a replacement for "z39.50".
+211 914c-g Texas Instruments 914C/G Terminal IANA assigned this well-formed service name as a replacement for "914c/g".
+212 anet ATEXSSTR
+213 ipx IPX
+214 vmpwscs VM PWSCS
+215 softpc Insignia Solutions
+216 CAIlic Computer Associates Int'l License Server
+217 dbase dBASE Unix
+218 mpp Netix Message Posting Protocol
+219 uarps Unisys ARPs
+220 imap3 Interactive Mail Access Protocol v3
+221 fln-spx Berkeley rlogind with SPX auth
+222 rsh-spx Berkeley rshd with SPX auth
+223 cdc Certificate Distribution Center
+224 masqdialer masqdialer
+225 reserved IANA well-known port
+226 reserved IANA well-known port
+227 reserved IANA well-known port
+228 reserved IANA well-known port
+229 reserved IANA well-known port
+230 reserved IANA well-known port
+231 reserved IANA well-known port
+232 reserved IANA well-known port
+233 reserved IANA well-known port
+234 reserved IANA well-known port
+235 reserved IANA well-known port
+236 reserved IANA well-known port
+237 reserved IANA well-known port
+238 reserved IANA well-known port
+239 reserved IANA well-known port
+240 reserved IANA well-known port
+241 reserved IANA well-known port
+242 direct Direct
+243 sur-meas Survey Measurement
+244 inbusiness inbusiness
+245 link LINK
+246 dsp3270 Display Systems Protocol
+247 subntbcst-tftp SUBNTBCST_TFTP IANA assigned this well-formed service name as a replacement for "subntbcst_tftp".
+248 bhfhs bhfhs
+249 reserved IANA well-known port
+250 reserved IANA well-known port
+251 reserved IANA well-known port
+252 reserved IANA well-known port
+253 reserved IANA well-known port
+254 reserved IANA well-known port
+255 reserved IANA well-known port
+256 rap RAP
+257 set Secure Electronic Transaction
+258 reserved Unassigned
+259 esro-gen Efficient Short Remote Operations
+260 openport Openport
+261 nsiiops IIOP Name Service over TLS/SSL
+262 arcisdms Arcisdms
+263 hdap HDAP
+264 bgmp BGMP
+265 x-bone-ctl X-Bone CTL
+266 sst SCSI on ST
+267 td-service Tobit David Service Layer
+268 td-replica Tobit David Replica
+269 manet MANET Protocols
+270 reserved Reserved
+271 pt-tls IETF Network Endpoint Assessment (NEA) Posture Transport Protocol over TLS (PT-TLS)
+272 reserved IANA well-known port
+273 reserved IANA well-known port
+274 reserved IANA well-known port
+275 reserved IANA well-known port
+276 reserved IANA well-known port
+277 reserved IANA well-known port
+278 reserved IANA well-known port
+279 reserved IANA well-known port
+280 http-mgmt http-mgmt
+281 personal-link Personal Link
+282 cableport-ax Cable Port A/X
+283 rescap rescap
+284 corerjd corerjd
+285 reserved Unassigned
+286 fxp FXP Communication
+287 k-block K-BLOCK
+288 reserved IANA well-known port
+289 reserved IANA well-known port
+290 reserved IANA well-known port
+291 reserved IANA well-known port
+292 reserved IANA well-known port
+293 reserved IANA well-known port
+294 reserved IANA well-known port
+295 reserved IANA well-known port
+296 reserved IANA well-known port
+297 reserved IANA well-known port
+298 reserved IANA well-known port
+299 reserved IANA well-known port
+300 tacacss TLS Secure Login Host Protocol (TACACSS)
+301 reserved IANA well-known port
+302 reserved IANA well-known port
+303 reserved IANA well-known port
+304 reserved IANA well-known port
+305 reserved IANA well-known port
+306 reserved IANA well-known port
+307 reserved IANA well-known port
+308 novastorbakcup Novastor Backup
+309 entrusttime EntrustTime
+310 bhmds bhmds
+311 asip-webadmin AppleShare IP WebAdmin
+312 vslmp VSLMP
+313 magenta-logic Magenta Logic
+314 opalis-robot Opalis Robot
+315 dpsi DPSI
+316 decauth decAuth
+317 zannet Zannet
+318 pkix-timestamp PKIX TimeStamp
+319 ptp-event PTP Event
+320 ptp-general PTP General
+321 pip PIP
+322 rtsps RTSPS
+323 rpki-rtr Resource PKI to Router Protocol
+324 rpki-rtr-tls Resource PKI to Router Protocol over TLS
+325 reserved IANA well-known port
+326 reserved IANA well-known port
+327 reserved IANA well-known port
+328 reserved IANA well-known port
+329 reserved IANA well-known port
+330 reserved IANA well-known port
+331 reserved IANA well-known port
+332 reserved IANA well-known port
+333 texar Texar Security Port
+334 reserved IANA well-known port
+335 reserved IANA well-known port
+336 reserved IANA well-known port
+337 reserved IANA well-known port
+338 reserved IANA well-known port
+339 reserved IANA well-known port
+340 reserved IANA well-known port
+341 reserved IANA well-known port
+342 reserved IANA well-known port
+343 reserved IANA well-known port
+344 pdap Prospero Data Access Protocol
+345 pawserv Perf Analysis Workbench
+346 zserv Zebra server
+347 fatserv Fatmen Server
+348 csi-sgwp Cabletron Management Protocol
+349 mftp mftp
+350 matip-type-a MATIP Type A
+351 matip-type-b MATIP Type B
+352 dtag-ste-sb DTAG
+353 ndsauth NDSAUTH
+354 bh611 bh611
+355 datex-asn DATEX-ASN
+356 cloanto-net-1 Cloanto Net 1
+357 bhevent bhevent
+358 shrinkwrap Shrinkwrap
+359 reserved Reserved
+360 scoi2odialog scoi2odialog
+361 semantix Semantix
+362 srssend SRS Send
+363 rsvp-tunnel RSVP Tunnel IANA assigned this well-formed service name as a replacement for "rsvp_tunnel".
+364 aurora-cmgr Aurora CMGR
+365 dtk DTK
+366 odmr ODMR
+367 mortgageware MortgageWare
+368 qbikgdp QbikGDP
+369 rpc2portmap rpc2portmap
+370 codaauth2 codaauth2
+371 clearcase Clearcase
+372 ulistproc ListProcessor
+373 legent-1 Legent Corporation
+374 legent-2 Legent Corporation
+375 hassle Hassle
+376 nip Amiga Envoy Network Inquiry Protocol
+377 tnETOS NEC Corporation
+378 dsETOS NEC Corporation
+379 is99c TIA/EIA/IS-99 modem client
+380 is99s TIA/EIA/IS-99 modem server
+381 hp-collector hp performance data collector
+382 hp-managed-node hp performance data managed node
+383 hp-alarm-mgr hp performance data alarm manager
+384 arns A Remote Network Server System
+385 ibm-app IBM Application
+386 asa ASA Message Router Object Def.
+387 aurp Appletalk Update-Based Routing Pro.
+388 unidata-ldm Unidata LDM
+389 ldap Lightweight Directory Access Protocol
+390 uis UIS
+391 synotics-relay SynOptics SNMP Relay Port
+392 synotics-broker SynOptics Port Broker Port
+393 meta5 Meta5
+394 embl-ndt EMBL Nucleic Data Transfer
+395 netcp NetScout Control Protocol
+396 netware-ip Novell Netware over IP
+397 mptn Multi Protocol Trans. Net.
+398 kryptolan Kryptolan
+399 iso-tsap-c2 ISO Transport Class 2 Non-Control over TCP
+400 osb-sd Oracle Secure Backup
+401 ups Uninterruptible Power Supply
+402 genie Genie Protocol
+403 decap decap
+404 nced nced
+405 ncld ncld
+406 imsp Interactive Mail Support Protocol
+407 timbuktu Timbuktu
+408 prm-sm Prospero Resource Manager Sys. Man.
+409 prm-nm Prospero Resource Manager Node Man.
+410 decladebug DECLadebug Remote Debug Protocol
+411 rmt Remote MT Protocol
+412 synoptics-trap Trap Convention Port
+413 smsp Storage Management Services Protocol
+414 infoseek InfoSeek
+415 bnet BNet
+416 silverplatter Silverplatter
+417 onmux Onmux
+418 hyper-g Hyper-G
+419 ariel1 Ariel 1
+420 smpte SMPTE
+421 ariel2 Ariel 2
+422 ariel3 Ariel 3
+423 opc-job-start IBM Operations Planning and Control Start
+424 opc-job-track IBM Operations Planning and Control Track
+425 icad-el ICAD
+426 smartsdp smartsdp
+427 svrloc Server Location
+428 ocs-cmu OCS_CMU IANA assigned this well-formed service name as a replacement for "ocs_cmu".
+429 ocs-amu OCS_AMU IANA assigned this well-formed service name as a replacement for "ocs_amu".
+430 utmpsd UTMPSD
+431 utmpcd UTMPCD
+432 iasd IASD
+433 nnsp NNTP for transit servers (NNSP)
+434 mobileip-agent MobileIP-Agent
+435 mobilip-mn MobilIP-MN
+436 dna-cml DNA-CML
+437 comscm comscm
+438 dsfgw dsfgw
+439 dasp dasp
+440 sgcp sgcp
+441 decvms-sysmgt decvms-sysmgt
+442 cvc-hostd cvc_hostd IANA assigned this well-formed service name as a replacement for "cvc_hostd".
+444 snpp Simple Network Paging Protocol
+445 microsoft-ds Microsoft-DS
+446 ddm-rdb DDM-Remote Relational Database Access
+447 ddm-dfm DDM-Distributed File Management
+448 ddm-ssl DDM-Remote DB Access Using Secure Sockets
+449 as-servermap AS Server Mapper
+450 tserver Computer Supported Telecomunication Applications
+451 sfs-smp-net Cray Network Semaphore server
+452 sfs-config Cray SFS config server
+453 creativeserver CreativeServer
+454 contentserver ContentServer
+455 creativepartnr CreativePartnr
+456 macon-tcp macon-tcp
+457 scohelp scohelp
+458 appleqtc apple quick time
+459 ampr-rcmd ampr-rcmd
+460 skronk skronk
+461 datasurfsrv DataRampSrv
+462 datasurfsrvsec DataRampSrvSec
+463 alpes alpes
+464 kpasswd kpasswd
+466 digital-vrc digital-vrc
+467 mylex-mapd mylex-mapd
+468 photuris proturis
+469 rcp Radio Control Protocol
+470 scx-proxy scx-proxy
+471 mondex Mondex
+472 ljk-login ljk-login
+473 hybrid-pop hybrid-pop
+474 tn-tl-w1 tn-tl-w1
+475 tcpnethaspsrv tcpnethaspsrv
+476 tn-tl-fd1 tn-tl-fd1
+477 ss7ns ss7ns
+478 spsc spsc
+479 iafserver iafserver
+480 iafdbase iafdbase
+481 ph Ph service
+482 bgs-nsi bgs-nsi
+483 ulpnet ulpnet
+484 integra-sme Integra Software Management Environment
+485 powerburst Air Soft Power Burst
+486 avian avian
+487 saft saft Simple Asynchronous File Transfer
+488 gss-http gss-http
+489 nest-protocol nest-protocol
+490 micom-pfs micom-pfs
+491 go-login go-login
+492 ticf-1 Transport Independent Convergence for FNA
+493 ticf-2 Transport Independent Convergence for FNA
+494 pov-ray POV-Ray
+495 intecourier intecourier
+496 pim-rp-disc PIM-RP-DISC
+497 retrospect Retrospect backup and restore service
+498 siam siam
+499 iso-ill ISO ILL Protocol
+500 isakmp isakmp
+501 stmf STMF
+502 mbap Modbus Application Protocol
+503 intrinsa Intrinsa
+504 citadel citadel
+505 mailbox-lm mailbox-lm
+506 ohimsrv ohimsrv
+507 crs crs
+508 xvttp xvttp
+509 snare snare
+510 fcp FirstClass Protocol
+511 passgo PassGo
+512 exec remote process execution; authentication performed using passwords and UNIX login names
+513 login remote login a la telnet; automatic authentication performed based on priviledged port numbers and distributed data bases which identify "authentication domains"
+514 shell cmd like exec, but automatic authentication is performed as for login server
+515 printer spooler
+516 videotex videotex
+517 talk like tenex link, but across machine - unfortunately, doesn't use link protocol (this is actually just a rendezvous port from which a tcp connection is established)
+518 ntalk
+519 utime unixtime
+520 efs extended file name server
+521 ripng ripng
+522 ulp ULP
+523 ibm-db2 IBM-DB2
+524 ncp NCP
+525 timed timeserver
+526 tempo newdate
+527 stx Stock IXChange
+528 custix Customer IXChange
+529 irc-serv IRC-SERV
+530 courier rpc
+531 conference chat
+532 netnews readnews
+533 netwall for emergency broadcasts
+534 windream windream Admin
+535 iiop iiop
+536 opalis-rdv opalis-rdv
+537 nmsp Networked Media Streaming Protocol
+538 gdomap gdomap
+539 apertus-ldp Apertus Technologies Load Determination
+540 uucp uucpd
+541 uucp-rlogin uucp-rlogin
+542 commerce commerce
+543 klogin
+544 kshell krcmd
+545 appleqtcsrvr appleqtcsrvr
+546 dhcpv6-client DHCPv6 Client
+547 dhcpv6-server DHCPv6 Server
+548 afpovertcp AFP over TCP
+549 idfp IDFP
+550 new-rwho new-who
+551 cybercash cybercash
+552 devshr-nts DeviceShare
+553 pirp pirp
+554 rtsp Real Time Streaming Protocol (RTSP)
+555 dsf
+556 remotefs rfs server
+557 openvms-sysipc openvms-sysipc
+558 sdnskmp SDNSKMP
+559 teedtap TEEDTAP
+560 rmonitor rmonitord
+561 monitor
+562 chshell chcmd
+563 nntps nntp protocol over TLS/SSL (was snntp)
+564 9pfs plan 9 file service
+565 whoami whoami
+566 streettalk streettalk
+567 banyan-rpc banyan-rpc
+568 ms-shuttle microsoft shuttle
+569 ms-rome microsoft rome
+570 meter demon
+571 meter udemon
+572 sonar sonar
+573 banyan-vip banyan-vip
+574 ftp-agent FTP Software Agent System
+575 vemmi VEMMI
+576 ipcd ipcd
+577 vnas vnas
+578 ipdd ipdd
+579 decbsrv decbsrv
+580 sntp-heartbeat SNTP HEARTBEAT
+581 bdp Bundle Discovery Protocol
+582 scc-security SCC Security
+583 philips-vc Philips Video-Conferencing
+584 keyserver Key Server
+585 reserved De-registered
+586 password-chg Password Change
+588 cal CAL
+589 eyelink EyeLink
+590 tns-cml TNS CML
+591 http-alt FileMaker, Inc. - HTTP Alternate (see Port 80)
+592 eudora-set Eudora Set
+593 http-rpc-epmap HTTP RPC Ep Map
+594 tpip TPIP
+595 cab-protocol CAB Protocol
+596 smsd SMSD
+597 ptcnameservice PTC Name Service
+598 sco-websrvrmg3 SCO Web Server Manager 3
+599 acp Aeolon Core Protocol
+600 ipcserver Sun IPC server
+601 syslog-conn Reliable Syslog Service
+602 xmlrpc-beep XML-RPC over BEEP
+603 idxp IDXP
+604 tunnel TUNNEL
+605 soap-beep SOAP over BEEP
+606 urm Cray Unified Resource Manager
+607 nqs nqs
+608 sift-uft Sender-Initiated/Unsolicited File Transfer
+609 npmp-trap npmp-trap
+610 npmp-local npmp-local
+611 npmp-gui npmp-gui
+612 hmmp-ind HMMP Indication
+613 hmmp-op HMMP Operation
+614 sshell SSLshell
+615 sco-inetmgr Internet Configuration Manager
+616 sco-sysmgr SCO System Administration Server
+617 sco-dtmgr SCO Desktop Administration Server
+618 dei-icda DEI-ICDA
+619 compaq-evm Compaq EVM
+620 sco-websrvrmgr SCO WebServer Manager
+621 escp-ip ESCP
+622 collaborator Collaborator
+623 oob-ws-http DMTF out-of-band web services management protocol
+624 cryptoadmin Crypto Admin
+625 dec-dlm DEC DLM IANA assigned this well-formed service name as a replacement for "dec_dlm".
+626 asia ASIA
+627 passgo-tivoli PassGo Tivoli
+628 qmqp QMQP
+629 3com-amp3 3Com AMP3
+630 rda RDA
+631 ipp IPP (Internet Printing Protocol)
+632 bmpp bmpp
+633 servstat Service Status update (Sterling Software)
+634 ginad ginad
+635 rlzdbase RLZ DBase
+636 ldaps ldap protocol over TLS/SSL (was sldap)
+637 lanserver lanserver
+638 mcns-sec mcns-sec
+639 msdp MSDP
+640 entrust-sps entrust-sps
+641 repcmd repcmd
+642 esro-emsdp ESRO-EMSDP V1.3
+643 sanity SANity
+644 dwr dwr
+645 pssc PSSC
+646 ldp LDP
+647 dhcp-failover DHCP Failover
+648 rrp Registry Registrar Protocol (RRP)
+649 cadview-3d Cadview-3d - streaming 3d models over the internet
+650 obex OBEX
+651 ieee-mms IEEE MMS
+652 hello-port HELLO_PORT
+653 repscmd RepCmd
+654 aodv AODV
+655 tinc TINC
+656 spmp SPMP
+657 rmc RMC
+658 tenfold TenFold
+659 reserved Removed
+660 mac-srvr-admin MacOS Server Admin
+661 hap HAP
+662 pftp PFTP
+663 purenoise PureNoise
+664 oob-ws-https DMTF out-of-band secure web services management protocol
+665 sun-dr Sun DR
+666 mdqs
+667 disclose campaign contribution disclosures - SDR Technologies
+668 mecomm MeComm
+669 meregister MeRegister
+670 vacdsm-sws VACDSM-SWS
+671 vacdsm-app VACDSM-APP
+672 vpps-qua VPPS-QUA
+673 cimplex CIMPLEX
+674 acap ACAP
+675 dctp DCTP
+676 vpps-via VPPS Via
+677 vpp Virtual Presence Protocol
+678 ggf-ncp GNU Generation Foundation NCP
+679 mrm MRM
+680 entrust-aaas entrust-aaas
+681 entrust-aams entrust-aams
+682 xfr XFR
+683 corba-iiop CORBA IIOP
+684 corba-iiop-ssl CORBA IIOP SSL
+685 mdc-portmapper MDC Port Mapper
+686 hcp-wismar Hardware Control Protocol Wismar
+687 asipregistry asipregistry
+688 realm-rusd ApplianceWare managment protocol
+689 nmap NMAP
+690 vatp Velneo Application Transfer Protocol
+691 msexch-routing MS Exchange Routing
+692 hyperwave-isp Hyperwave-ISP
+693 connendp almanid Connection Endpoint
+694 ha-cluster ha-cluster
+695 ieee-mms-ssl IEEE-MMS-SSL
+696 rushd RUSHD
+697 uuidgen UUIDGEN
+698 olsr OLSR
+699 accessnetwork Access Network
+700 epp Extensible Provisioning Protocol
+701 lmp Link Management Protocol (LMP)
+702 iris-beep IRIS over BEEP
+703 reserved Unassigned
+704 elcsd errlog copy/server daemon
+705 agentx AgentX
+706 silc SILC
+707 borland-dsj Borland DSJ
+708 reserved Unassigned
+709 entrust-kmsh Entrust Key Management Service Handler
+710 entrust-ash Entrust Administration Service Handler
+711 cisco-tdp Cisco TDP
+712 tbrpf TBRPF
+713 iris-xpc IRIS over XPC
+714 iris-xpcs IRIS over XPCS
+715 iris-lwz IRIS-LWZ
+716 pana PANA Messages
+717 reserved IANA well-known port
+718 reserved IANA well-known port
+719 reserved IANA well-known port
+720 reserved IANA well-known port
+721 reserved IANA well-known port
+722 reserved IANA well-known port
+723 reserved IANA well-known port
+724 reserved IANA well-known port
+725 reserved IANA well-known port
+726 reserved IANA well-known port
+727 reserved IANA well-known port
+728 reserved IANA well-known port
+729 netviewdm1 IBM NetView DM/6000 Server/Client
+730 netviewdm2 IBM NetView DM/6000 send/tcp
+731 netviewdm3 IBM NetView DM/6000 receive/tcp
+732 reserved IANA well-known port
+733 reserved IANA well-known port
+734 reserved IANA well-known port
+735 reserved IANA well-known port
+736 reserved IANA well-known port
+737 reserved IANA well-known port
+738 reserved IANA well-known port
+739 reserved IANA well-known port
+740 reserved IANA well-known port
+741 netgw netGW
+742 netrcs Network based Rev. Cont. Sys.
+743 reserved Unassigned
+744 flexlm Flexible License Manager
+745 reserved IANA well-known port
+746 reserved IANA well-known port
+747 fujitsu-dev Fujitsu Device Control
+748 ris-cm Russell Info Sci Calendar Manager
+749 kerberos-adm kerberos administration
+750 rfile
+751 pump
+752 qrh
+753 rrh
+754 tell send
+755 reserved IANA well-known port
+756 reserved IANA well-known port
+757 reserved IANA well-known port
+758 nlogin
+759 con
+760 ns
+761 rxe
+762 quotad
+763 cycleserv
+764 omserv
+765 webster
+766 reserved Unassigned
+767 phonebook phone
+768 reserved Unassigned
+769 vid
+770 cadlock
+771 rtip
+772 cycleserv2
+773 submit
+774 rpasswd
+775 entomb
+776 wpages
+777 multiling-http Multiling HTTP
+778 reserved IANA well-known port
+779 reserved IANA well-known port
+780 wpgs
+781 reserved IANA well-known port
+782 reserved IANA well-known port
+783 reserved IANA well-known port
+784 reserved IANA well-known port
+785 reserved IANA well-known port
+786 reserved Unassigned
+787 reserved Unassigned
+788 reserved IANA well-known port
+789 reserved IANA well-known port
+790 reserved IANA well-known port
+791 reserved IANA well-known port
+792 reserved IANA well-known port
+793 reserved IANA well-known port
+794 reserved IANA well-known port
+795 reserved IANA well-known port
+796 reserved IANA well-known port
+797 reserved IANA well-known port
+798 reserved IANA well-known port
+799 reserved IANA well-known port
+800 mdbs-daemon IANA assigned this well-formed service name as a replacement for "mdbs_daemon".
+801 device
+802 mbap-s Modbus Application Protocol Secure
+803 reserved IANA well-known port
+804 reserved IANA well-known port
+805 reserved IANA well-known port
+806 reserved IANA well-known port
+807 reserved IANA well-known port
+808 reserved IANA well-known port
+809 reserved IANA well-known port
+810 fcp-udp FCP
+811 reserved IANA well-known port
+812 reserved IANA well-known port
+813 reserved IANA well-known port
+814 reserved IANA well-known port
+815 reserved IANA well-known port
+816 reserved IANA well-known port
+817 reserved IANA well-known port
+818 reserved IANA well-known port
+819 reserved IANA well-known port
+820 reserved IANA well-known port
+821 reserved IANA well-known port
+822 reserved IANA well-known port
+823 reserved IANA well-known port
+824 reserved IANA well-known port
+825 reserved IANA well-known port
+826 reserved IANA well-known port
+827 reserved IANA well-known port
+828 itm-mcell-s itm-mcell-s
+829 pkix-3-ca-ra PKIX-3 CA/RA
+830 netconf-ssh NETCONF over SSH
+831 reserved Reserved
+832 reserved Reserved
+833 reserved Reserved
+834 reserved IANA well-known port
+835 reserved IANA well-known port
+836 reserved IANA well-known port
+837 reserved IANA well-known port
+838 reserved IANA well-known port
+839 reserved IANA well-known port
+840 reserved IANA well-known port
+841 reserved IANA well-known port
+842 reserved IANA well-known port
+843 reserved IANA well-known port
+844 reserved IANA well-known port
+845 reserved IANA well-known port
+846 reserved IANA well-known port
+847 dhcp-failover2 dhcp-failover 2
+848 gdoi GDOI
+849 reserved IANA well-known port
+850 reserved IANA well-known port
+851 reserved IANA well-known port
+852 reserved IANA well-known port
+853 domain-s DNS query-response protocol run over TLS
+854 dlep Dynamic Link Exchange Protocol (DLEP)
+855 reserved IANA well-known port
+856 reserved IANA well-known port
+857 reserved IANA well-known port
+858 reserved IANA well-known port
+859 reserved IANA well-known port
+860 iscsi iSCSI
+861 owamp-control OWAMP-Control
+862 twamp-control TWAMP-Control
+863 reserved IANA well-known port
+864 reserved IANA well-known port
+865 reserved IANA well-known port
+866 reserved IANA well-known port
+867 reserved IANA well-known port
+868 reserved IANA well-known port
+869 reserved IANA well-known port
+870 reserved IANA well-known port
+871 reserved IANA well-known port
+872 reserved IANA well-known port
+873 rsync rsync
+874 reserved IANA well-known port
+875 reserved IANA well-known port
+876 reserved IANA well-known port
+877 reserved IANA well-known port
+878 reserved IANA well-known port
+879 reserved IANA well-known port
+880 reserved IANA well-known port
+881 reserved IANA well-known port
+882 reserved IANA well-known port
+883 reserved IANA well-known port
+884 reserved IANA well-known port
+885 reserved IANA well-known port
+886 iclcnet-locate ICL coNETion locate server
+887 iclcnet-svinfo ICL coNETion server info IANA assigned this well-formed service name as a replacement for "iclcnet_svinfo".
+888 accessbuilder AccessBuilder
+889 reserved IANA well-known port
+890 reserved IANA well-known port
+891 reserved IANA well-known port
+892 reserved IANA well-known port
+893 reserved IANA well-known port
+894 reserved IANA well-known port
+895 reserved IANA well-known port
+896 reserved IANA well-known port
+897 reserved IANA well-known port
+898 reserved IANA well-known port
+899 reserved IANA well-known port
+900 omginitialrefs OMG Initial Refs
+901 smpnameres SMPNAMERES
+902 ideafarm-door self documenting Telnet Door
+903 ideafarm-panic self documenting Telnet Panic Door
+904 reserved IANA well-known port
+905 reserved IANA well-known port
+906 reserved IANA well-known port
+907 reserved IANA well-known port
+908 reserved IANA well-known port
+909 reserved IANA well-known port
+910 kink Kerberized Internet Negotiation of Keys (KINK)
+911 xact-backup xact-backup
+912 apex-mesh APEX relay-relay service
+913 apex-edge APEX endpoint-relay service
+914 reserved Reserved
+915 reserved Reserved
+916 reserved IANA well-known port
+917 reserved IANA well-known port
+918 reserved IANA well-known port
+919 reserved IANA well-known port
+920 reserved IANA well-known port
+921 reserved IANA well-known port
+922 reserved IANA well-known port
+923 reserved IANA well-known port
+924 reserved IANA well-known port
+925 reserved IANA well-known port
+926 reserved IANA well-known port
+927 reserved IANA well-known port
+928 reserved IANA well-known port
+929 reserved IANA well-known port
+930 reserved IANA well-known port
+931 reserved IANA well-known port
+932 reserved IANA well-known port
+933 reserved IANA well-known port
+934 reserved IANA well-known port
+935 reserved IANA well-known port
+936 reserved IANA well-known port
+937 reserved IANA well-known port
+938 reserved IANA well-known port
+939 reserved IANA well-known port
+940 reserved IANA well-known port
+941 reserved IANA well-known port
+942 reserved IANA well-known port
+943 reserved IANA well-known port
+944 reserved IANA well-known port
+945 reserved IANA well-known port
+946 reserved IANA well-known port
+947 reserved IANA well-known port
+948 reserved IANA well-known port
+949 reserved IANA well-known port
+950 reserved IANA well-known port
+951 reserved IANA well-known port
+952 reserved IANA well-known port
+953 rndc BIND9 remote name daemon controller
+954 reserved IANA well-known port
+955 reserved IANA well-known port
+956 reserved IANA well-known port
+957 reserved IANA well-known port
+958 reserved IANA well-known port
+959 reserved IANA well-known port
+960 reserved IANA well-known port
+961 reserved IANA well-known port
+962 reserved IANA well-known port
+963 reserved IANA well-known port
+964 reserved IANA well-known port
+965 reserved IANA well-known port
+966 reserved IANA well-known port
+967 reserved IANA well-known port
+968 reserved IANA well-known port
+969 reserved IANA well-known port
+970 reserved IANA well-known port
+971 reserved IANA well-known port
+972 reserved IANA well-known port
+973 reserved IANA well-known port
+974 reserved IANA well-known port
+975 reserved IANA well-known port
+976 reserved IANA well-known port
+977 reserved IANA well-known port
+978 reserved IANA well-known port
+979 reserved IANA well-known port
+980 reserved IANA well-known port
+981 reserved IANA well-known port
+982 reserved IANA well-known port
+983 reserved IANA well-known port
+984 reserved IANA well-known port
+985 reserved IANA well-known port
+986 reserved IANA well-known port
+987 reserved IANA well-known port
+988 reserved IANA well-known port
+989 ftps-data ftp protocol, data, over TLS/SSL
+990 ftps ftp protocol, control, over TLS/SSL
+991 nas Netnews Administration System
+992 telnets telnet protocol over TLS/SSL
+994 reserved Reserved
+996 vsinet vsinet
+997 maitrd
+998 busboy
+999 garcon
+1000 cadlock2
+1001 webpush HTTP Web Push
+1002 reserved IANA well-known port
+1003 reserved IANA well-known port
+1004 reserved IANA well-known port
+1005 reserved IANA well-known port
+1006 reserved IANA well-known port
+1007 reserved IANA well-known port
+1008 reserved Possibly used by Sun Solaris????
+1009 reserved Unassigned
+1010 surf surf
+1011 reserved IANA well-known port
+1012 reserved IANA well-known port
+1013 reserved IANA well-known port
+1014 reserved IANA well-known port
+1015 reserved IANA well-known port
+1016 reserved IANA well-known port
+1017 reserved IANA well-known port
+1018 reserved IANA well-known port
+1019 reserved IANA well-known port
+1020 reserved IANA well-known port
+1021 exp1 RFC3692-style Experiment 1
+1022 exp2 RFC3692-style Experiment 2
+1023 reserved Reserved
