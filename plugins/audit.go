@@ -53,7 +53,7 @@ type auditVulnerability struct {
 func (p *Audit) Name() string       { return "audit" }
 func (p *Audit) Commands() []string { return []string{"audit", "vuln", "osv"} }
 func (p *Audit) Help() string {
-	return "!audit <go|npm|pip> <package> [version] — discover known OSV vulnerabilities (aliases: !vuln, !osv)"
+	return "!audit <go|npm|pip> <package> [version] — discover known OSV vulnerabilities; failed exact names get fuzzy suggestions (aliases: !vuln, !osv)"
 }
 func (p *Audit) Init(c bot.PluginConfig, _ *storage.DB) error { p.cfg = c; return nil }
 
@@ -92,11 +92,21 @@ func (p *Audit) Handle(b *bot.Bot, m bot.Message) bool {
 		maxLength = configured
 	}
 	if version != "" {
+		if len(response.Vulns) == 0 {
+			if _, metadataErr := lookupPackageMetadata(ctx, ecosystem, parts[1], version); metadataErr == errPackageNotFound {
+				b.Send(m.ReplyTarget(), truncateRunes(formatAuditSuggestions(ctx, ecosystem, parts[1]), maxLength))
+				return true
+			}
+		}
 		b.Send(m.ReplyTarget(), truncateRunes(formatAuditExact(parts[1], version, response.Vulns, maxShown), maxLength))
 		return true
 	}
 	latest, err := lookupPackageMetadata(ctx, ecosystem, parts[1], "")
 	if err != nil {
+		if err == errPackageNotFound {
+			b.Send(m.ReplyTarget(), truncateRunes(formatAuditSuggestions(ctx, ecosystem, parts[1]), maxLength))
+			return true
+		}
 		b.Send(m.ReplyTarget(), "[audit] latest package version could not be determined")
 		return true
 	}
@@ -116,6 +126,23 @@ func (p *Audit) Handle(b *bot.Bot, m bot.Message) bool {
 	}
 	b.Send(m.ReplyTarget(), truncateRunes(formatAuditLatest(parts[1], latest.Version, affected, maxShown), maxLength))
 	return true
+}
+
+func formatAuditSuggestions(ctx context.Context, ecosystem, query string) string {
+	query = cleanExternalText(query)
+	candidates, err := searchPackageCandidates(ctx, ecosystem, query)
+	if err != nil || len(candidates) == 0 {
+		return fmt.Sprintf("[audit] %s not found; use the full package/module name", query)
+	}
+	items := make([]string, 0, len(candidates))
+	for _, candidate := range candidates {
+		name := cleanExternalText(candidate.Name)
+		if candidate.Version != "" {
+			name += " " + cleanExternalText(candidate.Version)
+		}
+		items = append(items, name)
+	}
+	return fmt.Sprintf("[audit] no exact match for %s; possible packages: %s", query, strings.Join(items, "; "))
 }
 
 func queryOSV(ctx context.Context, ecosystem, name, version string) (osvResponse, error) {
