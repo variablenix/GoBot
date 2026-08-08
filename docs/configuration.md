@@ -273,9 +273,8 @@ URL previews, banter, and other automatic responses.
 ## IRC formatting
 
 Selected responses use standard mIRC IRC color and bold control codes. These
-are not terminal-specific ANSI escapes: WeeChat, Irssi, Relay, and compatible
-clients can render them, while clients without formatting support show the
-same underlying text.
+are not terminal-specific ANSI escapes: compatible IRC clients can render
+them, while clients without formatting support show the same underlying text.
 
 Blackjack and Duck Hunt also use UTF-8 symbols. Clients with limited fonts may
 display those symbols as replacement characters, but the surrounding text
