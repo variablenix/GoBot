@@ -94,7 +94,7 @@ plugins/           built-in plugins and tests
 data/foods/        local food, cuisine, and beer suggestion lists
 data/fun/          local joke, pun, one-liner, and wisdom catalogs
 data/welcome.txt   short original join-greeting catalog
-data/acronyms.txt  operator-editable ACRONYM|expansion catalog
+data/acronyms.txt  operator-editable ACRONYM|expansion[|context] catalog
 data/scramble.txt  local word-scramble catalog
 data/weapons.txt   local high-level firearm and weapons-name catalog
 data/sports.txt    local sports suggestion list

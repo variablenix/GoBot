@@ -79,7 +79,7 @@ plugins:
   cve: {enabled: true, timeout_seconds: 8, max_length: 360}
   # Keyless IP-API lookups. The free endpoint is rate limited and uses HTTP.
   ipinfo: {enabled: true, timeout_seconds: 8, max_length: 320}
-  # Local operator-maintained ACRONYM|expansion entries.
+  # Local operator-maintained ACRONYM|expansion[|context] entries.
   acronym: {enabled: true, data_file: "data/acronyms.txt", max_length: 320}
   weather: {enabled: true, default_units: imperial}
   steam: {enabled: true, timeout_seconds: 10, max_length: 360}

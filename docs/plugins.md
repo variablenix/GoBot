@@ -368,20 +368,32 @@ plugins:
 
 ## Acronyms
 
-`acronym` is a local text-file expander for operations jargon:
+`acronym` is a local, offline text-file expander for common business, medical,
+education, government, science, internet/chat, finance, and technology terms:
 
 ~~~text
 !acronym MTTR
 !acro rDNS
+!acronym API
+!acronym API technology
+!acronym htpp
 ~~~
 
-Entries use one `ACRONYM|expansion` per line. Blank lines and `#` comments are
-ignored, matching is case-insensitive, and malformed entries are skipped. The
-bundled catalog covers common computing, networking, operations, security, and
-software-delivery terms. It is intentionally local and versioned so responses
-remain fast and deterministic; edit or replace it to add organization-specific
-jargon without an external service. The baseline terminology was cross-checked
-against NIST CSRC, IETF RFCs, and the CNCF Cloud Native Glossary.
+Entries use `ACRONYM|expansion[|context]` per line. Blank lines and `#` comments
+are ignored, matching is case-insensitive, and malformed entries are skipped.
+The first entry for an acronym is the common/default meaning; additional
+meanings can be selected with a context, such as `!acronym API medical`.
+Multi-word keys such as `PCI DSS` are supported. If an exact lookup fails,
+GoBot performs a bounded local fuzzy check and returns at most one suggestion,
+for example: `[acronym] no exact match for htpp; did you mean HTTP?` It does
+not silently substitute the suggestion or make a network request.
+
+The bundled catalog is intentionally local, versioned, fast, and deterministic.
+Operators can edit or replace `data/acronyms.txt` to add organization-specific
+jargon without an API key or runtime dependency. Its broad common-term catalog
+was researched offline using public references including the [Section508
+acronym list](https://www.section508.gov/tools/acronyms-abbreviations/), NIST
+CSRC, IETF RFCs, and the CNCF Cloud Native Glossary.
 
 ~~~yaml
 plugins:
