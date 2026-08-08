@@ -188,14 +188,31 @@ func (b *Bot) sendNow(target, text string) {
 	}
 }
 func (b *Bot) connect(ctx context.Context) error {
-	if !b.Config.Server.TLS && b.Config.Identity.SASLUser != "" && b.Config.Identity.SASLPass != "" {
+	mechanism, err := saslMechanism(b.Config.Identity, b.Config.Server)
+	if err != nil {
+		return err
+	}
+	if mechanism == "PLAIN" && (b.Config.Identity.SASLUser == "" || b.Config.Identity.SASLPass == "") {
+		return fmt.Errorf("SASL PLAIN requires both sasl_user and sasl_pass")
+	}
+	if mechanism == "EXTERNAL" && strings.TrimSpace(b.Config.Server.ClientCert) == "" {
+		return fmt.Errorf("SASL EXTERNAL requires server.client_cert")
+	}
+	if !b.Config.Server.TLS && mechanism != "" {
 		return fmt.Errorf("refusing to send IRC authentication credentials without TLS")
 	}
 	server := net.JoinHostPort(b.Config.Server.Host, fmt.Sprintf("%d", b.Config.Server.Port))
 	var conn net.Conn
-	var err error
 	if b.Config.Server.TLS {
-		conn, err = tls.Dial("tcp", server, &tls.Config{ServerName: b.Config.Server.Host, InsecureSkipVerify: !b.Config.Server.VerifyCert})
+		tlsConfig := &tls.Config{ServerName: b.Config.Server.Host, InsecureSkipVerify: !b.Config.Server.VerifyCert}
+		if b.Config.Server.ClientCert != "" {
+			certificate, certErr := loadTLSClientCertificate(b.Config.Server.ClientCert, b.Config.Server.ClientKey)
+			if certErr != nil {
+				return certErr
+			}
+			tlsConfig.Certificates = []tls.Certificate{certificate}
+		}
+		conn, err = tls.Dial("tcp", server, tlsConfig)
 	} else {
 		conn, err = net.Dial("tcp", server)
 	}
@@ -203,8 +220,9 @@ func (b *Bot) connect(ctx context.Context) error {
 		return err
 	}
 	errc := make(chan error, 1)
+	capState := &capNegotiation{mechanism: mechanism}
 	client := irc.NewClient(conn, irc.ClientConfig{Nick: b.Config.Identity.Nick, User: b.Config.Identity.User, Name: b.Config.Identity.Realname, Handler: irc.HandlerFunc(func(c *irc.Client, m *irc.Message) {
-		handleSASL(c, m, b.Config.Identity.SASLUser, b.Config.Identity.SASLPass, b.Log)
+		handleSASL(c, m, b.Config.Identity.SASLUser, b.Config.Identity.SASLPass, mechanism, capState, b.Log)
 		b.logIRCEvent(m)
 		if m.Command == "INVITE" {
 			b.handleInvite(m)
@@ -214,12 +232,17 @@ func (b *Bot) connect(ctx context.Context) error {
 		}
 		if m.Command == "001" {
 			actualNick := ""
+			serverName := ""
 			if len(m.Params) > 0 {
 				actualNick = m.Params[0]
+			}
+			if m.Prefix != nil {
+				serverName = m.Prefix.Name
 			}
 			b.Log.Info("connected to IRC",
 				zap.String("network", b.Config.NetworkName),
 				zap.String("server", b.Config.Server.Host),
+				zap.String("server_name", serverName),
 				zap.String("requested_nick", b.Config.Identity.Nick),
 				zap.String("actual_nick", actualNick),
 			)
@@ -240,13 +263,14 @@ func (b *Bot) connect(ctx context.Context) error {
 	b.client = client
 	b.mu.Unlock()
 	b.Stats.connected.Store(1)
-	if b.Config.Identity.SASLUser != "" && b.Config.Identity.SASLPass != "" {
+	if mechanism != "" {
 		// irc.v3 has CAP parsing but no SASL mechanism implementation. Start
-		// the capability exchange manually so PLAIN can complete before 001.
+		// the capability exchange manually so authentication can complete before 001.
 		b.Log.Info("starting SASL authentication",
 			zap.String("network", b.Config.NetworkName),
 			zap.String("server", b.Config.Server.Host),
-			zap.String("account", b.Config.Identity.SASLUser),
+			zap.String("mechanism", mechanism),
+			zap.Bool("client_certificate_configured", b.Config.Server.ClientCert != ""),
 		)
 	} else {
 		b.Log.Info("starting IRC capability negotiation", zap.String("network", b.Config.NetworkName), zap.String("server", b.Config.Server.Host))
@@ -453,7 +477,12 @@ func commandRateKey(m Message) string {
 	return "user:" + strings.ToLower(strings.Join([]string{m.Nick, m.User, m.Host}, "\x00"))
 }
 
-func handleSASL(client *irc.Client, message *irc.Message, username, password string, log *zap.Logger) {
+type capNegotiation struct {
+	mechanism  string
+	advertised string
+}
+
+func handleSASL(client *irc.Client, message *irc.Message, username, password, mechanism string, state *capNegotiation, log *zap.Logger) {
 	switch message.Command {
 	case "CAP":
 		if len(message.Params) < 2 {
@@ -462,15 +491,26 @@ func handleSASL(client *irc.Client, message *irc.Message, username, password str
 		subcommand := strings.ToUpper(message.Params[1])
 		switch subcommand {
 		case "LS":
-			request := capabilityRequest(message.Trailing(), username != "" && password != "")
+			if len(message.Params) >= 3 && message.Params[2] == "*" {
+				state.advertised = strings.TrimSpace(state.advertised + " " + message.Trailing())
+				return
+			}
+			advertised := strings.TrimSpace(state.advertised + " " + message.Trailing())
+			state.advertised = ""
+			if mechanism != "" && !hasSASLMechanism(advertised, mechanism) {
+				log.Warn("server does not advertise configured SASL mechanism",
+					zap.String("mechanism", mechanism),
+				)
+			}
+			request := capabilityRequest(advertised, mechanism)
 			if request != "" {
-				if hasCapability(message.Trailing(), "sasl") {
+				if hasCapability(advertised, "sasl") {
 					log.Info("server supports SASL")
 				}
-				if hasCapability(message.Trailing(), "account-tag") {
+				if hasCapability(advertised, "account-tag") {
 					log.Info("server supports account-tag")
 				}
-				if hasCapability(message.Trailing(), "server-time") {
+				if hasCapability(advertised, "server-time") {
 					log.Info("server supports server-time")
 				}
 				client.Write("CAP REQ :" + request)
@@ -479,18 +519,26 @@ func handleSASL(client *irc.Client, message *irc.Message, username, password str
 				client.Write("CAP END")
 			}
 		case "ACK":
-			if hasCapability(message.Trailing(), "sasl") && username != "" && password != "" {
+			if hasCapability(message.Trailing(), "sasl") && mechanism != "" {
 				log.Info("server acknowledged SASL capability")
-				client.Write("AUTHENTICATE PLAIN")
+				client.Write("AUTHENTICATE " + mechanism)
 			} else {
 				client.Write("CAP END")
 			}
+		case "NAK":
+			log.Warn("server rejected IRC capabilities", zap.String("detail", message.Trailing()))
+			client.Write("CAP END")
 		}
 	case "AUTHENTICATE":
 		if message.Trailing() == "+" {
-			log.Info("sending SASL credentials")
-			payload := base64.StdEncoding.EncodeToString([]byte("\x00" + username + "\x00" + password))
-			client.Write("AUTHENTICATE " + payload)
+			if mechanism == "EXTERNAL" {
+				log.Info("sending SASL EXTERNAL response")
+				client.Write("AUTHENTICATE +")
+			} else {
+				log.Info("sending SASL credentials")
+				payload := base64.StdEncoding.EncodeToString([]byte("\x00" + username + "\x00" + password))
+				client.Write("AUTHENTICATE " + payload)
+			}
 		}
 	case "903":
 		log.Info("SASL authentication succeeded")
@@ -504,9 +552,9 @@ func handleSASL(client *irc.Client, message *irc.Message, username, password str
 	}
 }
 
-func capabilityRequest(advertised string, saslEnabled bool) string {
+func capabilityRequest(advertised, mechanism string) string {
 	requested := make([]string, 0, 3)
-	if saslEnabled && hasCapability(advertised, "sasl") {
+	if mechanism != "" && hasSASLMechanism(advertised, mechanism) {
 		requested = append(requested, "sasl")
 	}
 	if hasCapability(advertised, "account-tag") {
@@ -516,6 +564,24 @@ func capabilityRequest(advertised string, saslEnabled bool) string {
 		requested = append(requested, "server-time")
 	}
 	return strings.Join(requested, " ")
+}
+
+func hasSASLMechanism(advertised, wanted string) bool {
+	for _, capability := range strings.Fields(strings.ToLower(advertised)) {
+		parts := strings.SplitN(capability, "=", 2)
+		if parts[0] != "sasl" {
+			continue
+		}
+		if len(parts) == 1 || parts[1] == "" {
+			return true
+		}
+		for _, mechanism := range strings.Split(parts[1], ",") {
+			if strings.EqualFold(mechanism, wanted) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func hasCapability(advertised, wanted string) bool {
@@ -573,6 +639,12 @@ func (b *Bot) nickServFallback(client *irc.Client, actualNick string) {
 
 func (b *Bot) logIRCEvent(m *irc.Message) {
 	switch m.Command {
+	case "403", "405", "471", "473", "474", "475", "476", "477", "489":
+		b.Log.Warn("server rejected IRC channel operation",
+			zap.String("network", b.Config.NetworkName),
+			zap.String("code", m.Command),
+			zap.String("detail", m.Trailing()),
+		)
 	case "433":
 		b.Log.Warn("nickname already in use",
 			zap.String("network", b.Config.NetworkName),

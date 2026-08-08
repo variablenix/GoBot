@@ -7,11 +7,18 @@ networks:
       port: 6697
       tls: true
       verify_cert: true
+      # Optional client certificate for SASL EXTERNAL/CertFP. OuchNet's
+      # combined certificate/private-key PEM format is supported.
+      # client_cert: "/home/ak/irc-bot/GoBot/secrets/echo-ouch.pem"
+      # client_key: "" # only needed when the private key is separate
     identity:
       nick: GoBot
       user: gobot
       realname: Go IRC Bot
       # After registering this nick with NickServ, set sasl_user/password.
+      # Set sasl_mechanism: external when using a registered client certificate;
+      # it defaults to external when client_cert is configured.
+      sasl_mechanism: plain # plain or external
       sasl_user: ""
       sasl_pass: ""
       # If SASL does not stick on a network, optionally fall back to NickServ.
