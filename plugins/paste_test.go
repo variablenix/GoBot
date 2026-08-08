@@ -20,20 +20,19 @@ func TestPasteCreateHonorsUnlistedVisibilityAndAuth(t *testing.T) {
 		if r.Method != http.MethodPost || r.URL.String() != "https://paste.example.test/api/gists" {
 			t.Fatalf("unexpected request: %s %s", r.Method, r.URL)
 		}
-		if got := r.Header.Get("Authorization"); got != "token secret" {
+		if got := r.Header.Get("Authorization"); got != "Bearer secret" {
 			t.Fatalf("unexpected auth header: %q", got)
 		}
 		var body struct {
-			Public   bool `json:"public"`
-			Unlisted bool `json:"unlisted"`
+			Visibility string `json:"visibility"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			t.Fatal(err)
 		}
-		if body.Public || !body.Unlisted {
+		if body.Visibility != "unlisted" {
 			t.Fatalf("unexpected visibility: %+v", body)
 		}
-		return newPluginResponse(http.StatusCreated, `{"url":"https://paste.example.test/abc"}`), nil
+		return newPluginResponse(http.StatusCreated, `{"html_url":"https://paste.example.test/abc"}`), nil
 	})}
 	got, err := p.createPaste(t.Context(), "hello")
 	if err != nil || got != "https://paste.example.test/abc" {

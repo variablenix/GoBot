@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -85,7 +86,12 @@ func (p *Paste) Handle(b *bot.Bot, m bot.Message) bool {
 	}
 	result, err := p.createPaste(context.Background(), input)
 	if err != nil {
-		b.Send(m.ReplyTarget(), "paste creation failed")
+		var providerErr pasteHTTPError
+		if errors.As(err, &providerErr) {
+			b.Send(m.ReplyTarget(), fmt.Sprintf("paste creation failed: Opengist HTTP %d", providerErr.status))
+		} else {
+			b.Send(m.ReplyTarget(), "paste creation failed")
+		}
 		return true
 	}
 	notice := ""
@@ -95,6 +101,10 @@ func (p *Paste) Handle(b *bot.Bot, m bot.Message) bool {
 	b.Send(m.ReplyTarget(), truncateRunes(cleanExternalText("[paste] "+result+notice), 400))
 	return true
 }
+
+type pasteHTTPError struct{ status int }
+
+func (e pasteHTTPError) Error() string { return fmt.Sprintf("Opengist returned HTTP %d", e.status) }
 
 func fetchPasteURL(parent context.Context, rawURL string, maxLength int) (string, bool, error) {
 	ctx, cancel := context.WithTimeout(parent, 8*time.Second)
@@ -129,9 +139,8 @@ func (p *Paste) createPaste(parent context.Context, content string) (string, err
 	ctx, cancel := context.WithTimeout(parent, 8*time.Second)
 	defer cancel()
 	body, err := json.Marshal(map[string]interface{}{
-		"files":    map[string]map[string]string{"paste.txt": {"content": content}},
-		"public":   p.visibility == "public",
-		"unlisted": p.visibility == "unlisted",
+		"visibility": p.visibility,
+		"files":      map[string]map[string]string{"paste.txt": {"content": content}},
 	})
 	if err != nil {
 		return "", err
@@ -140,7 +149,7 @@ func (p *Paste) createPaste(parent context.Context, content string) (string, err
 	if err != nil {
 		return "", err
 	}
-	req.Header.Set("Authorization", "token "+p.token)
+	req.Header.Set("Authorization", "Bearer "+p.token)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 	res, err := apiHTTPClient.Do(req)
@@ -149,7 +158,7 @@ func (p *Paste) createPaste(parent context.Context, content string) (string, err
 	}
 	defer res.Body.Close()
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
-		return "", fmt.Errorf("Opengist returned HTTP %d", res.StatusCode)
+		return "", pasteHTTPError{status: res.StatusCode}
 	}
 	var response struct {
 		URL     string `json:"url"`
