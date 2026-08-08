@@ -148,7 +148,7 @@ plugins:
     max_input_length: 4096
   crypto: {enabled: true}
   pkg: {enabled: true, timeout_seconds: 8, max_length: 300}
-  port: {enabled: true, data_file: "data/ports.txt", max_length: 350}
+  port: {enabled: true, data_file: "data/ports.txt"}
   audit: {enabled: true, timeout_seconds: 8, max_length: 400, max_vulns_shown: 3}
   docker: {enabled: true, timeout_seconds: 8, max_length: 300}
   # Public GitHub lookups; token is optional and should be supplied out-of-band.

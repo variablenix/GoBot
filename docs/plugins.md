@@ -57,6 +57,10 @@ Plugins are enabled or disabled under plugins.<name>.enabled in config.yaml.
 Most command responses are rate-limited. See
 [Configuration](configuration.md#rate-limits-and-join-warmup).
 
+Every command in the six plugins below emits exactly one bounded IRC line per
+invocation. Third-party text is sanitized, and summaries use truncation or a
+`+ N more` suffix rather than sending additional lines.
+
 ## Paste
 
 `!paste <text>` creates a paste through an Opengist-compatible server. If the
@@ -75,7 +79,12 @@ plugins:
 
 Set `BOT_PASTE_BASE_URL` and `BOT_PASTE_TOKEN` in `.env` or the service
 environment. The token is never read from `config.yaml`; oversized input is
-truncated and reported in the single response line.
+truncated and reported in the single response line. URL fetching is an
+outbound request made from the bot host, follows HTTP redirects, and can reach
+any address permitted by that host's network. Do not enable URL pasting for
+untrusted users without restricting egress at the host or network firewall;
+disable the plugin with `plugins.paste.enabled: false` if that boundary cannot
+be enforced.
 
 ## Crypto and encoding
 
@@ -85,6 +94,9 @@ library:
 ~~~text
 !hash sha256 hello
 !md5 hello
+!sha1 hello
+!sha256 hello
+!sha512 hello
 !b64encode hello world
 !b64decode aGVsbG8=
 !urlencode hello world
@@ -92,7 +104,8 @@ library:
 ~~~
 
 Input is capped at 512 characters and results are sanitized before being sent
-to IRC. These commands make no network requests.
+to IRC. Invalid input returns one error line. These commands make no network
+requests.
 
 ## Package metadata
 
@@ -101,11 +114,24 @@ optional version for a specific release. `!package` is an alias. The plugin
 uses the public Go module proxy, npm registry, and PyPI endpoints, requires no
 API keys, and bounds both request time and response length.
 
+Examples:
+
+~~~text
+!pkg go github.com/variablenix/GoBot
+!pkg npm lodash
+!pkg pip requests 2.32.3
+~~~
+
+Responses include the registry version, a sanitized description when present,
+and the canonical package page. `!package` is the only alias.
+
 ## Ports
 
 `!port 443` looks up a port number and `!port ssh` looks up a service name.
 `!ports` is an alias. The catalog is local and can be maintained in
-`data/ports.txt`; it does not make network requests.
+`data/ports.txt`; it does not make network requests. The catalog includes every
+port from 0 through 1023 plus common higher-numbered services. Output is
+bounded to one line and the plugin has no configurable `max_length`.
 
 ## Vulnerability audit
 
@@ -113,7 +139,12 @@ API keys, and bounds both request time and response length.
 vulnerabilities. `!vuln` and `!osv` are aliases. Without a version, GoBot also
 checks the package's current registry version and reports whether that latest
 version is affected. Set `max_vulns_shown` to control the number of CVEs shown
-in the one-line summary; `BOT` secrets are not required.
+in the one-line summary; `timeout_seconds` and `max_length` also apply. No API
+key is required. With no version, the request omits the OSV `version` field,
+then fetches the latest registry version and evaluates OSV affected ranges.
+With a version, it performs an exact OSV query. Severity comes from OSV's
+database-specific or severity fields, and fixed versions are shown when OSV
+provides them.
 
 ## Docker Hub
 
@@ -121,7 +152,9 @@ in the one-line summary; `BOT` secrets are not required.
 `!docker traefik/traefik` looks up a user or organization image. `!hub` and
 `!dockerhub` are aliases. The plugin uses Docker Hub's public repository and
 tag APIs, formats pull counts compactly, and keeps the response to one IRC
-line.
+line. An image without a slash uses Docker Hub's `library` namespace and links
+to `hub.docker.com/_/<image>`; an image containing one slash is treated as a
+user or organization image and links to `hub.docker.com/r/<user>/<image>`.
 
 The full `!help` menu is kept short in channels. If it would exceed one
 message, GoBot sends the complete menu to the requesting user's PM and posts a

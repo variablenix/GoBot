@@ -9,8 +9,9 @@ GoBot is an extensible Go IRC bot for long-running use on one or more IRC
 networks. It supports TLS/SASL authentication, multiple networks and
 channels, persistent plugin data, rate-limited responses, games, reminders,
 source-grounded question answers, URL titles, and Prometheus metrics.
-It also includes keyless CVE and IP/ASN lookups, local acronym expansion, and
-a persistent word-scramble game.
+It also includes keyless CVE, package, OSV, Docker Hub, and IP/ASN lookups,
+Opengist pastes, local crypto/encoding and port utilities, local acronym
+expansion, and a persistent word-scramble game.
 
 The repository contains example connection settings so you can see the
 configuration shape. Replace them with the networks, channels, identity, and
@@ -54,6 +55,7 @@ Requirements:
 
 1. Review `config.yaml` and add your networks and channels.
 2. Copy `.env.example` to `.env` and add secrets such as SASL or API keys.
+   When enabling paste, also set `BOT_PASTE_BASE_URL` and `BOT_PASTE_TOKEN`.
 3. Build the binary with `make build` or `./scripts/build.sh`.
 4. For a direct launch, export the `.env` values before starting the binary:
    `set -a; . ./.env; set +a; ./bin/irc-bot`. GoBot reads environment variables;
@@ -97,6 +99,7 @@ data/scramble.txt  local word-scramble catalog
 data/weapons.txt   local high-level firearm and weapons-name catalog
 data/sports.txt    local sports suggestion list
 data/cars.txt      local car make/model suggestion list
+data/ports.txt     local IANA well-known port/service catalog
 storage/           BoltDB wrapper used by stateful plugins
 quotes/            built-in quote and response files
 grafana/           importable Prometheus dashboard and preview
