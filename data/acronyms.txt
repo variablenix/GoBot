@@ -1,9 +1,12 @@
-# One entry per line: ACRONYM|expansion
-# Curated for GoBot from common computing, networking, operations, security,
-# and software-delivery terminology. Definitions are kept short so the catalog
-# remains useful in IRC; operators can add local terms without changing code.
-# Reference glossaries: https://csrc.nist.gov/glossary/
-# https://www.rfc-editor.org/ and https://glossary.cncf.io/
+# One entry per line: ACRONYM|expansion[|context]
+# The first meaning is returned by default; add a context to select another
+# meaning, for example: API|Application Programming Interface|technology.
+# Curated offline from public reference glossaries, including the official
+# Section508 acronym list, NIST CSRC, IETF RFCs, and CNCF terminology.
+# Operators can add or replace entries here without changing GoBot code.
+# https://www.section508.gov/tools/acronyms-abbreviations/
+# https://csrc.nist.gov/glossary/ https://www.rfc-editor.org/
+# https://glossary.cncf.io/
 2FA|Two-Factor Authentication
 AI|Artificial Intelligence
 ACL|Access Control List
@@ -12,7 +15,7 @@ ADR|Architecture Decision Record
 AES|Advanced Encryption Standard
 AGI|Artificial General Intelligence
 ALU|Arithmetic Logic Unit
-API|Application Programming Interface
+API|Application Programming Interface|technology
 AV|Antivirus
 APM|Application Performance Monitoring
 ARP|Address Resolution Protocol
@@ -229,3 +232,223 @@ XSS|Cross-Site Scripting
 YAML|YAML Ain't Markup Language
 YARA|Yet Another Recursive Acronym
 rDNS|Reverse DNS
+
+# Business, workplace, and management
+ASAP|As Soon As Possible|business
+BAU|Business As Usual|business
+B2B|Business To Business|business
+B2C|Business To Consumer|business
+COB|Close Of Business|business
+CEO|Chief Executive Officer|business
+CFO|Chief Financial Officer|business
+CIO|Chief Information Officer|business
+CMO|Chief Marketing Officer|business
+COO|Chief Operating Officer|business
+CPO|Chief Product Officer|business
+CRO|Chief Revenue Officer|business
+CTO|Chief Technology Officer|business
+CSO|Chief Security Officer|business
+EOD|End Of Day|business
+EOM|End Of Month|business
+ETA|Estimated Time of Arrival|business
+ETC|Et Cetera|general
+EVP|Executive Vice President|business
+FY|Fiscal Year|business
+FYI|For Your Information|business
+HR|Human Resources|business
+KPI|Key Performance Indicator|business
+OKR|Objectives and Key Results|business
+OOO|Out Of Office|business
+PTO|Paid Time Off|business
+RFP|Request For Proposal|business
+RFQ|Request For Quotation|business
+SME|Subject Matter Expert|business
+TBA|To Be Announced|business
+TBC|To Be Confirmed|business
+TBD|To Be Determined|business
+VP|Vice President|business
+
+# Finance and accounting
+ACH|Automated Clearing House|finance
+APR|Annual Percentage Rate|finance
+APY|Annual Percentage Yield|finance
+ARR|Annual Recurring Revenue|finance
+AUM|Assets Under Management|finance
+CAC|Customer Acquisition Cost|finance
+CAGR|Compound Annual Growth Rate|finance
+CAPEX|Capital Expenditure|finance
+COGS|Cost Of Goods Sold|finance
+DCF|Discounted Cash Flow|finance
+EBITDA|Earnings Before Interest, Taxes, Depreciation, and Amortization|finance
+EPS|Earnings Per Share|finance
+ETF|Exchange-Traded Fund|finance
+FDIC|Federal Deposit Insurance Corporation|finance
+FICO|Fair Isaac Corporation credit score|finance
+GAAP|Generally Accepted Accounting Principles|finance
+GDP|Gross Domestic Product|finance
+GNP|Gross National Product|finance
+IPO|Initial Public Offering|finance
+IRR|Internal Rate of Return|finance
+LLC|Limited Liability Company|finance
+NAV|Net Asset Value|finance
+NPV|Net Present Value|finance
+P and L|Profit and Loss|finance
+PE|Price to Earnings ratio|finance
+ROE|Return On Equity|finance
+ROIC|Return On Invested Capital|finance
+ROI|Return On Investment|finance
+SEC|Securities and Exchange Commission|finance
+SOX|Sarbanes-Oxley Act|finance
+
+# Medical and health
+API|Active Pharmaceutical Ingredient|medical
+ADHD|Attention-Deficit/Hyperactivity Disorder|medical
+AIDS|Acquired Immunodeficiency Syndrome|medical
+ALS|Amyotrophic Lateral Sclerosis|medical
+BMI|Body Mass Index|medical
+BP|Blood Pressure|medical
+CDC|Centers for Disease Control and Prevention|medical
+CPR|Cardiopulmonary Resuscitation|medical
+CT|Computed Tomography|medical
+DM|Diabetes Mellitus|medical
+DNR|Do Not Resuscitate|medical
+DNI|Do Not Intubate|medical
+ECG|Electrocardiogram|medical
+ED|Emergency Department|medical
+EKG|Electrocardiogram|medical
+EMT|Emergency Medical Technician|medical
+ER|Emergency Room|medical
+FDA|Food and Drug Administration|medical
+HIV|Human Immunodeficiency Virus|medical
+ICU|Intensive Care Unit|medical
+IV|Intravenous|medical
+MCI|Mild Cognitive Impairment|medical
+MRI|Magnetic Resonance Imaging|medical
+OTC|Over The Counter|medical
+PCP|Primary Care Physician|medical
+PHI|Protected Health Information|medical
+PTSD|Post-Traumatic Stress Disorder|medical
+Rx|Prescription|medical
+SARS|Severe Acute Respiratory Syndrome|medical
+SOAP|Subjective, Objective, Assessment, Plan|medical
+STD|Sexually Transmitted Disease|medical
+STI|Sexually Transmitted Infection|medical
+TB|Tuberculosis|medical
+TBI|Traumatic Brain Injury|medical
+UTI|Urinary Tract Infection|medical
+WHO|World Health Organization|medical
+
+# Education
+ACT|American College Testing|education
+AP|Advanced Placement|education
+BA|Bachelor of Arts|education
+BS|Bachelor of Science|education
+ELL|English Language Learner|education
+ESL|English as a Second Language|education
+GED|General Educational Development|education
+GPA|Grade Point Average|education
+GRE|Graduate Record Examinations|education
+IB|International Baccalaureate|education
+K12|Kindergarten Through Grade 12|education
+MA|Master of Arts|education
+MS|Master of Science|education
+PhD|Doctor of Philosophy|education
+PSAT|Preliminary SAT|education
+PTA|Parent-Teacher Association|education
+SAT|Scholastic Assessment Test|education
+STEM|Science, Technology, Engineering, and Mathematics|education
+STEAM|Science, Technology, Engineering, Arts, and Mathematics|education
+TA|Teaching Assistant|education
+
+# Government, civic, and public services
+CIA|Central Intelligence Agency|government
+DMV|Department of Motor Vehicles|government
+DHS|Department of Homeland Security|government
+DOJ|Department of Justice|government
+EPA|Environmental Protection Agency|government
+EU|European Union|government
+FBI|Federal Bureau of Investigation|government
+FCC|Federal Communications Commission|government
+FEMA|Federal Emergency Management Agency|government
+FOIA|Freedom of Information Act|government
+FTC|Federal Trade Commission|government
+G7|Group of Seven|government
+G20|Group of Twenty|government
+IRS|Internal Revenue Service|government
+NATO|North Atlantic Treaty Organization|government
+NGO|Non-Governmental Organization|government
+NSA|National Security Agency|government
+POTUS|President of the United States|government
+SCOTUS|Supreme Court of the United States|government
+TSA|Transportation Security Administration|government
+UN|United Nations|government
+USPS|United States Postal Service|government
+
+# Internet, chat, and social shorthand
+AFK|Away From Keyboard|chat
+AFAIK|As Far As I Know|chat
+AMA|Ask Me Anything|internet
+ASL|Age, Sex, Location|chat
+BBL|Be Back Later|chat
+BFF|Best Friends Forever|chat
+BRB|Be Right Back|chat
+BTW|By The Way|chat
+DM|Direct Message|internet
+FOMO|Fear Of Missing Out|internet
+FTW|For The Win|chat
+ICYMI|In Case You Missed It|internet
+IDK|I Don't Know|chat
+IIRC|If I Recall Correctly|chat
+IMO|In My Opinion|chat
+IMHO|In My Humble Opinion|chat
+IRL|In Real Life|internet
+JK|Just Kidding|chat
+LMAO|Laughing My Ass Off|chat
+LOL|Laughing Out Loud|chat
+NSFW|Not Safe For Work|internet
+NVM|Never Mind|chat
+OMW|On My Way|chat
+OP|Original Poster|internet
+ROFL|Rolling On the Floor Laughing|chat
+SMH|Shaking My Head|chat
+TBH|To Be Honest|chat
+TIL|Today I Learned|internet
+TLDR|Too Long; Didn't Read|internet
+TMI|Too Much Information|chat
+TY|Thank You|chat
+WIP|Work In Progress|chat
+WTF|What The F***|chat
+WTH|What The Heck|chat
+YOLO|You Only Live Once|internet
+
+# Science, engineering, and measurements
+ATP|Adenosine Triphosphate|science
+CO2|Carbon Dioxide|science
+DNA|Deoxyribonucleic Acid|science
+GMO|Genetically Modified Organism|science
+GPS|Global Positioning System|science
+IR|Infrared|science
+ISS|International Space Station|science
+LASER|Light Amplification by Stimulated Emission of Radiation|science
+LCD|Liquid-Crystal Display|technology
+LED|Light-Emitting Diode|science
+LHC|Large Hadron Collider|science
+OLED|Organic Light-Emitting Diode|technology
+pH|Potential of Hydrogen|science
+RADAR|Radio Detection and Ranging|science
+RNA|Ribonucleic Acid|science
+SI|International System of Units|science
+SONAR|Sound Navigation and Ranging|science
+UV|Ultraviolet|science
+
+# General everyday abbreviations
+AKA|Also Known As|general
+ASAP|As Soon As Possible|general
+DOB|Date Of Birth|general
+DIY|Do It Yourself|general
+ID|Identification|general
+PIN|Personal Identification Number|general
+RSVP|Répondez S'il Vous Plaît|general
+RIP|Rest In Peace|general
+TBD|To Be Determined|general
+VIP|Very Important Person|general

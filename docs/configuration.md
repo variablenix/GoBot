@@ -113,6 +113,7 @@ plugins:
   youtube: {enabled: true, max_length: 320, timeout_seconds: 10, api_key: ""}
   cve: {enabled: true, timeout_seconds: 8, max_length: 360}
   ipinfo: {enabled: true, timeout_seconds: 8, max_length: 320}
+  # Local operator-maintained ACRONYM|expansion[|context] entries.
   acronym: {enabled: true, data_file: "data/acronyms.txt", max_length: 320}
   steam: {enabled: true, timeout_seconds: 10, max_length: 360}
   # Keyless source-grounded answers by default; AI rewriting is opt-in.
