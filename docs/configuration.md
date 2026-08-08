@@ -141,6 +141,12 @@ plugins:
   # 65% is a balanced casual default; use 100% for deterministic testing.
   pool: {enabled: true, game_timeout_minutes: 30, turn_timeout_seconds: 120, shot_success_percent: 65}
   horoscope: {enabled: true, max_summary_length: 360}
+  paste: {enabled: true, provider: opengist, base_url: "", default_visibility: unlisted, max_input_length: 4096}
+  crypto: {enabled: true}
+  pkg: {enabled: true, timeout_seconds: 8, max_length: 300}
+  port: {enabled: true, data_file: "data/ports.txt", max_length: 350}
+  audit: {enabled: true, timeout_seconds: 8, max_length: 400, max_vulns_shown: 3}
+  docker: {enabled: true, timeout_seconds: 8, max_length: 300}
 ```
 
 `status`, `calc`, `foods`, `sports`, `car`, and `weapons` are local. `ask` uses
