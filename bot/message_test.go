@@ -1,9 +1,13 @@
 package bot
 
 import (
-	"gopkg.in/irc.v3"
+	"net"
+	"strings"
 	"testing"
 	"time"
+
+	"go.uber.org/zap"
+	"gopkg.in/irc.v3"
 )
 
 func TestParseMessage(t *testing.T) {
@@ -92,13 +96,73 @@ func TestPrivateReloadIsOwnerOnly(t *testing.T) {
 }
 
 func TestCapabilityRequestIncludesAccountTag(t *testing.T) {
-	if got := capabilityRequest("multi-prefix sasl account-tag server-time away", true); got != "sasl account-tag server-time" {
+	if got := capabilityRequest("multi-prefix sasl=ANONYMOUS,EXTERNAL,PLAIN account-tag server-time away", "PLAIN"); got != "sasl account-tag server-time" {
 		t.Fatalf("capabilityRequest with SASL = %q, want %q", got, "sasl account-tag server-time")
 	}
-	if got := capabilityRequest("account-tag server-time", false); got != "account-tag server-time" {
+	if got := capabilityRequest("account-tag server-time", ""); got != "account-tag server-time" {
 		t.Fatalf("capabilityRequest without SASL = %q, want %q", got, "account-tag server-time")
 	}
-	if got := capabilityRequest("sasl", false); got != "" {
-		t.Fatalf("capabilityRequest without account tag = %q, want empty", got)
+	if got := capabilityRequest("sasl=PLAIN account-tag", "EXTERNAL"); got != "account-tag" {
+		t.Fatalf("capabilityRequest with unsupported SASL mechanism = %q, want account-tag", got)
+	}
+	if !hasSASLMechanism("sasl=ANONYMOUS,EXTERNAL,PLAIN", "external") {
+		t.Fatal("expected EXTERNAL SASL mechanism to be detected")
+	}
+}
+
+func TestHandleSASLExternalNegotiation(t *testing.T) {
+	clientConn, serverConn := net.Pipe()
+	defer clientConn.Close()
+	defer serverConn.Close()
+	client := irc.NewClient(clientConn, irc.ClientConfig{})
+	state := &capNegotiation{mechanism: "EXTERNAL"}
+
+	readWrite := make(chan string, 1)
+	go func() {
+		buf := make([]byte, 128)
+		n, _ := serverConn.Read(buf)
+		readWrite <- string(buf[:n])
+	}()
+	handleSASL(client, irc.MustParseMessage(":server CAP * ACK :sasl account-tag"), "", "", "EXTERNAL", state, zap.NewNop())
+	if got := strings.TrimSpace(<-readWrite); got != "AUTHENTICATE EXTERNAL" {
+		t.Fatalf("CAP ACK response = %q, want AUTHENTICATE EXTERNAL", got)
+	}
+
+	readWrite = make(chan string, 1)
+	go func() {
+		buf := make([]byte, 128)
+		n, _ := serverConn.Read(buf)
+		readWrite <- string(buf[:n])
+	}()
+	handleSASL(client, irc.MustParseMessage(":server AUTHENTICATE :+"), "", "", "EXTERNAL", state, zap.NewNop())
+	if got := strings.TrimSpace(<-readWrite); got != "AUTHENTICATE +" {
+		t.Fatalf("AUTHENTICATE response = %q, want AUTHENTICATE +", got)
+	}
+}
+
+func TestHandleSASLWaitsForFinalCapabilityListing(t *testing.T) {
+	clientConn, serverConn := net.Pipe()
+	defer clientConn.Close()
+	defer serverConn.Close()
+	client := irc.NewClient(clientConn, irc.ClientConfig{})
+	state := &capNegotiation{mechanism: "EXTERNAL"}
+
+	serverConn.SetReadDeadline(time.Now().Add(50 * time.Millisecond))
+	buf := make([]byte, 128)
+	handleSASL(client, irc.MustParseMessage(":server CAP * LS * :account-tag"), "", "", "EXTERNAL", state, zap.NewNop())
+	if _, err := serverConn.Read(buf); err == nil {
+		t.Fatal("continued CAP LS response triggered a request before the final listing")
+	}
+	serverConn.SetReadDeadline(time.Time{})
+
+	readWrite := make(chan string, 1)
+	go func() {
+		readBuf := make([]byte, 128)
+		n, _ := serverConn.Read(readBuf)
+		readWrite <- string(readBuf[:n])
+	}()
+	handleSASL(client, irc.MustParseMessage(":server CAP * LS :sasl=EXTERNAL,PLAIN account-tag"), "", "", "EXTERNAL", state, zap.NewNop())
+	if got := strings.TrimSpace(<-readWrite); got != "CAP REQ :sasl account-tag" {
+		t.Fatalf("final CAP LS response = %q, want CAP REQ :sasl account-tag", got)
 	}
 }
