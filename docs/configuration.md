@@ -141,10 +141,16 @@ plugins:
   # 65% is a balanced casual default; use 100% for deterministic testing.
   pool: {enabled: true, game_timeout_minutes: 30, turn_timeout_seconds: 120, shot_success_percent: 65}
   horoscope: {enabled: true, max_summary_length: 360}
-  paste: {enabled: true, provider: opengist, base_url: "", default_visibility: unlisted, max_input_length: 4096}
+  paste:
+    enabled: true
+    provider: opengist
+    base_url: "" # BOT_PASTE_BASE_URL overrides this value
+    token: "" # use BOT_PASTE_TOKEN; this field is intentionally ignored
+    default_visibility: unlisted
+    max_input_length: 4096
   crypto: {enabled: true}
   pkg: {enabled: true, timeout_seconds: 8, max_length: 300}
-  port: {enabled: true, data_file: "data/ports.txt", max_length: 350}
+  port: {enabled: true, data_file: "data/ports.txt"}
   audit: {enabled: true, timeout_seconds: 8, max_length: 400, max_vulns_shown: 3}
   docker: {enabled: true, timeout_seconds: 8, max_length: 300}
 ```
@@ -166,6 +172,14 @@ instructions or tactical guidance. `github` uses read-only public GitHub API
 lookups. Their output limits
 prevent a slow or unusually large response from holding up the bot or flooding
 IRC. Disable any of them with `enabled: false` if they are not wanted.
+
+The paste plugin uses `BOT_PASTE_BASE_URL` and `BOT_PASTE_TOKEN`; the token is
+not loaded from `config.yaml`. `default_visibility` accepts `public`,
+`unlisted`, or `private`, and `max_input_length` bounds inline text and fetched
+URL content. Package, audit, and Docker lookups use the configured
+`timeout_seconds` and `max_length` values. The port plugin reads its local
+catalog from `data/ports.txt` and has a fixed bounded response; it has no
+`max_length` setting.
 
 `daily` provides `!daily` in channels. Each authenticated account can claim
 once per UTC calendar day, regardless of channel or network; users without an
