@@ -146,6 +146,9 @@ plugins:
     token: "" # kept empty; use BOT_PASTE_TOKEN instead
     default_visibility: unlisted
     max_input_length: 4096
+    hard_wrap: false
+    hard_wrap_width: 80
+    hard_wrap_urls: false
   crypto: {enabled: true}
   pkg: {enabled: true, timeout_seconds: 8, max_length: 300}
   port: {enabled: true, data_file: "data/ports.txt"}
