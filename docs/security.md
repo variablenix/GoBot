@@ -33,7 +33,8 @@ dependencies, and deployment configuration maintained.
 - The URL title plugin rejects loopback, private, link-local, multicast, and
   local host targets to reduce SSRF risk.
 - External HTTP lookups use timeouts and bound response sizes. Package, audit,
-  and Docker requests use fixed public provider hosts.
+  and Docker requests use fixed public provider hosts; package suggestions use
+  only the fixed public Go, npm, and PyPI index hosts.
 - The paste plugin's URL mode is different: it fetches a user-supplied HTTP or
   HTTPS URL from the bot host and follows redirects. Treat it as an outbound
   network capability. Only enable it where users are trusted and host/network

@@ -181,6 +181,12 @@ URL content. Package, audit, and Docker lookups use the configured
 catalog from `data/ports.txt` and has a fixed bounded response; it has no
 `max_length` setting.
 
+Package metadata and OSV audit commands first use exact package/module names.
+When an exact lookup fails, they perform a bounded best-effort search through
+the relevant public package index and return suggestions; fuzzy candidates are
+not automatically audited. Go module metadata uses the Go proxy's canonical
+version field, including for `gopkg.in/...` module paths.
+
 `daily` provides `!daily` in channels. Each authenticated account can claim
 once per UTC calendar day, regardless of channel or network; users without an
 account tag are limited by network and nickname. Different users can each

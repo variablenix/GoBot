@@ -112,7 +112,9 @@ requests.
 Use `!pkg go`, `!pkg npm`, or `!pkg pip` for current registry metadata, with an
 optional version for a specific release. `!package` is an alias. The plugin
 uses the public Go module proxy, npm registry, and PyPI endpoints, requires no
-API keys, and bounds both request time and response length.
+API keys, and bounds both request time and response length. The Go module proxy
+response is handled using its canonical `Version` field, so paths such as
+`gopkg.in/irc.v3` work correctly.
 
 Examples:
 
@@ -120,10 +122,13 @@ Examples:
 !pkg go github.com/variablenix/GoBot
 !pkg npm lodash
 !pkg pip requests 2.32.3
+!pkg go irc
 ~~~
 
 Responses include the registry version, a sanitized description when present,
-and the canonical package page. `!package` is the only alias.
+and the canonical package page. If an exact name is not found, GoBot performs a
+bounded best-effort search and returns possible Go, npm, or PyPI matches with
+links; use the suggested full name for metadata. `!package` is the only alias.
 
 ## Ports
 
@@ -144,7 +149,9 @@ key is required. With no version, the request omits the OSV `version` field,
 then fetches the latest registry version and evaluates OSV affected ranges.
 With a version, it performs an exact OSV query. Severity comes from OSV's
 database-specific or severity fields, and fixed versions are shown when OSV
-provides them.
+provides them. If the package cannot be resolved exactly, GoBot returns a
+bounded list of possible Go, npm, or PyPI package names; it does not audit all
+fuzzy matches automatically.
 
 ## Docker Hub
 

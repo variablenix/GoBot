@@ -41,3 +41,15 @@ func TestAuditFormatsCVESeverityFixedAndMore(t *testing.T) {
 		t.Fatal("OSV range matching is incorrect")
 	}
 }
+
+func TestFormatAuditSuggestionsUsesSearchResults(t *testing.T) {
+	old := apiHTTPClient
+	t.Cleanup(func() { apiHTTPClient = old })
+	apiHTTPClient = &http.Client{Transport: newPluginRoundTripper(func(r *http.Request) (*http.Response, error) {
+		return newPluginResponse(http.StatusOK, `{"objects":[{"package":{"name":"libirc-client","version":"0.0.3"}}]}`), nil
+	})}
+	got := formatAuditSuggestions(t.Context(), "npm", "libirc")
+	if !strings.Contains(got, "possible packages: libirc-client 0.0.3") {
+		t.Fatalf("audit suggestion output = %q", got)
+	}
+}
