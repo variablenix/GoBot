@@ -63,6 +63,7 @@ type duckHuntState struct {
 	golden           bool
 	trust            map[string]int
 	flockRemaining   int
+	flockSize        int
 	spawnMultiplier  float64
 	spawnBoostUntil  time.Time
 	goldenBoost      float64
@@ -76,25 +77,64 @@ type duckScore struct {
 }
 
 type duckPlayer struct {
-	Initialized    bool   `json:"initialized"`
-	HasGun         bool   `json:"has_gun"`
-	Weapon         string `json:"weapon"`
-	Ammo           int    `json:"ammo"`
-	SpareMagazines int    `json:"spare_magazines"`
-	Points         int64  `json:"points"`
-	XP             int64  `json:"xp"`
-	Shots          uint64 `json:"shots"`
-	Hits           uint64 `json:"hits"`
-	Bread          uint64 `json:"bread"`
-	LuckyFeathers  uint64 `json:"lucky_feathers"`
-	DuckWhistles   uint64 `json:"duck_whistles"`
-	Decoys         uint64 `json:"decoys"`
-	GunBrushes     uint64 `json:"gun_brushes"`
-	GoldenSeeds    uint64 `json:"golden_seeds"`
-	PondMaps       uint64 `json:"pond_maps"`
-	FocusedShot    bool   `json:"focused_shot"`
-	GoldenBounty   bool   `json:"golden_bounty"`
-	Jammed         bool   `json:"jammed"`
+	Initialized    bool            `json:"initialized"`
+	HasGun         bool            `json:"has_gun"`
+	Weapon         string          `json:"weapon"`
+	Ammo           int             `json:"ammo"`
+	SpareMagazines int             `json:"spare_magazines"`
+	Points         int64           `json:"points"`
+	XP             int64           `json:"xp"`
+	Shots          uint64          `json:"shots"`
+	Hits           uint64          `json:"hits"`
+	Bread          uint64          `json:"bread"`
+	LuckyFeathers  uint64          `json:"lucky_feathers"`
+	DuckWhistles   uint64          `json:"duck_whistles"`
+	Decoys         uint64          `json:"decoys"`
+	GunBrushes     uint64          `json:"gun_brushes"`
+	GoldenSeeds    uint64          `json:"golden_seeds"`
+	PondMaps       uint64          `json:"pond_maps"`
+	FocusedShot    bool            `json:"focused_shot"`
+	GoldenBounty   bool            `json:"golden_bounty"`
+	Jammed         bool            `json:"jammed"`
+	Achievements   map[string]bool `json:"achievements,omitempty"`
+}
+
+type duckAchievementDefinition struct {
+	Key         string
+	Name        string
+	Description string
+}
+
+type duckAchievementEvent struct {
+	Hit                bool
+	Killed             bool
+	Befriended         bool
+	Golden             bool
+	FlockComplete      bool
+	LastShot           bool
+	BoughtGoldenWeapon bool
+}
+
+var duckAchievementCatalog = []duckAchievementDefinition{
+	{Key: "first_shot", Name: "First Shot", Description: "Landed your first hit"},
+	{Key: "first_quackdown", Name: "First Quackdown", Description: "Killed your first duck"},
+	{Key: "feathered_friend", Name: "Feathered Friend", Description: "Befriended your first duck"},
+	{Key: "golden_slayer", Name: "Golden Slayer", Description: "Killed a GOLDEN DUCK"},
+	{Key: "golden_companion", Name: "Golden Companion", Description: "Befriended a GOLDEN DUCK"},
+	{Key: "flock_buster", Name: "Flock Buster", Description: "Cleared an entire flock"},
+	{Key: "last_shot_hero", Name: "Last Shot Hero", Description: "Finished a duck with an empty magazine"},
+	{Key: "deadeye_duck", Name: "Deadeye Duck", Description: "Landed 10 hits without missing"},
+	{Key: "pond_patroller", Name: "Pond Patroller", Description: "Killed 10 ducks"},
+	{Key: "quackstorm", Name: "Quackstorm", Description: "Killed 25 ducks"},
+	{Key: "wing_commander", Name: "Wing Commander", Description: "Killed 50 ducks"},
+	{Key: "legendary_slayer", Name: "Legendary Slayer", Description: "Killed 100 ducks"},
+	{Key: "willow_whisperer", Name: "Willow Whisperer", Description: "Befriended 10 ducks"},
+	{Key: "pond_peacemaker", Name: "Pond Peacemaker", Description: "Befriended 25 ducks"},
+	{Key: "friend_of_all", Name: "Friend of All Feathers", Description: "Befriended 50 ducks"},
+	{Key: "marksman", Name: "Marsh Marksman", Description: "Fired 100 shots"},
+	{Key: "golden_arsenal", Name: "Golden Arsenal", Description: "Acquired the Golden Wing"},
+	{Key: "xp_voyager", Name: "XP Voyager", Description: "Reached 1,000 Duck Hunt XP"},
+	{Key: "point_hoarder", Name: "Point Hoarder", Description: "Saved 1,000 Duck Hunt points"},
 }
 
 type duckWeapon struct {
@@ -127,10 +167,10 @@ type DuckHunt struct {
 
 func (p *DuckHunt) Name() string { return "duckhunt" }
 func (p *DuckHunt) Commands() []string {
-	return []string{"duckhunt", "dh", "ducklaunch", "bang", "befriend", "bef", "ducks", "duckstats", "level", "xp", "profile", "shop", "store", "buy", "use", "reload", "unjam", "ammo"}
+	return []string{"duckhunt", "dh", "ducklaunch", "bang", "befriend", "bef", "ducks", "duckstats", "achievements", "level", "xp", "profile", "shop", "store", "buy", "use", "reload", "unjam", "ammo"}
 }
 func (p *DuckHunt) Help() string {
-	return "!bang shoots an active duck; !bef befriends it; !ducklaunch flock starts a random flock; !shop lists gear and items; !buy <item> (weapons, magazine/mag/ammo, or items 1-7); !use <1-7|item> activates a Duck Hunt item; !ammo, !reload, and !unjam manage gear; !ducks [nick] shows scores; !duckstats [nick] shows a detailed title, accuracy, gear, and inventory profile; !level [nick] shows XP and level; !dh status|start|stop controls activity"
+	return "!bang shoots an active duck; !bef befriends it; !ducklaunch flock starts a random flock; !shop lists gear and items; !buy <item> (weapons, magazine/mag/ammo, or items 1-7); !use <1-7|item> activates a Duck Hunt item; !ammo, !reload, and !unjam manage gear; !ducks [nick] shows scores; !duckstats [nick] shows a detailed title, accuracy, gear, and inventory profile; !achievements [nick] shows unlocked achievements; !level [nick] shows XP and level; !dh status|start|stop controls activity"
 }
 
 // shopWeapons keeps the arsenal deliberately arcade-like. The names are game
@@ -499,6 +539,9 @@ func (p *DuckHunt) Handle(b *bot.Bot, m bot.Message) bool {
 	case "duckstats":
 		p.duckStats(b, m, arg)
 		return true
+	case "achievements":
+		p.achievements(b, m, arg)
+		return true
 	case "level", "xp", "profile":
 		p.profile(b, m, arg)
 		return true
@@ -560,6 +603,7 @@ func (p *DuckHunt) launch(b *bot.Bot, m bot.Message, arg string) {
 	state.golden = rand.Float64() < p.cfg.goldenChance
 	state.trust = make(map[string]int)
 	state.flockRemaining = flockSize
+	state.flockSize = flockSize
 	announcement := randomDuckAnnouncementForState(state)
 	p.mu.Unlock()
 	b.Send(m.ReplyTarget(), announcement)
@@ -618,6 +662,7 @@ func (p *DuckHunt) tick(b *bot.Bot) {
 			state.golden = false
 			state.trust = make(map[string]int)
 			state.flockRemaining = 0
+			state.flockSize = 0
 			state.spawnMultiplier = 0
 			state.spawnBoostUntil = time.Time{}
 			state.goldenBoost = 0
@@ -670,8 +715,10 @@ func (p *DuckHunt) tick(b *bot.Bot) {
 		}
 		state.trust = make(map[string]int)
 		state.flockRemaining = 1
+		state.flockSize = 1
 		if state.nextFlock {
 			state.flockRemaining = p.randomFlockSize()
+			state.flockSize = state.flockRemaining
 			state.nextFlock = false
 		}
 		messages = append(messages, outgoing{
@@ -735,6 +782,7 @@ func (p *DuckHunt) control(b *bot.Bot, m bot.Message, arg string) {
 		state.golden = false
 		state.trust = make(map[string]int)
 		state.flockRemaining = 0
+		state.flockSize = 0
 		state.spawnMultiplier = 0
 		state.spawnBoostUntil = time.Time{}
 		state.goldenBoost = 0
@@ -762,6 +810,7 @@ func (p *DuckHunt) control(b *bot.Bot, m bot.Message, arg string) {
 		state.golden = false
 		state.trust = make(map[string]int)
 		state.flockRemaining = 0
+		state.flockSize = 0
 		state.spawnMultiplier = 0
 		state.spawnBoostUntil = time.Time{}
 		state.goldenBoost = 0
@@ -863,11 +912,14 @@ func (p *DuckHunt) interact(b *bot.Bot, m bot.Message, befriend bool) {
 		xp := xpReward(p.cfg.xpPerBefriend, state.golden)
 		player.Points += bonus
 		player.XP += xp
+		goldenDuck := state.golden
+		unlocked := unlockDuckAchievements(&player, 0, friends, duckAchievementEvent{Befriended: true, Golden: goldenDuck})
 		p.savePlayerLocked(b.Config.NetworkName, m.Target, m.Nick, player)
 		golden := duckName(state)
 		p.resetCycleLocked(state)
 		p.mu.Unlock()
 		b.Send(m.ReplyTarget(), fmt.Sprintf("%s %s befriended %s! %s [%s points, %s XP] You have befriended %d duck%s in %s.", ircColor(ircGreen, "*FRIEND*"), m.Nick, golden, ircColor(ircGreen, "QUACK!"), ircColor(ircGreen, fmt.Sprintf("+%d", bonus)), ircColor(ircGreen, fmt.Sprintf("+%d", xp)), friends, duckPlural(friends), m.Target))
+		sendDuckAchievements(b, m.ReplyTarget(), m.Nick, unlocked)
 		return
 	}
 	weapon := p.weaponForPlayer(player)
@@ -881,10 +933,12 @@ func (p *DuckHunt) interact(b *bot.Bot, m bot.Message, befriend bool) {
 		xp := xpReward(p.cfg.xpPerHit, state.golden)
 		player.Points += points
 		player.XP += xp
+		unlocked := unlockDuckAchievements(&player, 0, 0, duckAchievementEvent{Hit: true, Golden: state.golden})
 		p.savePlayerLocked(b.Config.NetworkName, m.Target, m.Nick, player)
 		ammoHint := duckAmmoHint(player)
 		p.mu.Unlock()
 		b.Send(m.ReplyTarget(), fmt.Sprintf("%s %s hit %s for %d damage! It has %d HP left. %s%s", ircColor(ircCyan, "*BANG*"), m.Nick, name, damage, remaining, ircColor(ircGreen, fmt.Sprintf("+%d points, +%d XP", points, xp)), ammoHint))
+		sendDuckAchievements(b, m.ReplyTarget(), m.Nick, unlocked)
 		return
 	}
 	kills := p.incrementScore(b.Config.NetworkName, m.Target, m.Nick)
@@ -900,6 +954,15 @@ func (p *DuckHunt) interact(b *bot.Bot, m bot.Message, befriend bool) {
 	}
 	player.Points += bonus
 	player.XP += xp
+	goldenDuck := state.golden
+	flockComplete := state.flockSize > 1 && state.flockRemaining <= 1
+	unlocked := unlockDuckAchievements(&player, kills, 0, duckAchievementEvent{
+		Hit:           true,
+		Killed:        true,
+		Golden:        goldenDuck,
+		FlockComplete: flockComplete,
+		LastShot:      player.Ammo == 0,
+	})
 	p.savePlayerLocked(b.Config.NetworkName, m.Target, m.Nick, player)
 	ammoHint := duckAmmoHint(player)
 	if state.flockRemaining > 1 {
@@ -910,6 +973,7 @@ func (p *DuckHunt) interact(b *bot.Bot, m bot.Message, befriend bool) {
 		remainingFlock := state.flockRemaining
 		p.mu.Unlock()
 		b.Send(m.ReplyTarget(), fmt.Sprintf("%s %s hit %s for %d damage! It has 0 HP left. %s %d duck%s still in the flock!%s", ircColor(ircGreen, "*BANG*"), m.Nick, ircColor(ircCyan, "a duck in the flock"), damage, ircColor(ircGreen, fmt.Sprintf("+%d points, +%d XP", bonus, xp)), remainingFlock, duckPlural(uint64(remainingFlock)), ammoHint))
+		sendDuckAchievements(b, m.ReplyTarget(), m.Nick, unlocked)
 		return
 	}
 	name := duckName(state)
@@ -917,6 +981,7 @@ func (p *DuckHunt) interact(b *bot.Bot, m bot.Message, befriend bool) {
 	p.mu.Unlock()
 
 	b.Send(m.ReplyTarget(), fmt.Sprintf("%s %s hit %s for %d damage! It has 0 HP left. %s [%s points, %s XP] You have killed %d duck%s in %s.%s", ircColor(ircGreen, "*BANG*"), m.Nick, name, damage, ircColor(ircGreen, "KWAK!"), ircColor(ircGreen, fmt.Sprintf("+%d", bonus)), ircColor(ircGreen, fmt.Sprintf("+%d", xp)), kills, duckPlural(kills), m.Target, ammoHint))
+	sendDuckAchievements(b, m.ReplyTarget(), m.Nick, unlocked)
 }
 
 func (p *DuckHunt) ducks(b *bot.Bot, m bot.Message, arg string) {
@@ -970,6 +1035,110 @@ func (p *DuckHunt) duckStats(b *bot.Bot, m bot.Message, arg string) {
 	b.Send(m.ReplyTarget(), p.formatDuckStats(nick, player, score))
 }
 
+func (p *DuckHunt) achievements(b *bot.Bot, m bot.Message, arg string) {
+	nick := strings.TrimSpace(arg)
+	if nick == "" {
+		nick = m.Nick
+	}
+	if !validDuckProfileNick(nick) {
+		b.Send(m.ReplyTarget(), ircColor(ircCyan, "usage: !achievements [nick]"))
+		return
+	}
+	p.mu.Lock()
+	player := p.loadPlayerLocked(b.Config.NetworkName, m.Target, nick)
+	p.mu.Unlock()
+	unlocked, total, names := duckAchievementSummary(player)
+	message := fmt.Sprintf("%s %s: %d/%d achievements unlocked", ircColor(ircCyan, "🏅"), ircColor(ircCyan, nick), unlocked, total)
+	if len(names) > 0 {
+		message += " — " + strings.Join(names, ", ")
+	}
+	b.Send(m.ReplyTarget(), truncateIRCMessage(message, 360))
+}
+
+func duckAchievementSummary(player duckPlayer) (int, int, []string) {
+	names := make([]string, 0, len(duckAchievementCatalog))
+	for _, achievement := range duckAchievementCatalog {
+		if player.Achievements[achievement.Key] {
+			names = append(names, ircColor(ircYellow, achievement.Name))
+		}
+	}
+	return len(names), len(duckAchievementCatalog), names
+}
+
+func unlockDuckAchievements(player *duckPlayer, kills, friends uint64, event duckAchievementEvent) []duckAchievementDefinition {
+	if player.Achievements == nil {
+		player.Achievements = make(map[string]bool)
+	}
+	unlocked := make([]duckAchievementDefinition, 0, 2)
+	for _, achievement := range duckAchievementCatalog {
+		if player.Achievements[achievement.Key] || !duckAchievementCondition(achievement.Key, *player, kills, friends, event) {
+			continue
+		}
+		player.Achievements[achievement.Key] = true
+		unlocked = append(unlocked, achievement)
+	}
+	return unlocked
+}
+
+func duckAchievementCondition(key string, player duckPlayer, kills, friends uint64, event duckAchievementEvent) bool {
+	switch key {
+	case "first_shot":
+		return event.Hit
+	case "first_quackdown":
+		return event.Killed && kills >= 1
+	case "feathered_friend":
+		return event.Befriended && friends >= 1
+	case "golden_slayer":
+		return event.Killed && event.Golden
+	case "golden_companion":
+		return event.Befriended && event.Golden
+	case "flock_buster":
+		return event.Killed && event.FlockComplete
+	case "last_shot_hero":
+		return event.Killed && event.LastShot
+	case "deadeye_duck":
+		return player.Hits >= 10 && player.Shots == player.Hits
+	case "pond_patroller":
+		return event.Killed && kills >= 10
+	case "quackstorm":
+		return event.Killed && kills >= 25
+	case "wing_commander":
+		return event.Killed && kills >= 50
+	case "legendary_slayer":
+		return event.Killed && kills >= 100
+	case "willow_whisperer":
+		return event.Befriended && friends >= 10
+	case "pond_peacemaker":
+		return event.Befriended && friends >= 25
+	case "friend_of_all":
+		return event.Befriended && friends >= 50
+	case "marksman":
+		return event.Hit && player.Shots >= 100
+	case "golden_arsenal":
+		return event.BoughtGoldenWeapon
+	case "xp_voyager":
+		return player.XP >= 1000
+	case "point_hoarder":
+		return player.Points >= 1000
+	default:
+		return false
+	}
+}
+
+func formatDuckAchievement(nick string, achievement duckAchievementDefinition) string {
+	description := achievement.Description
+	if strings.Contains(description, "GOLDEN DUCK") {
+		description = strings.Replace(description, "GOLDEN DUCK", ircColor(ircYellow, "GOLDEN DUCK"), 1)
+	}
+	return fmt.Sprintf("%s %s unlocked: %s - %s", ircColor(ircGreen, "[Achievement]"), ircColor(ircCyan, nick), ircColor(ircYellow, achievement.Name), description)
+}
+
+func sendDuckAchievements(b *bot.Bot, target, nick string, achievements []duckAchievementDefinition) {
+	for _, achievement := range achievements {
+		b.Send(target, formatDuckAchievement(nick, achievement))
+	}
+}
+
 func validDuckProfileNick(nick string) bool {
 	if nick == "" || len([]rune(nick)) > 64 {
 		return false
@@ -1014,7 +1183,8 @@ func (p *DuckHunt) formatDuckStats(nick string, player duckPlayer, score duckSco
 	}
 	items := ircColor(ircTan, "🎒 "+duckItems(player))
 	effects := ircColor(ircCyan, "⚡ "+duckEffects(player))
-	return fmt.Sprintf("%s %s: %s | %s | %s | %s | %s | %s | %s | %s | %s | %d spare magazine%s | %s jam chance | Items: %s | Effects: %s", ircColor(ircCyan, "🦆"), ircColor(ircCyan, nick), ircColor(ircYellow, fmt.Sprintf("🏅 Lv%d %s", level, title)), ircColor(ircGreen, fmt.Sprintf("✨ %d XP", player.XP))+" ("+next+")", ircColor(ircCyan, fmt.Sprintf("🎯 %d shots", player.Shots)), ircColor(ircGreen, fmt.Sprintf("🏆 %d killed", score.Ducks)), ircColor(ircTan, fmt.Sprintf("💙 %d befriended", score.Friends)), ircColor(ircCyan, accuracy+" accuracy"), ircColor(ircCyan, hitRate+" hit rate"), armed, ammo, player.SpareMagazines, duckPlural(uint64(player.SpareMagazines)), jamChance, items, effects)
+	achievements, totalAchievements, _ := duckAchievementSummary(player)
+	return fmt.Sprintf("%s %s: %s | %s | %s | %s | %s | %s | %s | %s | %s | %d spare magazine%s | %s jam chance | Items: %s | Effects: %s | Achievements: %d/%d", ircColor(ircCyan, "🦆"), ircColor(ircCyan, nick), ircColor(ircYellow, fmt.Sprintf("🏅 Lv%d %s", level, title)), ircColor(ircGreen, fmt.Sprintf("✨ %d XP", player.XP))+" ("+next+")", ircColor(ircCyan, fmt.Sprintf("🎯 %d shots", player.Shots)), ircColor(ircGreen, fmt.Sprintf("🏆 %d killed", score.Ducks)), ircColor(ircTan, fmt.Sprintf("💙 %d befriended", score.Friends)), ircColor(ircCyan, accuracy+" accuracy"), ircColor(ircCyan, hitRate+" hit rate"), armed, ammo, player.SpareMagazines, duckPlural(uint64(player.SpareMagazines)), jamChance, items, effects, achievements, totalAchievements)
 }
 
 func duckEffects(player duckPlayer) string {
@@ -1188,9 +1358,11 @@ func (p *DuckHunt) buy(b *bot.Bot, m bot.Message, arg string) {
 		player.Weapon = weapon.Key
 		player.Ammo = minInt(p.cfg.startingAmmo, weapon.MagazineSize)
 		player.SpareMagazines = 0
+		unlocked := unlockDuckAchievements(&player, 0, 0, duckAchievementEvent{BoughtGoldenWeapon: weapon.Key == "golden"})
 		p.savePlayerLocked(b.Config.NetworkName, m.Target, m.Nick, player)
 		p.mu.Unlock()
 		b.Send(m.ReplyTarget(), ircColor(ircGreen, fmt.Sprintf("🔫 %s: %s acquired for %d points; ammo %d/%d. Use !bang during a hunt.", m.Nick, weapon.Name, weapon.Cost, player.Ammo, weapon.MagazineSize)))
+		sendDuckAchievements(b, m.ReplyTarget(), m.Nick, unlocked)
 		return
 	}
 	if !player.HasGun {
@@ -1559,6 +1731,7 @@ func (p *DuckHunt) resetCycleLocked(state *duckHuntState) {
 	state.golden = false
 	state.trust = make(map[string]int)
 	state.flockRemaining = 0
+	state.flockSize = 0
 }
 
 func hitChance(elapsed time.Duration) float64 {
@@ -1789,22 +1962,36 @@ func randomDuckEscape() string {
 
 func randomDuckEscapeForState(state *duckHuntState) string {
 	if state != nil && state.flockRemaining > 1 {
-		return fmt.Sprintf("%s %s", ircColor(ircGreen, "[Duck Hunt]"), ircColor(ircYellow, fmt.Sprintf("The flock of %d ducks scatters into the sky!", state.flockRemaining)))
+		flockActions := []string{
+			"The flock of %d ducks erupts from the pond and scatters!",
+			"The flock of %d ducks takes flight in every direction!",
+			"The flock of %d ducks vanishes into the reeds in a flurry of wings!",
+			"The flock of %d ducks escapes over the treetops!",
+			"The flock of %d ducks performs a synchronized getaway!",
+		}
+		return fmt.Sprintf("%s %s", ircColor(ircGreen, "[Duck Hunt]"), ircColor(ircYellow, fmt.Sprintf(flockActions[rand.Intn(len(flockActions))], state.flockRemaining)))
 	}
 	actions := []string{
-		`The duck escapes into the sky! °°...`,
-		`The duck flaps away, living another day. °°°...`,
-		`The duck waddles behind a bush and gets away!`,
-		`*ZOOM* The speedy duck vanishes in a flash!`,
-		`The duck takes off in a hurry. QUACK! °°...`,
-		`The duck slips away through the reeds. Better luck next time!`,
-		`The duck spreads its wings and soars away.`,
-		`The duck makes a break for it—waddle waddle waddle!`,
-		`The ninja duck drops a smoke bomb and vanishes! *poof*`,
-		`The duck moonwalks into the reeds and disappears.`,
-		`The duck performs an evasive barrel roll and escapes!`,
+		`%s escapes into the sky! °°...`,
+		`%s flaps away, living another day. °°°...`,
+		`%s waddles behind a bush and gets away!`,
+		`*ZOOM* %s vanishes in a flash!`,
+		`%s takes off in a hurry. QUACK! °°...`,
+		`%s slips away through the reeds. Better luck next time!`,
+		`%s spreads its wings and soars away.`,
+		`%s makes a break for it—waddle waddle waddle!`,
+		`%s drops a smoke bomb and vanishes! *poof*`,
+		`%s moonwalks into the reeds and disappears.`,
+		`%s performs an evasive barrel roll and escapes!`,
 	}
-	return fmt.Sprintf("%s %s %s", ircColor(ircGreen, "[Duck Hunt]"), coloredDuckASCII(), ircColor(ircYellow, actions[rand.Intn(len(actions))]))
+	action := actions[rand.Intn(len(actions))]
+	if strings.Contains(action, "%s") {
+		parts := strings.SplitN(action, "%s", 2)
+		action = ircColor(ircYellow, parts[0]) + duckName(state) + ircColor(ircYellow, parts[1])
+	} else {
+		action = ircColor(ircYellow, action)
+	}
+	return fmt.Sprintf("%s %s %s", ircColor(ircGreen, "[Duck Hunt]"), coloredDuckASCII(), action)
 }
 
 func duckPlural(count uint64) string {

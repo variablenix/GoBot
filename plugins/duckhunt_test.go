@@ -2,6 +2,7 @@ package plugins
 
 import (
 	"context"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -52,6 +53,78 @@ func TestDuckHuntKillRewardsExceedBefriendRewards(t *testing.T) {
 	}
 }
 
+func TestDuckHuntAchievementCatalogIsSubstantialAndUnique(t *testing.T) {
+	if len(duckAchievementCatalog) < 15 {
+		t.Fatalf("achievement catalog has %d entries, want at least 15", len(duckAchievementCatalog))
+	}
+	seen := make(map[string]struct{}, len(duckAchievementCatalog))
+	for _, achievement := range duckAchievementCatalog {
+		if achievement.Key == "" || achievement.Name == "" || achievement.Description == "" {
+			t.Fatalf("incomplete achievement definition: %+v", achievement)
+		}
+		if _, ok := seen[achievement.Key]; ok {
+			t.Fatalf("duplicate achievement key %q", achievement.Key)
+		}
+		seen[achievement.Key] = struct{}{}
+	}
+}
+
+func TestDuckHuntGoldenAchievementColorsOnlyGoldenDuck(t *testing.T) {
+	var golden duckAchievementDefinition
+	for _, achievement := range duckAchievementCatalog {
+		if achievement.Key == "golden_slayer" {
+			golden = achievement
+			break
+		}
+	}
+	message := formatDuckAchievement("GoBot", golden)
+	if !strings.Contains(message, "Killed a "+ircColor(ircYellow, "GOLDEN DUCK")) {
+		t.Fatalf("achievement message = %q, want only GOLDEN DUCK highlighted", message)
+	}
+	if strings.Contains(message, ircYellow+"Killed a") || strings.Contains(message, ircYellow+"a ") {
+		t.Fatalf("achievement article or description prefix was colored: %q", message)
+	}
+}
+
+func TestDuckHuntAchievementsPersistAndUnlockOnce(t *testing.T) {
+	db, err := storage.Open(filepath.Join(t.TempDir(), "achievements.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	plugin := &DuckHunt{}
+	if err := plugin.Init(nil, db); err != nil {
+		t.Fatal(err)
+	}
+
+	plugin.mu.Lock()
+	player := plugin.loadPlayerLocked("network", "#chat", "GoBot")
+	player.Hits = 1
+	player.Shots = 1
+	player.Points = 1000
+	player.XP = 1000
+	unlocked := unlockDuckAchievements(&player, 1, 0, duckAchievementEvent{
+		Hit:           true,
+		Killed:        true,
+		Golden:        true,
+		FlockComplete: true,
+		LastShot:      true,
+	})
+	plugin.savePlayerLocked("network", "#chat", "GoBot", player)
+	loaded := plugin.loadPlayerLocked("network", "#chat", "GoBot")
+	plugin.mu.Unlock()
+
+	if len(unlocked) < 6 {
+		t.Fatalf("unlocked %d achievements, want multiple milestone achievements", len(unlocked))
+	}
+	if !loaded.Achievements["golden_slayer"] || !loaded.Achievements["flock_buster"] {
+		t.Fatalf("persisted achievements = %+v", loaded.Achievements)
+	}
+	if repeat := unlockDuckAchievements(&loaded, 1, 0, duckAchievementEvent{Killed: true, Golden: true, FlockComplete: true}); len(repeat) != 0 {
+		t.Fatalf("already unlocked achievements were emitted again: %+v", repeat)
+	}
+}
+
 func TestDuckHuntIncludesBefriendAlias(t *testing.T) {
 	plugin := &DuckHunt{}
 	found := false
@@ -64,7 +137,7 @@ func TestDuckHuntIncludesBefriendAlias(t *testing.T) {
 	if !found {
 		t.Fatal("expected !bef command alias")
 	}
-	for _, command := range []string{"ducklaunch", "shop", "store", "buy", "use", "reload", "unjam", "ammo", "duckstats", "level", "xp", "profile"} {
+	for _, command := range []string{"ducklaunch", "shop", "store", "buy", "use", "reload", "unjam", "ammo", "duckstats", "achievements", "level", "xp", "profile"} {
 		found = false
 		for _, candidate := range plugin.Commands() {
 			if candidate == command {
@@ -87,6 +160,9 @@ func TestDuckHuntIncludesBefriendAlias(t *testing.T) {
 	}
 	if !strings.Contains(plugin.Help(), "!duckstats") {
 		t.Fatal("expected duckstats and item usage in help")
+	}
+	if !strings.Contains(plugin.Help(), "!achievements") {
+		t.Fatal("expected achievements command in help")
 	}
 }
 
@@ -735,6 +811,7 @@ func TestDuckHuntFlavorIncludesColorAndMotion(t *testing.T) {
 }
 
 func TestDuckHuntEscapeIncludesColorAndMotion(t *testing.T) {
+	seen := make(map[string]struct{})
 	for i := 0; i < 50; i++ {
 		escape := randomDuckEscape()
 		if !strings.Contains(escape, "\x03") {
@@ -746,6 +823,25 @@ func TestDuckHuntEscapeIncludesColorAndMotion(t *testing.T) {
 		if strings.Contains(escape, "\n") || strings.Contains(escape, "\r") {
 			t.Fatal("escape must remain one IRC message")
 		}
+		seen[stripPluginIRC(escape)] = struct{}{}
+	}
+	if len(seen) < 2 {
+		t.Fatalf("escape flavor did not vary across samples: %v", seen)
+	}
+
+	goldenEscape := randomDuckEscapeForState(&duckHuntState{golden: true})
+	if !strings.Contains(goldenEscape, "the "+ircColor(ircYellow, "GOLDEN DUCK")) {
+		t.Fatalf("golden escape = %q, want colored GOLDEN DUCK label", goldenEscape)
+	}
+}
+
+func TestDuckHuntFlockEscapeVaries(t *testing.T) {
+	seen := make(map[string]struct{})
+	for i := 0; i < 50; i++ {
+		seen[stripPluginIRC(randomDuckEscapeForState(&duckHuntState{flockRemaining: 3}))] = struct{}{}
+	}
+	if len(seen) < 2 {
+		t.Fatalf("flock escape flavor did not vary across samples: %v", seen)
 	}
 }
 

@@ -198,9 +198,9 @@ announcement so it does not turn into channel chatter.
 
 Duck Hunt includes several randomized messages: four flight-trail/flavor
 teasers, multiple duck and quack announcement variants, and escape actions for
-flying, flapping, waddling, slipping through reeds, zooming away, and the ninja
-duck's smoke-bomb exit. A hunt uses at most one teaser and one final outcome
-message, so the variety does not create a flood.
+flying, flapping, waddling, slipping through reeds, zooming away, smoke-bomb
+exits, and synchronized flock getaways. A hunt uses at most one teaser and one
+final outcome message, so the variety does not create a flood.
 
 Commands:
 
@@ -221,6 +221,7 @@ Commands:
 !unjam                clear a jammed weapon without using ammunition
 !ducks [nickname]     show persistent scores, points, level, and XP
 !duckstats [nickname] show detailed title, accuracy, gear, and item stats
+!achievements [nickname] show one-time Duck Hunt achievements
 !level [nickname]     show level, XP, points, and Duck Hunt scores
 !xp [nickname]        alias for !level
 !profile [nickname]   alias for !level
@@ -307,6 +308,17 @@ Use `!level` or `!profile` to see your own profile, or add a nickname to view
 another player's public Duck Hunt totals. Existing BoltDB player records are
 compatible: players from older versions simply begin with 0 XP and keep their
 existing points, gear, and scores.
+
+Duck Hunt also tracks 19 persistent, one-time achievements per player. Early
+milestones include First Shot, First Quackdown, and Feathered Friend. Mid-tier
+achievements include Golden Slayer, Golden Companion, Flock Buster, Deadeye
+Duck, Pond Patroller, Quackstorm, Willow Whisperer, Marsh Marksman, and Golden
+Arsenal. Long-term achievements include Wing Commander, Legendary Slayer, Pond
+Peacemaker, Friend of All Feathers, XP Voyager, and Point Hoarder. Golden Duck
+phrases in achievement messages are highlighted in yellow. Use
+`!achievements [nickname]` to view unlocked achievements; `!duckstats` also
+shows the unlocked/total count. Existing players begin with zero achievements
+and can earn them without losing any existing progress.
 
 New players receive `starting_points`. A player can own one weapon at a time;
 buying a different weapon replaces the current gear and starts a fresh magazine.
