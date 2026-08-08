@@ -21,8 +21,8 @@ func TestKarmaRegex(t *testing.T) {
 	if !r.MatchString("hello-world--") {
 		t.Fatal("expected hyphenated match")
 	}
-	match := r.FindStringSubmatch("ouchnet++")
-	if len(match) < 4 || match[2] != "ouchnet" || match[3] != "++" {
+	match := r.FindStringSubmatch("networkbot++")
+	if len(match) < 4 || match[2] != "networkbot" || match[3] != "++" {
 		t.Fatalf("unexpected karma match: %#v", match)
 	}
 }
@@ -160,15 +160,15 @@ func TestKarmaChangesPersist(t *testing.T) {
 	if updates := p.applyTextChanges("primary", "#test", "notgo++inside"); len(updates) != 0 {
 		t.Fatalf("expected embedded update to be ignored, got %v", updates)
 	}
-	updates := p.applyTextChanges("primary", "#test", "ouchnet++ ouchnet++ ouchnet--")
+	updates := p.applyTextChanges("primary", "#test", "networkbot++ networkbot++ networkbot--")
 	if len(updates) != 3 {
 		t.Fatalf("expected three updates, got %v", updates)
 	}
-	value, err := p.change("ouchnet", 0)
+	value, err := p.change("networkbot", 0)
 	if err != nil || value != 1 {
 		t.Fatalf("expected persisted karma +1, got %d, %v", value, err)
 	}
-	channel, global := p.readTotals("primary", "#test", "ouchnet")
+	channel, global := p.readTotals("primary", "#test", "networkbot")
 	if channel != 1 || global != 1 {
 		t.Fatalf("scoped totals = (%d, %d), want (1, 1)", channel, global)
 	}
