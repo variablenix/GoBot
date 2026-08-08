@@ -10,6 +10,9 @@ dependencies, and deployment configuration maintained.
   readable only by the GoBot service user.
 - CertFP fingerprints are registered with NickServ; do not store a fingerprint
   or private key in the repository.
+- The temporary `certfp_enroll` mode uses the existing SASL password only to
+  send a one-time NickServ `CERT ADD`; disable it after NickServ confirms the
+  certificate so the normal passwordless EXTERNAL flow is used.
 - Keep secrets in .env or a deployment secret store, never in Git.
 - Use authenticated IRC account names for owner controls; nicknames are not
   authorization proof.

@@ -201,16 +201,41 @@ func (b *Bot) connect(ctx context.Context) error {
 	if !b.Config.Server.TLS && mechanism != "" {
 		return fmt.Errorf("refusing to send IRC authentication credentials without TLS")
 	}
+	if b.Config.Identity.CertFPEnroll {
+		if mechanism != "PLAIN" {
+			return fmt.Errorf("identity.certfp_enroll requires sasl_mechanism: plain during enrollment")
+		}
+		if strings.TrimSpace(b.Config.Server.ClientCert) == "" {
+			return fmt.Errorf("identity.certfp_enroll requires server.client_cert")
+		}
+	}
 	server := net.JoinHostPort(b.Config.Server.Host, fmt.Sprintf("%d", b.Config.Server.Port))
+	var clientCertificate tls.Certificate
+	if b.Config.Server.ClientCert != "" {
+		clientCertificate, err = loadTLSClientCertificate(b.Config.Server.ClientCert, b.Config.Server.ClientKey)
+		if err != nil {
+			return err
+		}
+	}
+	enrollmentFingerprint := ""
+	enrollmentNickServ := strings.TrimSpace(b.Config.Identity.NickServName)
+	if enrollmentNickServ == "" {
+		enrollmentNickServ = "NickServ"
+	}
+	if b.Config.Identity.CertFPEnroll {
+		if !validNickServTarget(enrollmentNickServ) {
+			return fmt.Errorf("identity.nickserv_name must be a single IRC target")
+		}
+		enrollmentFingerprint, err = clientCertificateFingerprint(clientCertificate)
+		if err != nil {
+			return err
+		}
+	}
 	var conn net.Conn
 	if b.Config.Server.TLS {
 		tlsConfig := &tls.Config{ServerName: b.Config.Server.Host, InsecureSkipVerify: !b.Config.Server.VerifyCert}
 		if b.Config.Server.ClientCert != "" {
-			certificate, certErr := loadTLSClientCertificate(b.Config.Server.ClientCert, b.Config.Server.ClientKey)
-			if certErr != nil {
-				return certErr
-			}
-			tlsConfig.Certificates = []tls.Certificate{certificate}
+			tlsConfig.Certificates = []tls.Certificate{clientCertificate}
 		}
 		conn, err = tls.Dial("tcp", server, tlsConfig)
 	} else {
@@ -220,7 +245,12 @@ func (b *Bot) connect(ctx context.Context) error {
 		return err
 	}
 	errc := make(chan error, 1)
-	capState := &capNegotiation{mechanism: mechanism}
+	capState := &capNegotiation{
+		mechanism:       mechanism,
+		certFPEnroll:    b.Config.Identity.CertFPEnroll,
+		certFingerprint: enrollmentFingerprint,
+		nickServName:    enrollmentNickServ,
+	}
 	client := irc.NewClient(conn, irc.ClientConfig{Nick: b.Config.Identity.Nick, User: b.Config.Identity.User, Name: b.Config.Identity.Realname, Handler: irc.HandlerFunc(func(c *irc.Client, m *irc.Message) {
 		handleSASL(c, m, b.Config.Identity.SASLUser, b.Config.Identity.SASLPass, mechanism, capState, b.Log)
 		b.logIRCEvent(m)
@@ -231,6 +261,8 @@ func (b *Bot) connect(ctx context.Context) error {
 			b.dispatchEvent(ParseMessage(m))
 		}
 		if m.Command == "001" {
+			capState.registered = true
+			maybeSendCertFPEnrollment(c, capState, b.Log)
 			actualNick := ""
 			serverName := ""
 			if len(m.Params) > 0 {
@@ -253,6 +285,13 @@ func (b *Bot) connect(ctx context.Context) error {
 				b.markChannelWarmup(ch)
 				c.Write("JOIN " + ch)
 			}
+		}
+		if m.Command == "NOTICE" && capState.certFPEnroll && capState.enrollSent && m.Prefix != nil && strings.EqualFold(m.Prefix.Name, capState.nickServName) {
+			detail := strings.TrimSpace(m.Trailing())
+			if len(detail) > 512 {
+				detail = detail[:512]
+			}
+			b.Log.Info("NickServ CertFP enrollment response", zap.String("detail", detail))
 		}
 		if m.Command == "PRIVMSG" {
 			b.Stats.received.Add(1)
@@ -478,8 +517,14 @@ func commandRateKey(m Message) string {
 }
 
 type capNegotiation struct {
-	mechanism  string
-	advertised string
+	mechanism       string
+	advertised      string
+	saslSucceeded   bool
+	registered      bool
+	certFPEnroll    bool
+	certFingerprint string
+	nickServName    string
+	enrollSent      bool
 }
 
 func handleSASL(client *irc.Client, message *irc.Message, username, password, mechanism string, state *capNegotiation, log *zap.Logger) {
@@ -541,8 +586,10 @@ func handleSASL(client *irc.Client, message *irc.Message, username, password, me
 			}
 		}
 	case "903":
+		state.saslSucceeded = true
 		log.Info("SASL authentication succeeded")
 		client.Write("CAP END")
+		maybeSendCertFPEnrollment(client, state, log)
 	case "904", "905", "906", "907":
 		log.Warn("SASL authentication failed",
 			zap.String("code", message.Command),
@@ -550,6 +597,15 @@ func handleSASL(client *irc.Client, message *irc.Message, username, password, me
 		)
 		client.Write("CAP END")
 	}
+}
+
+func maybeSendCertFPEnrollment(client *irc.Client, state *capNegotiation, log *zap.Logger) {
+	if !state.certFPEnroll || !state.saslSucceeded || !state.registered || state.enrollSent {
+		return
+	}
+	state.enrollSent = true
+	client.Write(fmt.Sprintf("PRIVMSG %s :CERT ADD %s", state.nickServName, state.certFingerprint))
+	log.Info("requesting NickServ CertFP enrollment", zap.String("service", state.nickServName))
 }
 
 func capabilityRequest(advertised, mechanism string) string {

@@ -50,12 +50,16 @@ type ServerConfig struct {
 }
 
 type IdentityConfig struct {
-	Nick             string
-	User             string
-	Realname         string
-	SASLUser         string `mapstructure:"sasl_user"`
-	SASLPass         string `mapstructure:"sasl_pass"`
-	SASLMechanism    string `mapstructure:"sasl_mechanism"`
+	Nick          string
+	User          string
+	Realname      string
+	SASLUser      string `mapstructure:"sasl_user"`
+	SASLPass      string `mapstructure:"sasl_pass"`
+	SASLMechanism string `mapstructure:"sasl_mechanism"`
+	// CertFPEnroll temporarily uses SASL PLAIN while presenting the configured
+	// client certificate, then asks NickServ to associate that certificate.
+	CertFPEnroll     bool   `mapstructure:"certfp_enroll"`
+	NickServName     string `mapstructure:"nickserv_name"`
 	NickServFallback bool   `mapstructure:"nickserv_fallback"`
 	NickServGhost    bool   `mapstructure:"nickserv_ghost"`
 }

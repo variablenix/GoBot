@@ -166,3 +166,61 @@ func TestHandleSASLWaitsForFinalCapabilityListing(t *testing.T) {
 		t.Fatalf("final CAP LS response = %q, want CAP REQ :sasl account-tag", got)
 	}
 }
+
+func TestCertFPEnrollmentWaitsForSASLAndRegistration(t *testing.T) {
+	clientConn, serverConn := net.Pipe()
+	defer clientConn.Close()
+	defer serverConn.Close()
+	client := irc.NewClient(clientConn, irc.ClientConfig{})
+	state := &capNegotiation{
+		certFPEnroll:    true,
+		certFingerprint: "b1f669b2237e4f5ec84118a60960c656d02e8d3c50245686b7b7b148f2e84f47",
+		nickServName:    "NickServ",
+	}
+
+	serverConn.SetReadDeadline(time.Now().Add(50 * time.Millisecond))
+	buf := make([]byte, 256)
+	if _, err := serverConn.Read(buf); err == nil {
+		t.Fatal("enrollment must wait for SASL success and registration")
+	}
+	serverConn.SetReadDeadline(time.Time{})
+
+	state.saslSucceeded = true
+	maybeSendCertFPEnrollment(client, state, zap.NewNop())
+	serverConn.SetReadDeadline(time.Now().Add(50 * time.Millisecond))
+	if _, err := serverConn.Read(buf); err == nil {
+		t.Fatal("enrollment must wait for IRC registration")
+	}
+	serverConn.SetReadDeadline(time.Time{})
+
+	state.registered = true
+	readWrite := make(chan string, 1)
+	go func() {
+		readBuf := make([]byte, 256)
+		n, _ := serverConn.Read(readBuf)
+		readWrite <- string(readBuf[:n])
+	}()
+	maybeSendCertFPEnrollment(client, state, zap.NewNop())
+	if got := strings.TrimSpace(<-readWrite); got != "PRIVMSG NickServ :CERT ADD b1f669b2237e4f5ec84118a60960c656d02e8d3c50245686b7b7b148f2e84f47" {
+		t.Fatalf("enrollment command = %q", got)
+	}
+
+	serverConn.SetReadDeadline(time.Now().Add(50 * time.Millisecond))
+	maybeSendCertFPEnrollment(client, state, zap.NewNop())
+	if _, err := serverConn.Read(buf); err == nil {
+		t.Fatal("enrollment command must be sent only once per connection")
+	}
+}
+
+func TestValidNickServTarget(t *testing.T) {
+	for _, target := range []string{"NickServ", "NickServ-Services"} {
+		if !validNickServTarget(target) {
+			t.Errorf("expected valid NickServ target %q", target)
+		}
+	}
+	for _, target := range []string{"", "Nick Serv", "NickServ\r\nPRIVMSG #ops :oops", ":NickServ", "Nick,Serv"} {
+		if validNickServTarget(target) {
+			t.Errorf("expected invalid NickServ target %q", target)
+		}
+	}
+}
