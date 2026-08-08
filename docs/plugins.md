@@ -84,7 +84,11 @@ outbound request made from the bot host, follows HTTP redirects, and can reach
 any address permitted by that host's network. Do not enable URL pasting for
 untrusted users without restricting egress at the host or network firewall;
 disable the plugin with `plugins.paste.enabled: false` if that boundary cannot
-be enforced.
+be enforced. To insert real line breaks into inline IRC text, enable
+`hard_wrap` and choose a `hard_wrap_width` (80 by default). URL-fetched content
+is left unchanged unless `hard_wrap_urls: true` is also configured; softwrap in
+the Opengist editor remains a display preference and does not change file
+content.
 
 ## Crypto and encoding
 

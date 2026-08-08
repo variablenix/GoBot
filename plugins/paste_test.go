@@ -46,3 +46,11 @@ func TestPasteOutputIsOneSanitizedLine(t *testing.T) {
 		t.Fatalf("paste output contains line breaks: %q", got)
 	}
 }
+
+func TestHardWrapPasteTextWrapsWordsAndPreservesParagraphs(t *testing.T) {
+	got := hardWrapPasteText("one two three four\nnext paragraph", 10)
+	want := "one two\nthree four\nnext\nparagraph"
+	if got != want {
+		t.Fatalf("hardWrapPasteText() = %q, want %q", got, want)
+	}
+}
