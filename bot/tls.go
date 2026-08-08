@@ -1,7 +1,9 @@
 package bot
 
 import (
+	"crypto/sha256"
 	"crypto/tls"
+	"encoding/hex"
 	"encoding/pem"
 	"fmt"
 	"os"
@@ -79,4 +81,24 @@ func loadTLSClientCertificate(certPath, keyPath string) (tls.Certificate, error)
 		return tls.Certificate{}, fmt.Errorf("parse combined client certificate/key: %w", err)
 	}
 	return certificate, nil
+}
+
+func clientCertificateFingerprint(certificate tls.Certificate) (string, error) {
+	if len(certificate.Certificate) == 0 {
+		return "", fmt.Errorf("client certificate does not contain a certificate")
+	}
+	hash := sha256.Sum256(certificate.Certificate[0])
+	return hex.EncodeToString(hash[:]), nil
+}
+
+func validNickServTarget(target string) bool {
+	if target == "" {
+		return false
+	}
+	for _, r := range target {
+		if r <= 0x20 || r == 0x7f || r == ':' || r == ',' {
+			return false
+		}
+	}
+	return true
 }

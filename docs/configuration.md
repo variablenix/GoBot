@@ -25,6 +25,9 @@ networks:
       sasl_mechanism: plain # plain or external
       sasl_user: ""
       sasl_pass: ""
+      # Set these only for one-time CertFP enrollment; see nickserv-sasl.md.
+      certfp_enroll: false
+      nickserv_name: NickServ
     channels:
       - "#quiet"
       - "#lobby"

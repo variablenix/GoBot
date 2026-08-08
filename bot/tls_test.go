@@ -3,7 +3,10 @@ package bot
 import (
 	"crypto/ed25519"
 	"crypto/rand"
+	"crypto/sha256"
+	"crypto/tls"
 	"crypto/x509"
+	"encoding/hex"
 	"encoding/pem"
 	"math/big"
 	"os"
@@ -23,6 +26,25 @@ func TestSASLMechanismDefaultsToPlainForPasswordAuth(t *testing.T) {
 	got, err := saslMechanism(IdentityConfig{SASLUser: "Echo", SASLPass: "secret"}, ServerConfig{})
 	if err != nil || got != "PLAIN" {
 		t.Fatalf("saslMechanism() = %q, %v; want PLAIN", got, err)
+	}
+}
+
+func TestClientCertificateFingerprintUsesSHA256LeafDER(t *testing.T) {
+	certificate := tls.Certificate{Certificate: [][]byte{{1, 2, 3, 4}}}
+	got, err := clientCertificateFingerprint(certificate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantBytes := sha256.Sum256([]byte{1, 2, 3, 4})
+	want := hex.EncodeToString(wantBytes[:])
+	if got != want {
+		t.Fatalf("clientCertificateFingerprint() = %q, want %q", got, want)
+	}
+}
+
+func TestClientCertificateFingerprintRequiresCertificate(t *testing.T) {
+	if _, err := clientCertificateFingerprint(tls.Certificate{}); err == nil {
+		t.Fatal("expected an empty certificate to be rejected")
 	}
 }
 

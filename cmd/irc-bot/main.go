@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -47,6 +48,16 @@ func main() {
 		if pass, ok := os.LookupEnv(fmt.Sprintf("BOT_NETWORKS_%d_IDENTITY_SASL_PASS", i)); ok {
 			networks[i].Identity.SASLPass = pass
 		}
+		if enroll, ok := os.LookupEnv(fmt.Sprintf("BOT_NETWORKS_%d_IDENTITY_CERTFP_ENROLL", i)); ok {
+			value, parseErr := strconv.ParseBool(enroll)
+			if parseErr != nil {
+				panic(fmt.Sprintf("invalid BOT_NETWORKS_%d_IDENTITY_CERTFP_ENROLL: %v", i, parseErr))
+			}
+			networks[i].Identity.CertFPEnroll = value
+		}
+		if nickServ, ok := os.LookupEnv(fmt.Sprintf("BOT_NETWORKS_%d_IDENTITY_NICKSERV_NAME", i)); ok {
+			networks[i].Identity.NickServName = nickServ
+		}
 		// Keep the Compose-friendly legacy variables convenient for a
 		// one-network deployment using the new networks list.
 		if len(networks) == 1 && i == 0 {
@@ -64,6 +75,16 @@ func main() {
 			}
 			if key, ok := os.LookupEnv("BOT_TLS_CLIENT_KEY"); ok {
 				networks[i].Server.ClientKey = key
+			}
+			if enroll, ok := os.LookupEnv("BOT_CERTFP_ENROLL"); ok {
+				value, parseErr := strconv.ParseBool(enroll)
+				if parseErr != nil {
+					panic(fmt.Sprintf("invalid BOT_CERTFP_ENROLL: %v", parseErr))
+				}
+				networks[i].Identity.CertFPEnroll = value
+			}
+			if nickServ, ok := os.LookupEnv("BOT_NICKSERV_NAME"); ok {
+				networks[i].Identity.NickServName = nickServ
 			}
 		}
 		if networks[i].Identity.SASLPass != "" && networks[i].Identity.SASLUser == "" {
@@ -215,6 +236,8 @@ func configureViper() {
 	}
 	bind("identity.sasl_pass", "BOT_SASL_PASS")
 	bind("identity.sasl_mechanism", "BOT_SASL_MECHANISM")
+	bind("identity.certfp_enroll", "BOT_CERTFP_ENROLL")
+	bind("identity.nickserv_name", "BOT_NICKSERV_NAME")
 	bind("server.client_cert", "BOT_TLS_CLIENT_CERT")
 	bind("server.client_key", "BOT_TLS_CLIENT_KEY")
 	bind("plugins.news.api_key", "BOT_NEWS_API_KEY")
