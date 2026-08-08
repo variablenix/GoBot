@@ -32,6 +32,12 @@ Plugins are enabled or disabled under plugins.<name>.enabled in config.yaml.
 - note: private per-account notes with bounded persistence and expiry
 - linux: current Linux kernel release lines from kernel.org
 - weapons: high-level local firearm and weapons-name catalog
+- paste: create bounded pastes through a configured Opengist instance
+- crypto: local hashes, Base64, and URL encoding utilities
+- pkg: Go, npm, and PyPI package metadata lookups
+- port: local bidirectional well-known port/service lookup
+- audit: package vulnerability discovery through OSV
+- docker: Docker Hub image metadata lookup
 - status: local connection, uptime, and counter status
 - xkcd: latest or numbered XKCD comics
 - lastfm: current or recently played Last.fm tracks
@@ -50,6 +56,72 @@ Plugins are enabled or disabled under plugins.<name>.enabled in config.yaml.
 
 Most command responses are rate-limited. See
 [Configuration](configuration.md#rate-limits-and-join-warmup).
+
+## Paste
+
+`!paste <text>` creates a paste through an Opengist-compatible server. If the
+argument is an HTTP or HTTPS URL, GoBot fetches a bounded amount of its content
+before creating the paste. Configure the server and token out of band:
+
+~~~yaml
+plugins:
+  paste:
+    enabled: true
+    provider: opengist
+    base_url: "https://paste.example.net"
+    default_visibility: unlisted
+    max_input_length: 4096
+~~~
+
+Set `BOT_PASTE_BASE_URL` and `BOT_PASTE_TOKEN` in `.env` or the service
+environment. The token is never read from `config.yaml`; oversized input is
+truncated and reported in the single response line.
+
+## Crypto and encoding
+
+The `crypto` plugin performs local-only operations with the Go standard
+library:
+
+~~~text
+!hash sha256 hello
+!md5 hello
+!b64encode hello world
+!b64decode aGVsbG8=
+!urlencode hello world
+!urldecode hello+world
+~~~
+
+Input is capped at 512 characters and results are sanitized before being sent
+to IRC. These commands make no network requests.
+
+## Package metadata
+
+Use `!pkg go`, `!pkg npm`, or `!pkg pip` for current registry metadata, with an
+optional version for a specific release. `!package` is an alias. The plugin
+uses the public Go module proxy, npm registry, and PyPI endpoints, requires no
+API keys, and bounds both request time and response length.
+
+## Ports
+
+`!port 443` looks up a port number and `!port ssh` looks up a service name.
+`!ports` is an alias. The catalog is local and can be maintained in
+`data/ports.txt`; it does not make network requests.
+
+## Vulnerability audit
+
+`!audit <go|npm|pip> <package> [version]` queries OSV for known package
+vulnerabilities. `!vuln` and `!osv` are aliases. Without a version, GoBot also
+checks the package's current registry version and reports whether that latest
+version is affected. Set `max_vulns_shown` to control the number of CVEs shown
+in the one-line summary; `BOT` secrets are not required.
+
+## Docker Hub
+
+`!docker nginx` looks up an official Docker Hub image, while
+`!docker traefik/traefik` looks up a user or organization image. `!hub` and
+`!dockerhub` are aliases. The plugin uses Docker Hub's public repository and
+tag APIs, formats pull counts compactly, and keeps the response to one IRC
+line.
 
 The full `!help` menu is kept short in channels. If it would exceed one
 message, GoBot sends the complete menu to the requesting user's PM and posts a
