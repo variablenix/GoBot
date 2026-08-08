@@ -60,10 +60,10 @@ Notes:
 
 ## IRC CertFP / SASL EXTERNAL
 
-Many IRC networks support passwordless account authentication with a TLS
-client certificate. The network's NickServ documentation explains how to
-create a certificate and add its fingerprint to NickServ. The fingerprint is
-stored by NickServ; GoBot reads the certificate and private key and presents
+If your IRC network supports CertFP, its account service can associate a
+client TLS certificate fingerprint with your account for passwordless
+authentication. Follow that service's CertFP instructions to register the
+certificate; GoBot then reads the certificate and private key and presents
 them during the TLS handshake.
 
 ### Create and protect a combined PEM
