@@ -43,8 +43,8 @@ type ServerConfig struct {
 	TLS        bool `mapstructure:"tls"`
 	VerifyCert bool `mapstructure:"verify_cert"`
 	// ClientCert may point to a PEM containing the client certificate and
-	// private key, as recommended by OuchNet for CertFP. ClientKey can be
-	// supplied separately when the key is stored in its own file.
+	// private key, as supported by many IRC networks for CertFP. ClientKey can
+	// be supplied separately when the key is stored in its own file.
 	ClientCert string `mapstructure:"client_cert"`
 	ClientKey  string `mapstructure:"client_key"`
 }

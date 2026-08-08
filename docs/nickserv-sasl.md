@@ -58,23 +58,23 @@ Notes:
 - Keep verify_cert: true.
 - GoBot refuses to send credentials over a non-TLS IRC connection.
 
-## OuchNet CertFP / SASL EXTERNAL
+## IRC CertFP / SASL EXTERNAL
 
-OuchNet supports passwordless account authentication with a TLS client
-certificate. Its [CertFP instructions](https://ouch.chat/nickserv/certfp.html)
-show how to create an Ed25519 certificate and add its fingerprint to NickServ.
-The fingerprint itself is stored by NickServ; GoBot reads the certificate and
-private key and presents them during the TLS handshake.
+Many IRC networks support passwordless account authentication with a TLS
+client certificate. The network's NickServ documentation explains how to
+create a certificate and add its fingerprint to NickServ. The fingerprint is
+stored by NickServ; GoBot reads the certificate and private key and presents
+them during the TLS handshake.
 
 ### Create and protect a combined PEM
 
-OuchNet's combined PEM contains both the client certificate and its private
-key. Replace `/opt/gobot` with the GoBot installation directory used by your
+A combined PEM contains both the client certificate and its private key.
+Replace `/opt/gobot` with the GoBot installation directory used by your
 service account before running these commands:
 
 ~~~sh
 cert_dir=/opt/gobot/secrets
-cert_file="$cert_dir/ouch-client.pem"
+cert_file="$cert_dir/irc-client.pem"
 
 install -d -m 700 "$cert_dir"
 umask 077
@@ -101,16 +101,16 @@ To inspect the SHA-256 fingerprint without changing anything:
 openssl x509 -in "$cert_file" -noout -fingerprint -sha256
 ~~~
 
-For OuchNet's combined PEM format, configure the certificate path under the
-network's server settings:
+For a combined PEM format, configure the certificate path under the network's
+server settings:
 
 ~~~yaml
 server:
-  host: closet.ouch.chat
+  host: irc.example.net
   port: 6697
   tls: true
   verify_cert: true
-  client_cert: /opt/gobot/secrets/ouch-client.pem
+  client_cert: /opt/gobot/secrets/irc-client.pem
 identity:
   nick: Echo
   sasl_mechanism: external
@@ -128,7 +128,7 @@ For one-network deployments, these environment variables are also supported:
 
 ~~~env
 BOT_SASL_MECHANISM=external
-BOT_TLS_CLIENT_CERT=/opt/gobot/secrets/ouch-client.pem
+BOT_TLS_CLIENT_CERT=/opt/gobot/secrets/irc-client.pem
 BOT_TLS_CLIENT_KEY=
 ~~~
 
@@ -143,7 +143,7 @@ Temporarily use:
 
 ~~~yaml
 server:
-  client_cert: /opt/gobot/secrets/ouch-client.pem
+  client_cert: /opt/gobot/secrets/irc-client.pem
   client_key: ""
 identity:
   sasl_mechanism: plain
