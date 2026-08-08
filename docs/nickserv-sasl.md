@@ -132,12 +132,11 @@ BOT_TLS_CLIENT_CERT=/opt/gobot/secrets/irc-client.pem
 BOT_TLS_CLIENT_KEY=
 ~~~
 
-### Enroll a certificate without WeeChat
+### Enroll a certificate with GoBot
 
-WeeChat is not required to register the certificate. GoBot has an explicit,
-temporary enrollment mode that presents the client certificate while still
-authenticating with the existing SASL password, then sends `CERT ADD` to
-NickServ after registration completes.
+GoBot has an explicit, temporary enrollment mode that presents the client
+certificate while still authenticating with the existing SASL password, then
+sends `CERT ADD` to the account service after registration completes.
 
 Temporarily use:
 
