@@ -6,6 +6,10 @@ dependencies, and deployment configuration maintained.
 
 - Keep IRC certificate verification enabled with verify_cert: true.
 - GoBot refuses to send SASL or NickServ credentials over non-TLS IRC.
+- Keep client certificate/private-key PEM files outside Git with mode 0600 and
+  readable only by the GoBot service user.
+- CertFP fingerprints are registered with NickServ; do not store a fingerprint
+  or private key in the repository.
 - Keep secrets in .env or a deployment secret store, never in Git.
 - Use authenticated IRC account names for owner controls; nicknames are not
   authorization proof.

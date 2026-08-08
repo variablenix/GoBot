@@ -32,6 +32,15 @@ func main() {
 		panic("no IRC networks configured")
 	}
 	for i := range networks {
+		if cert, ok := os.LookupEnv(fmt.Sprintf("BOT_NETWORKS_%d_SERVER_CLIENT_CERT", i)); ok {
+			networks[i].Server.ClientCert = cert
+		}
+		if key, ok := os.LookupEnv(fmt.Sprintf("BOT_NETWORKS_%d_SERVER_CLIENT_KEY", i)); ok {
+			networks[i].Server.ClientKey = key
+		}
+		if mechanism, ok := os.LookupEnv(fmt.Sprintf("BOT_NETWORKS_%d_IDENTITY_SASL_MECHANISM", i)); ok {
+			networks[i].Identity.SASLMechanism = mechanism
+		}
 		if user, ok := os.LookupEnv(fmt.Sprintf("BOT_NETWORKS_%d_IDENTITY_SASL_USER", i)); ok {
 			networks[i].Identity.SASLUser = user
 		}
@@ -41,11 +50,20 @@ func main() {
 		// Keep the Compose-friendly legacy variables convenient for a
 		// one-network deployment using the new networks list.
 		if len(networks) == 1 && i == 0 {
+			if mechanism, ok := os.LookupEnv("BOT_SASL_MECHANISM"); ok {
+				networks[i].Identity.SASLMechanism = mechanism
+			}
 			if user, ok := os.LookupEnv("BOT_SASL_USER"); ok {
 				networks[i].Identity.SASLUser = user
 			}
 			if pass, ok := os.LookupEnv("BOT_SASL_PASS"); ok {
 				networks[i].Identity.SASLPass = pass
+			}
+			if cert, ok := os.LookupEnv("BOT_TLS_CLIENT_CERT"); ok {
+				networks[i].Server.ClientCert = cert
+			}
+			if key, ok := os.LookupEnv("BOT_TLS_CLIENT_KEY"); ok {
+				networks[i].Server.ClientKey = key
 			}
 		}
 		if networks[i].Identity.SASLPass != "" && networks[i].Identity.SASLUser == "" {
@@ -196,6 +214,9 @@ func configureViper() {
 		}
 	}
 	bind("identity.sasl_pass", "BOT_SASL_PASS")
+	bind("identity.sasl_mechanism", "BOT_SASL_MECHANISM")
+	bind("server.client_cert", "BOT_TLS_CLIENT_CERT")
+	bind("server.client_key", "BOT_TLS_CLIENT_KEY")
 	bind("plugins.news.api_key", "BOT_NEWS_API_KEY")
 	bind("plugins.lastfm.api_key", "BOT_LASTFM_API_KEY")
 	bind("plugins.github.token", "BOT_GITHUB_TOKEN")

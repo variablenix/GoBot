@@ -14,10 +14,15 @@ networks:
       port: 6697
       tls: true
       verify_cert: true
+      # Optional CertFP client certificate. A combined PEM containing the
+      # certificate and private key is supported.
+      # client_cert: "/home/ak/irc-bot/GoBot/secrets/echo-ouch.pem"
+      # client_key: "" # use this only when the key is separate
     identity:
       nick: GoBot
       user: gobot
       realname: Go IRC Bot
+      sasl_mechanism: plain # plain or external
       sasl_user: ""
       sasl_pass: ""
     channels:

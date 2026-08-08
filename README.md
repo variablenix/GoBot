@@ -30,7 +30,7 @@ secrets for your own deployment.
 
 Each configured network connection:
 
-- connects over TLS and can authenticate with SASL PLAIN
+- connects over TLS and can authenticate with SASL PLAIN or certificate-based SASL EXTERNAL
 - joins any number of configured channels
 - listens for channel, private, and invite events
 - dispatches messages to enabled plugins

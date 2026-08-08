@@ -42,6 +42,11 @@ type ServerConfig struct {
 	Port       int
 	TLS        bool `mapstructure:"tls"`
 	VerifyCert bool `mapstructure:"verify_cert"`
+	// ClientCert may point to a PEM containing the client certificate and
+	// private key, as recommended by OuchNet for CertFP. ClientKey can be
+	// supplied separately when the key is stored in its own file.
+	ClientCert string `mapstructure:"client_cert"`
+	ClientKey  string `mapstructure:"client_key"`
 }
 
 type IdentityConfig struct {
@@ -50,6 +55,7 @@ type IdentityConfig struct {
 	Realname         string
 	SASLUser         string `mapstructure:"sasl_user"`
 	SASLPass         string `mapstructure:"sasl_pass"`
+	SASLMechanism    string `mapstructure:"sasl_mechanism"`
 	NickServFallback bool   `mapstructure:"nickserv_fallback"`
 	NickServGhost    bool   `mapstructure:"nickserv_ghost"`
 }

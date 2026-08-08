@@ -48,7 +48,9 @@ There is no setup wizard yet. GoBot is configuration-first:
 1. Review `config.yaml`.
 2. Add at least one network, nickname, and channel.
 3. Copy `.env.example` to `.env` and add secrets if needed.
-4. Register and configure NickServ/SASL if the network requires it.
+4. Register and configure NickServ/SASL if the network requires it. For
+   certificate authentication, place the client PEM on the host, register its
+   fingerprint with NickServ, and configure SASL EXTERNAL.
 5. Build with `make build`.
 6. For a direct launch, export the environment file first:
    `set -a; . ./.env; set +a`; GoBot does not parse `.env` itself.
