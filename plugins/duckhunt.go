@@ -167,10 +167,10 @@ type DuckHunt struct {
 
 func (p *DuckHunt) Name() string { return "duckhunt" }
 func (p *DuckHunt) Commands() []string {
-	return []string{"duckhunt", "dh", "ducklaunch", "bang", "befriend", "bef", "ducks", "duckstats", "achievements", "level", "xp", "profile", "shop", "store", "buy", "use", "reload", "unjam", "ammo"}
+	return []string{"duckhunt", "dh", "ducklaunch", "launch", "bang", "befriend", "bef", "ducks", "duckscore", "duckstats", "dstats", "achievements", "achieve", "ach", "level", "lvl", "xp", "profile", "prof", "shop", "store", "buy", "use", "reload", "unjam", "clearjam", "ammo"}
 }
 func (p *DuckHunt) Help() string {
-	return "!bang shoots an active duck; !bef befriends it; !ducklaunch flock starts a random flock; !shop lists gear and items; !buy <item> (weapons, magazine/mag/ammo, or items 1-7); !use <1-7|item> activates a Duck Hunt item; !ammo, !reload, and !unjam manage gear; !ducks [nick] shows scores; !duckstats [nick] shows a detailed title, accuracy, gear, and inventory profile; !achievements [nick] shows unlocked achievements; !level [nick] shows XP and level; !dh status|start|stop controls activity"
+	return "!bang shoots an active duck; !bef/!befriend befriends it; !ducklaunch/!launch flock starts a random flock; !shop/!store lists gear and items; !buy <item> (weapons, magazine/mag/ammo, or items 1-7); !use <1-7|item> activates a Duck Hunt item; !ammo, !reload, and !unjam/!clearjam manage gear; !ducks/!duckscore [nick] shows scores; !duckstats/!dstats [nick] shows a detailed title, accuracy, gear, and inventory profile; !achievements/!achieve/!ach [nick] shows unlocked achievements; !level/!lvl [nick] shows XP and level; !profile/!prof [nick] aliases !level; !dh status|start|stop controls activity"
 }
 
 // shopWeapons keeps the arsenal deliberately arcade-like. The names are game
@@ -520,7 +520,7 @@ func (p *DuckHunt) Handle(b *bot.Bot, m bot.Message) bool {
 	case "duckhunt", "dh":
 		p.control(b, m, arg)
 		return true
-	case "ducklaunch":
+	case "ducklaunch", "launch":
 		p.launch(b, m, arg)
 		return true
 	case "bang":
@@ -533,16 +533,16 @@ func (p *DuckHunt) Handle(b *bot.Bot, m bot.Message) bool {
 			b.Send(m.ReplyTarget(), ircColor(ircYellow, "befriending is disabled"))
 		}
 		return true
-	case "ducks":
+	case "ducks", "duckscore":
 		p.ducks(b, m, arg)
 		return true
-	case "duckstats":
+	case "duckstats", "dstats":
 		p.duckStats(b, m, arg)
 		return true
-	case "achievements":
+	case "achievements", "achieve", "ach":
 		p.achievements(b, m, arg)
 		return true
-	case "level", "xp", "profile":
+	case "level", "lvl", "xp", "profile", "prof":
 		p.profile(b, m, arg)
 		return true
 	case "shop", "store":
@@ -557,7 +557,7 @@ func (p *DuckHunt) Handle(b *bot.Bot, m bot.Message) bool {
 	case "reload":
 		p.reload(b, m)
 		return true
-	case "unjam":
+	case "unjam", "clearjam":
 		p.unjam(b, m)
 		return true
 	case "ammo":

@@ -137,7 +137,7 @@ func TestDuckHuntIncludesBefriendAlias(t *testing.T) {
 	if !found {
 		t.Fatal("expected !bef command alias")
 	}
-	for _, command := range []string{"ducklaunch", "shop", "store", "buy", "use", "reload", "unjam", "ammo", "duckstats", "achievements", "level", "xp", "profile"} {
+	for _, command := range []string{"ducklaunch", "launch", "shop", "store", "buy", "use", "reload", "unjam", "clearjam", "ammo", "ducks", "duckscore", "duckstats", "dstats", "achievements", "achieve", "ach", "level", "lvl", "xp", "profile", "prof"} {
 		found = false
 		for _, candidate := range plugin.Commands() {
 			if candidate == command {
@@ -163,6 +163,11 @@ func TestDuckHuntIncludesBefriendAlias(t *testing.T) {
 	}
 	if !strings.Contains(plugin.Help(), "!achievements") {
 		t.Fatal("expected achievements command in help")
+	}
+	for _, alias := range []string{"!achieve", "!ach", "!launch", "!duckscore", "!dstats", "!lvl", "!prof", "!clearjam"} {
+		if !strings.Contains(plugin.Help(), alias) {
+			t.Fatalf("expected %s alias in help", alias)
+		}
 	}
 }
 

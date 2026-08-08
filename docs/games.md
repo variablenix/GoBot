@@ -208,7 +208,7 @@ Commands:
 !bang                 shoot an active duck
 !bef                  befriend an active duck, if enabled
 !befriend             same as !bef
-!ducklaunch flock      launch a random flock manually
+!ducklaunch flock      launch a random flock manually (`!launch` also works)
 !shop / !store        list arcade gear, consumables, and point prices
 !buy peashooter       buy the starter Peashooter (!buy gun also works)
 !buy quacker          buy the larger Quacker Blaster
@@ -218,13 +218,13 @@ Commands:
 !use <1-7|item>       use a Duck Hunt consumable
 !ammo                 show ammo, spare magazines, and points
 !reload               load a spare magazine
-!unjam                clear a jammed weapon without using ammunition
-!ducks [nickname]     show persistent scores, points, level, and XP
-!duckstats [nickname] show detailed title, accuracy, gear, and item stats
-!achievements [nickname] show one-time Duck Hunt achievements
-!level [nickname]     show level, XP, points, and Duck Hunt scores
+!unjam                clear a jammed weapon without using ammunition (`!clearjam` also works)
+!ducks [nickname]     show persistent scores, points, level, and XP (`!duckscore` also works)
+!duckstats [nickname] show detailed title, accuracy, gear, and item stats (`!dstats` also works)
+!achievements [nickname] show one-time Duck Hunt achievements (`!achieve`/`!ach` also work)
+!level [nickname]     show level, XP, points, and Duck Hunt scores (`!lvl` also works)
 !xp [nickname]        alias for !level
-!profile [nickname]   alias for !level
+!profile [nickname]   alias for !level (`!prof` also works)
 !dh                   show Duck Hunt status
 !dh status            show Duck Hunt status
 !dh start             enable automatic activity for this channel (owner only)
