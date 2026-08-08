@@ -614,6 +614,8 @@ post from a subreddit:
 !reddit r/linux
 !reddit https://www.reddit.com/r/linux/
 !r r/golang
+!r top r/linuxmemes
+!r r/linuxmemes rising
 ~~~
 
 The response contains the post title, author, subreddit, score, comment count,
@@ -624,6 +626,12 @@ temporarily blocked or throttled. RSS does not reliably include scores or
 comment counts, so those fields are omitted rather than shown as false zeroes.
 For individual posts, a final oEmbed title fallback can still provide the
 title when Reddit rate-limits both metadata endpoints.
+For subreddit lookups, an optional sort selects the first post from Reddit's
+`best`, `hot`, `new`, `top`, or `rising` listing. Put the sort before or after
+the subreddit; for example, `!r top r/linuxmemes` returns the current #1 post
+from the subreddit’s top listing, while plain `!r r/linuxmemes` remains the
+newest-post lookup. Sort modifiers are only for subreddit lookups, not
+individual post URLs. Explicit non-default sorts are labeled in the response.
 Only recognized Reddit hosts and paths are accepted; arbitrary URL fetching is
 not performed by this command.
 
