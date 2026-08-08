@@ -54,9 +54,9 @@ func loadTLSClientCertificate(certPath, keyPath string) (tls.Certificate, error)
 		return certificate, nil
 	}
 
-	// OuchNet's documented command writes the certificate and private key to
-	// one PEM file. Extract both blocks so the combined format works without
-	// requiring the private key to be duplicated into another file.
+	// Some IRC networks document a combined PEM containing the certificate and
+	// private key. Extract both blocks so that format works without requiring
+	// the private key to be duplicated into another file.
 	var certificatePEM, privateKeyPEM []byte
 	remaining := certPEM
 	for len(remaining) > 0 {

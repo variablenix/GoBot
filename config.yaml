@@ -7,9 +7,9 @@ networks:
       port: 6697
       tls: true
       verify_cert: true
-      # Optional client certificate for SASL EXTERNAL/CertFP. OuchNet's
-      # combined certificate/private-key PEM format is supported.
-      # client_cert: "/opt/gobot/secrets/ouch-client.pem"
+      # Optional client certificate for SASL EXTERNAL/CertFP. Combined
+      # certificate/private-key PEM format is supported.
+      # client_cert: "/opt/gobot/secrets/irc-client.pem"
       # client_key: "" # only needed when the private key is separate
     identity:
       nick: GoBot
