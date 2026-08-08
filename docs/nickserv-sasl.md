@@ -66,6 +66,41 @@ show how to create an Ed25519 certificate and add its fingerprint to NickServ.
 The fingerprint itself is stored by NickServ; GoBot reads the certificate and
 private key and presents them during the TLS handshake.
 
+### Create and protect a combined PEM
+
+OuchNet's combined PEM contains both the client certificate and its private
+key. Replace `/opt/gobot` with the GoBot installation directory used by your
+service account before running these commands:
+
+~~~sh
+cert_dir=/opt/gobot/secrets
+cert_file="$cert_dir/ouch-client.pem"
+
+install -d -m 700 "$cert_dir"
+umask 077
+openssl req -x509 -new -newkey ed25519 -sha256 -nodes \
+  -out "$cert_file" \
+  -keyout "$cert_file" \
+  -days 3650 \
+  -subj "/CN=GoBot"
+chmod 600 "$cert_file"
+~~~
+
+The certificate file contains the private key, so keep the directory at mode
+`700` and the file at mode `600`. The GoBot systemd user must own the file or
+otherwise be able to read it; do not make it world-readable and never commit
+it to Git. Verify that the file contains both PEM blocks:
+
+~~~sh
+grep -E '^-----BEGIN (CERTIFICATE|PRIVATE KEY)' "$cert_file"
+~~~
+
+To inspect the SHA-256 fingerprint without changing anything:
+
+~~~sh
+openssl x509 -in "$cert_file" -noout -fingerprint -sha256
+~~~
+
 For OuchNet's combined PEM format, configure the certificate path under the
 network's server settings:
 
