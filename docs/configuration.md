@@ -149,6 +149,9 @@ plugins:
     token: "" # use BOT_PASTE_TOKEN; this field is intentionally ignored
     default_visibility: unlisted
     max_input_length: 4096
+    hard_wrap: false
+    hard_wrap_width: 80
+    hard_wrap_urls: false
   crypto: {enabled: true}
   pkg: {enabled: true, timeout_seconds: 8, max_length: 300}
   port: {enabled: true, data_file: "data/ports.txt"}
@@ -177,7 +180,9 @@ IRC. Disable any of them with `enabled: false` if they are not wanted.
 The paste plugin uses `BOT_PASTE_BASE_URL` and `BOT_PASTE_TOKEN`; the token is
 not loaded from `config.yaml`. `default_visibility` accepts `public`,
 `unlisted`, or `private`, and `max_input_length` bounds inline text and fetched
-URL content. Package, audit, and Docker lookups use the configured
+URL content. Set `hard_wrap: true` to insert real newlines into inline text;
+`hard_wrap_width` controls the target line width, and `hard_wrap_urls` must be
+enabled separately to transform fetched URL content. Package, audit, and Docker lookups use the configured
 `timeout_seconds` and `max_length` values. The port plugin reads its local
 catalog from `data/ports.txt` and has a fixed bounded response; it has no
 `max_length` setting.

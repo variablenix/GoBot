@@ -25,6 +25,9 @@ type Paste struct {
 	provider       string
 	visibility     string
 	maxInputLength int
+	hardWrap       bool
+	hardWrapURLs   bool
+	hardWrapWidth  int
 }
 
 func (p *Paste) Name() string       { return "paste" }
@@ -47,6 +50,12 @@ func (p *Paste) Init(c bot.PluginConfig, _ *storage.DB) error {
 	p.maxInputLength = c.Int("max_input_length", pasteDefaultMaxInput)
 	if p.maxInputLength < 1 || p.maxInputLength > 64*1024 {
 		p.maxInputLength = pasteDefaultMaxInput
+	}
+	p.hardWrap = c.Bool("hard_wrap", false)
+	p.hardWrapURLs = c.Bool("hard_wrap_urls", false)
+	p.hardWrapWidth = c.Int("hard_wrap_width", 80)
+	if p.hardWrapWidth < 20 || p.hardWrapWidth > 500 {
+		p.hardWrapWidth = 80
 	}
 	return nil
 }
@@ -71,14 +80,19 @@ func (p *Paste) Handle(b *bot.Bot, m bot.Message) bool {
 	}
 
 	input := arg
+	isURL := false
 	truncated := false
 	if parsed, err := url.ParseRequestURI(arg); err == nil && (parsed.Scheme == "http" || parsed.Scheme == "https") && parsed.Host != "" {
+		isURL = true
 		fetched, wasTruncated, err := fetchPasteURL(context.Background(), arg, p.maxInputLength)
 		if err != nil {
 			b.Send(m.ReplyTarget(), "could not fetch URL content for paste")
 			return true
 		}
 		input, truncated = fetched, wasTruncated
+	}
+	if p.hardWrap && (!isURL || p.hardWrapURLs) {
+		input = hardWrapPasteText(input, p.hardWrapWidth)
 	}
 	if len([]rune(input)) > p.maxInputLength {
 		input = truncateRunes(input, p.maxInputLength)
@@ -105,6 +119,41 @@ func (p *Paste) Handle(b *bot.Bot, m bot.Message) bool {
 type pasteHTTPError struct{ status int }
 
 func (e pasteHTTPError) Error() string { return fmt.Sprintf("Opengist returned HTTP %d", e.status) }
+
+func hardWrapPasteText(text string, width int) string {
+	if width <= 0 {
+		return text
+	}
+	paragraphs := strings.Split(text, "\n")
+	for i, paragraph := range paragraphs {
+		words := strings.Fields(paragraph)
+		if len(words) == 0 {
+			paragraphs[i] = ""
+			continue
+		}
+		var wrapped strings.Builder
+		lineLength := 0
+		for _, word := range words {
+			wordLength := len([]rune(word))
+			if lineLength == 0 {
+				wrapped.WriteString(word)
+				lineLength = wordLength
+				continue
+			}
+			if lineLength+1+wordLength <= width {
+				wrapped.WriteByte(' ')
+				wrapped.WriteString(word)
+				lineLength += 1 + wordLength
+				continue
+			}
+			wrapped.WriteByte('\n')
+			wrapped.WriteString(word)
+			lineLength = wordLength
+		}
+		paragraphs[i] = wrapped.String()
+	}
+	return strings.Join(paragraphs, "\n")
+}
 
 func fetchPasteURL(parent context.Context, rawURL string, maxLength int) (string, bool, error) {
 	ctx, cancel := context.WithTimeout(parent, 8*time.Second)
