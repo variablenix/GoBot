@@ -16,7 +16,7 @@ networks:
       verify_cert: true
       # Optional CertFP client certificate. A combined PEM containing the
       # certificate and private key is supported.
-      # client_cert: "/home/ak/irc-bot/GoBot/secrets/echo-ouch.pem"
+      # client_cert: "/opt/gobot/secrets/ouch-client.pem"
       # client_key: "" # use this only when the key is separate
     identity:
       nick: GoBot
