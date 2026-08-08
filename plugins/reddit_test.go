@@ -41,6 +41,46 @@ func TestRedditSubredditEndpoint(t *testing.T) {
 	}
 }
 
+func TestRedditSortedSubredditEndpoint(t *testing.T) {
+	postURL, endpoint, ok := redditSubredditEndpointWithSort("r/linux", "top")
+	wantURL := "https://www.reddit.com/r/linux/"
+	wantEndpoint := "https://www.reddit.com/r/linux/top.json?raw_json=1&limit=1"
+	if !ok || postURL != wantURL || endpoint != wantEndpoint {
+		t.Fatalf("unexpected sorted subreddit URLs: %q, %q, %v", postURL, endpoint, ok)
+	}
+	if _, _, ok := redditSubredditEndpointWithSort("r/linux", "controversial"); ok {
+		t.Fatal("unsupported Reddit sort accepted")
+	}
+}
+
+func TestParseRedditLookupArg(t *testing.T) {
+	tests := []struct {
+		arg, target, sort string
+		ok                bool
+	}{
+		{arg: "r/linuxmemes", target: "r/linuxmemes", sort: "new", ok: true},
+		{arg: "top r/linuxmemes", target: "r/linuxmemes", sort: "top", ok: true},
+		{arg: "r/linuxmemes rising", target: "r/linuxmemes", sort: "rising", ok: true},
+		{arg: "hot https://www.reddit.com/r/linux/", target: "https://www.reddit.com/r/linux/", sort: "hot", ok: true},
+		{arg: "top", target: "", sort: "", ok: false},
+		{arg: "top r/linuxmemes week", target: "", sort: "", ok: false},
+	}
+	for _, test := range tests {
+		target, sort, ok := parseRedditLookupArg(test.arg)
+		if target != test.target || sort != test.sort || ok != test.ok {
+			t.Errorf("parseRedditLookupArg(%q) = %q, %q, %v; want %q, %q, %v", test.arg, target, sort, ok, test.target, test.sort, test.ok)
+		}
+	}
+}
+
+func TestRedditSortedRSSEndpoint(t *testing.T) {
+	got, ok := redditRSSEndpointWithSort("r/linux", "hot")
+	want := "https://www.reddit.com/r/linux/hot.rss?limit=1"
+	if !ok || got != want {
+		t.Fatalf("unexpected sorted RSS endpoint: %q, %v", got, ok)
+	}
+}
+
 func TestRedditLookupEndpointAcceptsPostsAndSubreddits(t *testing.T) {
 	if _, _, ok := redditLookupEndpoint("r/golang"); !ok {
 		t.Fatal("subreddit lookup was rejected")
@@ -77,6 +117,14 @@ func TestFormatRedditResultOmitsUnavailableStats(t *testing.T) {
 	want := "[Reddit] A title | u/alice | r/linux — https://www.reddit.com/r/linux/"
 	if got != want {
 		t.Fatalf("unexpected RSS result: %q", got)
+	}
+}
+
+func TestFormatRedditResultIncludesExplicitSort(t *testing.T) {
+	got := formatRedditResultWithSort(redditPost{Title: "A title"}, "https://www.reddit.com/r/linux/", "top")
+	want := "[Reddit top] A title — https://www.reddit.com/r/linux/"
+	if got != want {
+		t.Fatalf("unexpected sorted Reddit result: %q", got)
 	}
 }
 

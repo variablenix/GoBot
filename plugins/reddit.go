@@ -20,7 +20,7 @@ type Reddit struct{ cfg bot.PluginConfig }
 func (p *Reddit) Name() string       { return "reddit" }
 func (p *Reddit) Commands() []string { return []string{"reddit", "r"} }
 func (p *Reddit) Help() string {
-	return "!reddit <Reddit post URL|r/subreddit> — show one compact Reddit result (alias: !r)"
+	return "!reddit [best|hot|new|top|rising] <Reddit post URL|r/subreddit> — show one compact Reddit result; sort may follow subreddit (alias: !r)"
 }
 func (p *Reddit) Init(c bot.PluginConfig, _ *storage.DB) error { p.cfg = c; return nil }
 
@@ -29,21 +29,22 @@ func (p *Reddit) Handle(b *bot.Bot, m bot.Message) bool {
 	if !ok || !isRedditCommand(cmd) {
 		return false
 	}
-	postURL, endpoint, ok := redditLookupEndpoint(strings.TrimSpace(arg))
+	target, sort, ok := parseRedditLookupArg(arg)
+	postURL, endpoint, ok := redditLookupEndpointWithSort(target, sort)
 	if !ok {
-		b.Send(m.ReplyTarget(), ircColor(ircYellow, "usage: !reddit <Reddit post URL|r/subreddit>"))
+		b.Send(m.ReplyTarget(), ircColor(ircYellow, "usage: !reddit [best|hot|new|top|rising] <r/subreddit|Reddit post URL>"))
 		return true
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), redditTimeout(p.cfg))
 	defer cancel()
 	post, ok := fetchRedditPost(ctx, endpoint)
 	if !ok {
-		if rssEndpoint, rssOK := redditRSSEndpoint(strings.TrimSpace(arg)); rssOK {
+		if rssEndpoint, rssOK := redditRSSEndpointWithSort(target, sort); rssOK {
 			post, ok = fetchRedditRSS(ctx, rssEndpoint)
 		}
 	}
 	if !ok {
-		if oembedEndpoint, oembedOK := redditOEmbedEndpoint(strings.TrimSpace(arg)); oembedOK {
+		if oembedEndpoint, oembedOK := redditOEmbedEndpoint(target); oembedOK {
 			post, ok = fetchRedditOEmbed(ctx, oembedEndpoint, postURL)
 		}
 	}
@@ -55,7 +56,7 @@ func (p *Reddit) Handle(b *bot.Bot, m bot.Message) bool {
 	if maxLength < 120 {
 		maxLength = 120
 	}
-	result := formatRedditResult(post, postURL)
+	result := formatRedditResultWithSort(post, postURL, sort)
 	b.Send(m.ReplyTarget(), truncateRunes(result, maxLength))
 	return true
 }
@@ -70,7 +71,15 @@ type redditPost struct {
 }
 
 func formatRedditResult(post redditPost, postURL string) string {
-	result := "[Reddit] " + cleanExternalText(post.Title)
+	return formatRedditResultWithSort(post, postURL, "")
+}
+
+func formatRedditResultWithSort(post redditPost, postURL, sort string) string {
+	prefix := "[Reddit]"
+	if sort != "" && sort != "new" {
+		prefix = "[Reddit " + sort + "]"
+	}
+	result := prefix + " " + cleanExternalText(post.Title)
 	if author := cleanExternalText(post.Author); author != "" {
 		result += " | u/" + author
 	}
@@ -291,13 +300,32 @@ func redditPostEndpoint(raw string) (string, string, bool) {
 }
 
 func redditLookupEndpoint(raw string) (string, string, bool) {
+	return redditLookupEndpointWithSort(raw, "new")
+}
+
+func redditLookupEndpointWithSort(raw, sort string) (string, string, bool) {
+	sort = normalizeRedditSort(sort)
+	if sort == "" {
+		return "", "", false
+	}
 	if postURL, endpoint, ok := redditPostEndpoint(raw); ok {
+		if sort != "new" {
+			return "", "", false
+		}
 		return postURL, endpoint, true
 	}
-	return redditSubredditEndpoint(raw)
+	return redditSubredditEndpointWithSort(raw, sort)
 }
 
 func redditSubredditEndpoint(raw string) (string, string, bool) {
+	return redditSubredditEndpointWithSort(raw, "new")
+}
+
+func redditSubredditEndpointWithSort(raw, sort string) (string, string, bool) {
+	sort = normalizeRedditSort(sort)
+	if sort == "" {
+		return "", "", false
+	}
 	value := strings.TrimSpace(raw)
 	name := ""
 	if strings.HasPrefix(strings.ToLower(value), "r/") {
@@ -326,14 +354,22 @@ func redditSubredditEndpoint(raw string) (string, string, bool) {
 	endpointURL := &url.URL{
 		Scheme:   "https",
 		Host:     "www.reddit.com",
-		Path:     "/r/" + name + "/new.json",
+		Path:     "/r/" + name + "/" + sort + ".json",
 		RawQuery: "raw_json=1&limit=1",
 	}
 	return postURL, endpointURL.String(), true
 }
 
 func redditRSSEndpoint(raw string) (string, bool) {
-	if _, _, ok := redditSubredditEndpoint(raw); ok {
+	return redditRSSEndpointWithSort(raw, "new")
+}
+
+func redditRSSEndpointWithSort(raw, sort string) (string, bool) {
+	sort = normalizeRedditSort(sort)
+	if sort == "" {
+		return "", false
+	}
+	if _, _, ok := redditSubredditEndpointWithSort(raw, sort); ok {
 		value := strings.TrimSpace(raw)
 		name := ""
 		if strings.HasPrefix(strings.ToLower(value), "r/") {
@@ -346,10 +382,16 @@ func redditRSSEndpoint(raw string) (string, bool) {
 		}
 		name = strings.TrimSuffix(name, "/")
 		if validRedditSubreddit(name) {
-			return "https://www.reddit.com/r/" + name + ".rss?limit=1", true
+			if sort == "new" {
+				return "https://www.reddit.com/r/" + name + ".rss?limit=1", true
+			}
+			return "https://www.reddit.com/r/" + name + "/" + sort + ".rss?limit=1", true
 		}
 	}
 	if postURL, _, ok := redditPostEndpoint(raw); ok {
+		if sort != "new" {
+			return "", false
+		}
 		parsed, err := url.Parse(postURL)
 		if err != nil {
 			return "", false
@@ -357,6 +399,35 @@ func redditRSSEndpoint(raw string) (string, bool) {
 		return "https://www.reddit.com" + strings.TrimSuffix(parsed.Path, "/") + ".rss", true
 	}
 	return "", false
+}
+
+func parseRedditLookupArg(raw string) (target, sort string, ok bool) {
+	fields := strings.Fields(strings.TrimSpace(raw))
+	if len(fields) == 1 {
+		if normalizeRedditSort(fields[0]) != "" {
+			return "", "", false
+		}
+		return fields[0], "new", true
+	}
+	if len(fields) != 2 {
+		return "", "", false
+	}
+	if normalized := normalizeRedditSort(fields[0]); normalized != "" {
+		return fields[1], normalized, true
+	}
+	if normalized := normalizeRedditSort(fields[1]); normalized != "" {
+		return fields[0], normalized, true
+	}
+	return "", "", false
+}
+
+func normalizeRedditSort(sort string) string {
+	switch strings.ToLower(strings.TrimSpace(sort)) {
+	case "best", "hot", "new", "top", "rising":
+		return strings.ToLower(strings.TrimSpace(sort))
+	default:
+		return ""
+	}
 }
 
 func subredditFromRedditURL(raw string) string {
