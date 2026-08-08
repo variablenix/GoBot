@@ -112,7 +112,7 @@ server:
   verify_cert: true
   client_cert: /opt/gobot/secrets/irc-client.pem
 identity:
-  nick: Echo
+  nick: GoBot
   sasl_mechanism: external
   sasl_user: ""
   sasl_pass: ""
@@ -146,7 +146,7 @@ server:
   client_key: ""
 identity:
   sasl_mechanism: plain
-  sasl_user: Echo
+  sasl_user: GoBot
   sasl_pass: ""
   certfp_enroll: true
   nickserv_name: NickServ
@@ -155,7 +155,7 @@ identity:
 Keep the password in `.env`:
 
 ~~~env
-BOT_SASL_USER=Echo
+BOT_SASL_USER=GoBot
 BOT_SASL_PASS=your-existing-nickserv-password
 BOT_CERTFP_ENROLL=true
 ~~~
