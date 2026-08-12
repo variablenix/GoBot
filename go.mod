@@ -1,6 +1,6 @@
 module github.com/variablenix/GoBot
 
-go 1.25.12
+go 1.26.5
 
 require (
 	github.com/agnivade/levenshtein v1.2.1
