@@ -5,7 +5,7 @@ systemd service, and using Docker.
 
 ## Requirements
 
-- Go `1.25.12+` or a newer supported release
+- Go `1.26.5+` or a newer supported release
 - a writable filesystem for the BoltDB database
 - network access to the IRC servers
 - optionally, Docker and Docker Compose
