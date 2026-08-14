@@ -52,8 +52,11 @@ func (p *Blackjack) recordResult(m bot.Message, game *blackjackGame) {
 	case dealerValue > 21 || playerValue > dealerValue:
 		stats.Wins++
 		stats.CurrentStreak++
-		if uint64(stats.CurrentStreak) > stats.BestStreak {
-			stats.BestStreak = uint64(stats.CurrentStreak)
+		if stats.CurrentStreak > 0 {
+			currentStreak := uint64(stats.CurrentStreak) // #nosec G115 -- negative streaks are normalized above.
+			if currentStreak > stats.BestStreak {
+				stats.BestStreak = currentStreak
+			}
 		}
 	case playerValue == dealerValue:
 		stats.Pushes++
