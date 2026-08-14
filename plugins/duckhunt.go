@@ -1165,6 +1165,10 @@ func (p *DuckHunt) formatDuckStats(nick string, player duckPlayer, score duckSco
 	}
 	accuracy := duckPercent(player.Hits, player.Shots, 0)
 	hitRate := duckPercent(score.Ducks, player.Hits, 1)
+	spareMagazines := player.SpareMagazines
+	if spareMagazines < 0 {
+		spareMagazines = 0
+	}
 	armed := ircColor(ircYellow, "Unarmed")
 	ammo := "0/0"
 	jamChance := "0%"
@@ -1184,7 +1188,7 @@ func (p *DuckHunt) formatDuckStats(nick string, player duckPlayer, score duckSco
 	items := ircColor(ircTan, "🎒 "+duckItems(player))
 	effects := ircColor(ircCyan, "⚡ "+duckEffects(player))
 	achievements, totalAchievements, _ := duckAchievementSummary(player)
-	return fmt.Sprintf("%s %s: %s | %s | %s | %s | %s | %s | %s | %s | %s | %d spare magazine%s | %s jam chance | Items: %s | Effects: %s | Achievements: %d/%d", ircColor(ircCyan, "🦆"), ircColor(ircCyan, nick), ircColor(ircYellow, fmt.Sprintf("🏅 Lv%d %s", level, title)), ircColor(ircGreen, fmt.Sprintf("✨ %d XP", player.XP))+" ("+next+")", ircColor(ircCyan, fmt.Sprintf("🎯 %d shots", player.Shots)), ircColor(ircGreen, fmt.Sprintf("🏆 %d killed", score.Ducks)), ircColor(ircTan, fmt.Sprintf("💙 %d befriended", score.Friends)), ircColor(ircCyan, accuracy+" accuracy"), ircColor(ircCyan, hitRate+" hit rate"), armed, ammo, player.SpareMagazines, duckPlural(uint64(player.SpareMagazines)), jamChance, items, effects, achievements, totalAchievements)
+	return fmt.Sprintf("%s %s: %s | %s | %s | %s | %s | %s | %s | %s | %s | %d spare magazine%s | %s jam chance | Items: %s | Effects: %s | Achievements: %d/%d", ircColor(ircCyan, "🦆"), ircColor(ircCyan, nick), ircColor(ircYellow, fmt.Sprintf("🏅 Lv%d %s", level, title)), ircColor(ircGreen, fmt.Sprintf("✨ %d XP", player.XP))+" ("+next+")", ircColor(ircCyan, fmt.Sprintf("🎯 %d shots", player.Shots)), ircColor(ircGreen, fmt.Sprintf("🏆 %d killed", score.Ducks)), ircColor(ircTan, fmt.Sprintf("💙 %d befriended", score.Friends)), ircColor(ircCyan, accuracy+" accuracy"), ircColor(ircCyan, hitRate+" hit rate"), armed, ammo, spareMagazines, duckPlural(uint64(spareMagazines)), jamChance, items, effects, achievements, totalAchievements)
 }
 
 func duckEffects(player duckPlayer) string {
