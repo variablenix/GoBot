@@ -41,6 +41,7 @@ func All() []bot.Plugin {
 		&DuckHunt{},
 		&Daily{},
 		&Scramble{},
+		&Puzzle{},
 		&Status{},
 		&Define{},
 		&Calculator{},

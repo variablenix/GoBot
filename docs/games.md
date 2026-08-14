@@ -4,6 +4,34 @@ Games use the same command cooldown and outbound queue protections as every
 other plugin. No game uses real money or wagering. Duck Hunt points are local
 scores with no value outside the bot.
 
+## Numbers puzzle
+
+Start a timed arithmetic challenge in the current channel:
+
+~~~text
+!puzzle numbers
+!puzzles
+!puzzle status
+!puzzle stop
+~~~
+
+GoBot announces a target and six numbers. Submit an expression as a normal
+channel message using only the supplied numbers at most once, `+`, `-`, `*`,
+`/`, and parentheses. The closest exact arithmetic result wins when the clock
+expires; an exact match ends the round immediately. The game reports each
+valid attempt in one line and ignores invalid expressions. Rounds are local to
+the network and channel, kept in memory, and cleared if the bot restarts.
+
+The default time limit is 45 seconds:
+
+~~~yaml
+plugins:
+  puzzle:
+    enabled: true
+    timeout_seconds: 45
+    max_length: 360
+~~~
+
 ## Blackjack / 21
 
 Start a separate per-user game in the current channel:

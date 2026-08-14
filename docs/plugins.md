@@ -47,6 +47,7 @@ Plugins are enabled or disabled under plugins.<name>.enabled in config.yaml.
 - attack: playful target-based actions and messages
 - luv: persistent blue-heart points for spreading kindness
 - scramble: local first-correct-answer word game
+- puzzle: timed local arithmetic numbers puzzle
 - cheer: family-friendly cheers
 - seen, tell, karma, and dice: channel utilities
 - quote, choose, and time: lightweight utilities
@@ -431,6 +432,40 @@ plugins:
     data_file: "data/scramble.txt"
     timeout_minutes: 5
     max_length: 240
+~~~
+
+## Numbers puzzle
+
+Start a timed arithmetic round in the current channel:
+
+~~~text
+!puzzle numbers
+!puzzles
+!puzzle status
+!puzzle stop
+~~~
+
+GoBot generates a target and six numbers. Players submit arithmetic expressions
+as ordinary channel messages, using only the supplied numbers at most once and
+the operators `+`, `-`, `*`, `/`, and parentheses. Division may produce a
+fraction; answers are compared exactly, so the closest result wins. An exact
+answer ends the round immediately. Otherwise, the timer announces the closest
+valid answer when it expires. Invalid expressions are ignored so normal channel
+conversation is not interrupted.
+
+The default round lasts 45 seconds and is tracked separately per network and
+channel. Active rounds are held in memory and disappear if GoBot restarts; no
+network calls or external game data are required. Every puzzle response is
+bounded to one IRC line.
+
+Optional settings:
+
+~~~yaml
+plugins:
+  puzzle:
+    enabled: true
+    timeout_seconds: 45
+    max_length: 360
 ~~~
 
 ## Weather
