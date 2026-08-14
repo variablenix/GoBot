@@ -30,6 +30,29 @@ type Paste struct {
 	hardWrapWidth  int
 }
 
+var pasteFetchHTTPClient = newPasteFetchHTTPClient()
+
+func newPasteFetchHTTPClient() *http.Client {
+	transport, ok := http.DefaultTransport.(*http.Transport)
+	if !ok {
+		transport = &http.Transport{}
+	} else {
+		transport = transport.Clone()
+	}
+	transport.Proxy = nil
+	transport.DialContext = safePublicDialContext
+	return &http.Client{
+		Timeout:   8 * time.Second,
+		Transport: transport,
+		CheckRedirect: func(req *http.Request, _ []*http.Request) error {
+			if !publicHTTPURL(req.URL) {
+				return fmt.Errorf("redirect target is not a public HTTP URL")
+			}
+			return nil
+		},
+	}
+}
+
 func (p *Paste) Name() string       { return "paste" }
 func (p *Paste) Commands() []string { return []string{"paste"} }
 func (p *Paste) Help() string {
@@ -158,12 +181,16 @@ func hardWrapPasteText(text string, width int) string {
 func fetchPasteURL(parent context.Context, rawURL string, maxLength int) (string, bool, error) {
 	ctx, cancel := context.WithTimeout(parent, 8*time.Second)
 	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+	parsed, err := url.ParseRequestURI(rawURL)
+	if err != nil || !publicHTTPURL(parsed) {
+		return "", false, fmt.Errorf("URL is not a public HTTP or HTTPS URL")
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, parsed.String(), nil)
 	if err != nil {
 		return "", false, err
 	}
 	req.Header.Set("User-Agent", "GoBot/1.0 (IRC bot; paste plugin)")
-	res, err := apiHTTPClient.Do(req)
+	res, err := pasteFetchHTTPClient.Do(req)
 	if err != nil {
 		return "", false, err
 	}
@@ -198,7 +225,7 @@ func (p *Paste) createPaste(parent context.Context, content string) (string, err
 	if err != nil {
 		return "", err
 	}
-	req.Header.Set("Authorization", "Bearer "+p.token)
+	req.Header.Set("Authorization", "token "+p.token)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 	res, err := apiHTTPClient.Do(req)

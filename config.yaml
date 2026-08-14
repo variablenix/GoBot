@@ -83,7 +83,7 @@ plugins:
   acronym: {enabled: true, data_file: "data/acronyms.txt", max_length: 320}
   weather: {enabled: true, default_units: imperial}
   steam: {enabled: true, timeout_seconds: 10, max_length: 360}
-  news: {enabled: true, api_key: "", max_results: 3}
+  news: {enabled: true, api_key: "", max_results: 3, max_length: 360}
   # Source-grounded answers stay keyless by default. AI rewriting is opt-in.
   # Use BOT_OPENROUTER_API_KEY, BOT_OPENAI_API_KEY, or BOT_GEMINI_API_KEY
   # instead of putting provider secrets in this file.

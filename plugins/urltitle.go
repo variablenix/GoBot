@@ -281,7 +281,7 @@ func youtubeMetadata(ctx context.Context, client *http.Client, videoURL *url.URL
 		Title      string `json:"title"`
 		AuthorName string `json:"author_name"`
 	}
-	if err := json.NewDecoder(res.Body).Decode(&data); err != nil {
+	if err := json.NewDecoder(io.LimitReader(res.Body, 128<<10)).Decode(&data); err != nil {
 		return youtubeMetadataResult{}, false
 	}
 	result := youtubeMetadataResult{
@@ -546,7 +546,7 @@ func oembedTitle(ctx context.Context, client *http.Client, endpoint string) (str
 	var data struct {
 		Title string `json:"title"`
 	}
-	if err := json.NewDecoder(res.Body).Decode(&data); err != nil {
+	if err := json.NewDecoder(io.LimitReader(res.Body, 128<<10)).Decode(&data); err != nil {
 		return "", false
 	}
 	title := cleanTitle(data.Title)
