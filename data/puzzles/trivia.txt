@@ -9,3 +9,52 @@ Which instrument has keys, pedals, and strings?|piano
 What is the fastest land animal?|cheetah
 What gas do plants absorb from the atmosphere?|carbon dioxide;co2
 In which sport is Wimbledon contested?|tennis
+What is the smallest prime number?|2;two
+How many continents are commonly taught in geography?|7;seven
+What is the capital of Australia?|canberra
+Who wrote The Hobbit?|j r r tolkien;tolkien
+What is the largest mammal?|blue whale
+What do red blood cells carry around the body?|oxygen
+What is the currency of the United Kingdom?|pound sterling;pound
+What is the first element on the periodic table?|hydrogen
+What is the official language of Brazil?|portuguese
+What is the square root of 64?|8;eight
+The Great Wall is located in which country?|china
+At standard pressure, water boils at what temperature in Celsius?|100;one hundred;100 c
+Which planet is famous for its visible rings?|saturn
+What is the deepest known ocean trench?|mariana trench
+What does DNA stand for?|deoxyribonucleic acid
+What are the three primary colors of light?|red green blue
+What does CPU stand for?|central processing unit
+How many days are in a leap year?|366;three hundred sixty six
+Who painted the Mona Lisa?|leonardo da vinci
+What instrument traditionally has six strings?|guitar
+What is the largest hot desert?|sahara;sahara desert
+What is the capital of Canada?|ottawa
+What is the scientific study of weather called?|meteorology
+Which animal is famous for eating bamboo?|panda;giant panda
+What chemical compound is H2O?|water
+What is the first month of the year?|january
+Which metal is liquid at room temperature?|mercury
+How many bones are in the adult human body?|206;two hundred six
+Which Greek god rules the sea?|poseidon
+The pyramids of Giza are in which country?|egypt
+What does HTTP stand for?|hypertext transfer protocol
+What is the currency of Japan?|yen
+What insect transforms from a caterpillar into an adult with wings?|butterfly
+Which organ pumps blood through the body?|heart
+What is the largest planet in our solar system?|jupiter
+What is five squared?|25;twenty five
+What is a three-line Japanese poem called?|haiku
+What does URL stand for?|uniform resource locator
+The Sahara is on which continent?|africa
+What is the capital of Italy?|rome
+What is the capital of Spain?|madrid
+Which planet is closest to the Sun?|mercury
+What is the hardest natural mineral?|diamond
+What is the main language spoken in Mexico?|spanish
+How many players are on a soccer team on the field?|11;eleven
+What is the freezing point of water in Celsius?|0;zero
+Which bird is often associated with delivering messages?|pigeon
+What is the largest internal organ in the human body?|liver
+What is the name of our galaxy?|milky way

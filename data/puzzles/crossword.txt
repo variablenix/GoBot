@@ -5,7 +5,54 @@ Crossword-style clue: canine pet (3 letters).|dog
 Crossword-style clue: opposite of yes (2 letters).|no
 Crossword-style clue: red gemstone (4 letters).|ruby
 Crossword-style clue: aquatic mammal that builds dams (7 letters).|beaver
-Crossword-style clue: a young dog (3 letters).|puppy
+Crossword-style clue: a young dog (5 letters).|puppy
 Crossword-style clue: planet known as the Red Planet (4 letters).|mars
 Crossword-style clue: large body of salt water (3 letters).|sea
 Crossword-style clue: common citrus fruit (6 letters).|orange
+Crossword-style clue: feline pet (3 letters).|cat
+Crossword-style clue: man's best friend (3 letters).|dog
+Crossword-style clue: opposite of off (2 letters).|on
+Crossword-style clue: opposite of up (4 letters).|down
+Crossword-style clue: a young cat (6 letters).|kitten
+Crossword-style clue: yellow citrus fruit (5 letters).|lemon
+Crossword-style clue: red fruit often used in pie (5 letters).|apple
+Crossword-style clue: green vegetable with florets (8 letters).|broccoli
+Crossword-style clue: breakfast grain (5 letters).|oats
+Crossword-style clue: baked dish with layers of pasta (7 letters).|lasagna
+Crossword-style clue: hot drink made from roasted beans (3 letters).|coffee
+Crossword-style clue: a dwelling (4 letters).|home
+Crossword-style clue: a young sheep (4 letters).|lamb
+Crossword-style clue: a young horse (4 letters).|foal
+Crossword-style clue: a young cow (4 letters).|calf
+Crossword-style clue: a group of fish (6 letters).|school
+Crossword-style clue: frozen precipitation (4 letters).|snow
+Crossword-style clue: a violent storm with a funnel (7 letters).|tornado
+Crossword-style clue: bright streak during a storm (9 letters).|lightning
+Crossword-style clue: body of water smaller than a sea (4 letters).|lake
+Crossword-style clue: flowing body of water (6 letters).|river
+Crossword-style clue: high landform with a peak (8 letters).|mountain
+Crossword-style clue: dry sandy region (6 letters).|desert
+Crossword-style clue: place where books are kept (7 letters).|library
+Crossword-style clue: person who teaches (7 letters).|teacher
+Crossword-style clue: person who writes books (6 letters).|author
+Crossword-style clue: vehicle with two wheels (7 letters).|bicycle
+Crossword-style clue: vehicle that travels on rails (5 letters).|train
+Crossword-style clue: aircraft with rotating blades (10 letters).|helicopter
+Crossword-style clue: a device used to call someone (9 letters).|telephone
+Crossword-style clue: a small computer carried in a pocket (6 letters).|laptop
+Crossword-style clue: a star at the center of our system (3 letters).|sun
+Crossword-style clue: Earth's natural satellite (4 letters).|moon
+Crossword-style clue: planet with prominent rings (6 letters).|saturn
+Crossword-style clue: the Red Planet (4 letters).|mars
+Crossword-style clue: precious yellow metal (4 letters).|gold
+Crossword-style clue: hard mineral used in jewelry (7 letters).|diamond
+Crossword-style clue: color made by mixing red and blue (6 letters).|purple
+Crossword-style clue: color of grass (5 letters).|green
+Crossword-style clue: seven-day period (4 letters).|week
+Crossword-style clue: month after April (3 letters).|may
+Crossword-style clue: day after Friday (8 letters).|saturday
+Crossword-style clue: frozen dessert (8 letters).|ice cream
+Crossword-style clue: a musical instrument with black and white keys (5 letters).|piano
+Crossword-style clue: a sport played at Wimbledon (6 letters).|tennis
+Crossword-style clue: a handwritten or digital message (4 letters).|note
+Crossword-style clue: a question or problem to solve (6 letters).|puzzle
