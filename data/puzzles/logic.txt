@@ -9,3 +9,47 @@ What gets wetter as it dries?|towel;a towel
 What has cities but no houses, forests but no trees, and water but no fish?|map;a map
 What belongs to you but other people use it more than you do?|name;your name
 What breaks but is never held?|promise;a promise
+I am tall when I am young and short when I am old. What am I?|candle;a candle
+What has many teeth but cannot bite?|comb;a comb
+What has a neck but no head?|bottle;a bottle
+What has hands but cannot clap?|clock;a clock
+What has words but never speaks?|book;a book
+What has a thumb and four fingers but is not alive?|glove;a glove
+What has an endless supply of letters but starts empty?|mailbox;mail box
+What has a ring but no finger?|telephone;phone
+What is full of holes but still holds water?|sponge;a sponge
+What goes up but never comes down?|age;your age
+What has a head and a tail but no body?|coin;a coin
+What has a bed but never sleeps and a mouth but never eats?|river;a river
+What has four legs in the morning, two at noon, and three in the evening?|human;person;man
+What is always in front of you but cannot be seen?|future;the future
+What can you catch but not throw?|cold;a cold
+What has an eye but cannot see and is used for sewing?|needle;a needle
+What kind of room has no doors or windows?|mushroom;a mushroom
+What can fill a room but takes up no space?|light;sunlight
+What has a bark but no bite?|tree;a tree
+What has a bottom at the top?|leg;your leg
+What can run but never walks and has a mouth but never talks?|river;a river
+What is easy to get into but hard to get out of?|trouble
+What has one head, one foot, and four legs?|bed;a bed
+What can be cracked, made, told, and played?|joke;a joke
+What goes through towns and over hills but never moves?|road;a road
+What has no life but can die?|battery;a battery
+What can you serve but never eat?|tennis ball;ball
+What has a lot of eyes but cannot see?|potato;potato tuber
+What has a tongue but cannot talk?|shoe;a shoe
+What is black when clean and white when dirty?|chalkboard;blackboard
+What has branches but no fruit, trunk, or leaves?|bank;a bank
+What can be seen once in a minute, twice in a moment, and never in a thousand years?|letter m;m
+What is the next number: 1, 1, 2, 3, 5?|8;eight
+What is the next number: 3, 6, 12, 24?|48;forty eight
+If two is company and three is a crowd, what are four and five?|9;nine
+What number is missing: 10, 20, 30, __, 50?|40;forty
+A farmer has 17 sheep and all but 9 run away. How many remain?|9;nine
+What weighs more: a kilogram of feathers or a kilogram of steel?|same;they weigh the same
+What has a key but opens no door and can make music?|piano;a piano
+What is the next letter: J, F, M, A, M, J?|j
+What is the next number: 1, 4, 9, 16?|25;twenty five
+What has a face but no eyes, nose, or mouth?|clock;a clock
+What is always coming but never arrives?|tomorrow
+What can be broken without being touched?|promise;a promise

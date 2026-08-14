@@ -37,12 +37,15 @@ const (
 var puzzleTextCategories = []puzzleCategory{puzzleTrivia, puzzleWord, puzzleLogic, puzzleAnagram, puzzleCrossword}
 
 type Puzzle struct {
-	mu        sync.Mutex
-	games     map[string]*puzzleGame
-	clues     map[puzzleCategory][]puzzleClue
-	anagrams  []string
-	timeout   time.Duration
-	maxLength int
+	mu           sync.Mutex
+	games        map[string]*puzzleGame
+	clues        map[puzzleCategory][]puzzleClue
+	anagrams     []string
+	categoryUsed map[string]map[puzzleCategory]struct{}
+	clueUsed     map[string]map[puzzleCategory]map[int]struct{}
+	anagramUsed  map[string]map[int]struct{}
+	timeout      time.Duration
+	maxLength    int
 }
 
 type puzzleGame struct {
@@ -100,6 +103,9 @@ func (p *Puzzle) Init(c bot.PluginConfig, _ *storage.DB) error {
 	addPuzzleFallbacks(p.clues)
 	p.mu.Lock()
 	p.games = make(map[string]*puzzleGame)
+	p.categoryUsed = make(map[string]map[puzzleCategory]struct{})
+	p.clueUsed = make(map[string]map[puzzleCategory]map[int]struct{})
+	p.anagramUsed = make(map[string]map[int]struct{})
 	p.mu.Unlock()
 	return nil
 }
@@ -114,6 +120,9 @@ func (p *Puzzle) Stop(_ *bot.Bot) {
 		}
 	}
 	p.games = make(map[string]*puzzleGame)
+	p.categoryUsed = make(map[string]map[puzzleCategory]struct{})
+	p.clueUsed = make(map[string]map[puzzleCategory]map[int]struct{})
+	p.anagramUsed = make(map[string]map[int]struct{})
 }
 
 func (p *Puzzle) Handle(b *bot.Bot, m bot.Message) bool {
@@ -366,17 +375,19 @@ func (p *Puzzle) newGame(category puzzleCategory, target string, started time.Ti
 				available = append(available, candidate)
 			}
 		}
-		category = available[rand.Intn(len(available))]
+		category = p.nextPuzzleCategory(target, available)
 	}
 	if category == puzzleNumbers {
+		p.markPuzzleCategory(target, category)
 		return newNumbersPuzzleGame(target, started, p.timeout)
 	}
+	p.markPuzzleCategory(target, category)
 	game := &puzzleGame{Category: category, TargetIRC: target, StartedAt: started, Deadline: started.Add(p.timeout)}
 	if category == puzzleAnagram {
 		if len(p.anagrams) == 0 {
 			p.anagrams = append([]string(nil), scrambleFallbackWords...)
 		}
-		word := p.anagrams[rand.Intn(len(p.anagrams))]
+		word := p.nextAnagram(target)
 		game.Prompt = fmt.Sprintf("Anagram: unscramble %s", scrambleWord(word))
 		game.Answers = []string{word}
 		return game
@@ -387,10 +398,120 @@ func (p *Puzzle) newGame(category puzzleCategory, target string, started time.Ti
 		clues = p.clues[category]
 		game.Category = category
 	}
-	clue := clues[rand.Intn(len(clues))]
+	clue := p.nextPuzzleClue(target, category, clues)
 	game.Prompt = fmt.Sprintf("%s: %s", puzzleCategoryLabel(category), clue.Prompt)
 	game.Answers = append([]string(nil), clue.Answers...)
 	return game
+}
+
+func (p *Puzzle) nextPuzzleCategory(target string, available []puzzleCategory) puzzleCategory {
+	if p.categoryUsed == nil {
+		p.categoryUsed = make(map[string]map[puzzleCategory]struct{})
+	}
+	used := p.categoryUsed[target]
+	if used == nil {
+		used = make(map[puzzleCategory]struct{})
+		p.categoryUsed[target] = used
+	}
+	if len(used) >= len(available) {
+		used = make(map[puzzleCategory]struct{})
+		p.categoryUsed[target] = used
+	}
+	candidates := make([]puzzleCategory, 0, len(available))
+	for _, category := range available {
+		if _, exists := used[category]; !exists {
+			candidates = append(candidates, category)
+		}
+	}
+	if len(candidates) == 0 {
+		used = make(map[puzzleCategory]struct{})
+		p.categoryUsed[target] = used
+		candidates = available
+	}
+	category := candidates[rand.Intn(len(candidates))]
+	used[category] = struct{}{}
+	return category
+}
+
+func (p *Puzzle) markPuzzleCategory(target string, category puzzleCategory) {
+	if p.categoryUsed == nil {
+		p.categoryUsed = make(map[string]map[puzzleCategory]struct{})
+	}
+	used := p.categoryUsed[target]
+	if used == nil {
+		used = make(map[puzzleCategory]struct{})
+		p.categoryUsed[target] = used
+	}
+	used[category] = struct{}{}
+}
+
+func (p *Puzzle) nextPuzzleClue(target string, category puzzleCategory, clues []puzzleClue) puzzleClue {
+	if p.clueUsed == nil {
+		p.clueUsed = make(map[string]map[puzzleCategory]map[int]struct{})
+	}
+	usedByCategory := p.clueUsed[target]
+	if usedByCategory == nil {
+		usedByCategory = make(map[puzzleCategory]map[int]struct{})
+		p.clueUsed[target] = usedByCategory
+	}
+	used := usedByCategory[category]
+	if used == nil {
+		used = make(map[int]struct{})
+		usedByCategory[category] = used
+	}
+	if len(used) >= len(clues) {
+		used = make(map[int]struct{})
+		usedByCategory[category] = used
+	}
+	candidates := make([]int, 0, len(clues))
+	for index := range clues {
+		if _, exists := used[index]; !exists {
+			candidates = append(candidates, index)
+		}
+	}
+	if len(candidates) == 0 {
+		used = make(map[int]struct{})
+		usedByCategory[category] = used
+		candidates = make([]int, len(clues))
+		for index := range clues {
+			candidates[index] = index
+		}
+	}
+	index := candidates[rand.Intn(len(candidates))]
+	used[index] = struct{}{}
+	return clues[index]
+}
+
+func (p *Puzzle) nextAnagram(target string) string {
+	if p.anagramUsed == nil {
+		p.anagramUsed = make(map[string]map[int]struct{})
+	}
+	used := p.anagramUsed[target]
+	if used == nil {
+		used = make(map[int]struct{})
+		p.anagramUsed[target] = used
+	}
+	if len(used) >= len(p.anagrams) {
+		used = make(map[int]struct{})
+		p.anagramUsed[target] = used
+	}
+	candidates := make([]int, 0, len(p.anagrams))
+	for index := range p.anagrams {
+		if _, exists := used[index]; !exists {
+			candidates = append(candidates, index)
+		}
+	}
+	if len(candidates) == 0 {
+		used = make(map[int]struct{})
+		p.anagramUsed[target] = used
+		candidates = make([]int, len(p.anagrams))
+		for index := range p.anagrams {
+			candidates[index] = index
+		}
+	}
+	index := candidates[rand.Intn(len(candidates))]
+	used[index] = struct{}{}
+	return p.anagrams[index]
 }
 
 func puzzleRandomTarget() int {
