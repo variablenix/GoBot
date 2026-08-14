@@ -6,6 +6,51 @@ What is the opposite of expand?|contract;shrink
 Give a synonym for brave.|courageous;bold;fearless
 What is the opposite of scarce?|abundant;plentiful
 Give a synonym for begin.|start;commence
-What is the opposite of victory?|defeat;loss
 Give a synonym for tiny.|small;little;minute
 What is the opposite of accept?|reject;refuse
+What is the opposite of victory?|defeat;loss
+Give a synonym for happy.|glad;joyful;cheerful
+What is the opposite of narrow?|wide;broad
+Give a synonym for intelligent.|smart;clever;bright
+What is the opposite of noisy?|quiet;silent
+Give a synonym for difficult.|hard;challenging
+What is the opposite of generous?|selfish;stingy
+What is the opposite of permanent?|temporary
+Give a synonym for unusual.|rare;strange;uncommon
+What is the opposite of include?|exclude
+Give a synonym for angry.|mad;furious;irate
+What is the opposite of maximum?|minimum
+Give a synonym for honest.|truthful;sincere
+Give a synonym for assist.|help;aid
+What is the opposite of visible?|hidden;invisible
+Give a synonym for ancient.|old;antique
+What is the opposite of arrive?|depart;leave
+Give a synonym for brief.|short;concise
+What is the opposite of complex?|simple
+Give a synonym for calm.|peaceful;serene
+What is the opposite of create?|destroy
+Give a synonym for danger.|risk;hazard
+What is the opposite of early?|late
+Give a synonym for enormous.|huge;giant;immense
+What is the opposite of flexible?|rigid;stiff
+Give a synonym for genuine.|real;authentic
+What is the opposite of gradual?|sudden
+Give a synonym for hostile.|unfriendly;aggressive
+What is the opposite of import?|export
+Give a synonym for journey.|trip;voyage
+What is the opposite of knowledge?|ignorance
+Give a synonym for loyal.|faithful;devoted
+What is the opposite of major?|minor
+Give a synonym for observe.|watch;notice
+What is the opposite of ordinary?|special;unusual
+Give a synonym for polite.|courteous;respectful
+What is the opposite of reduce?|increase;expand
+Give a synonym for reliable.|dependable;trustworthy
+What is the opposite of shallow?|deep
+Give a synonym for strange.|odd;unusual
+What is the opposite of transparent?|opaque
+Give a synonym for urgent.|pressing;immediate
+What is the opposite of vacant?|occupied;full
+Give a synonym for wealthy.|rich;affluent
+What is the opposite of youth?|age;old age
+Give a synonym for accurate.|correct;precise
