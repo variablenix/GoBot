@@ -4,6 +4,44 @@ Games use the same command cooldown and outbound queue protections as every
 other plugin. No game uses real money or wagering. Duck Hunt points are local
 scores with no value outside the bot.
 
+## Doobie countdown
+
+The `doobie` plugin is a lightweight social countdown. Start it directly with
+either command:
+
+~~~text
+!doobie
+!420
+~~~
+
+In channel text, `$doobie` and `$420` trigger the same sequence when they are
+standalone tokens, so a message such as `Who wants to smoke a $doobie?` works
+without requiring a command prefix. The common `$dooblie` spelling is also
+accepted. GoBot posts one line immediately and one line per countdown step:
+
+~~~text
+📜 3... Grinding...
+👅 2... Rolling...
+🔥 1... Sparking...
+Spark it up and pass it around! 🔥🍁
+~~~
+
+The default delay is one second between steps. Each sender is rate-limited for
+15 seconds, and only one countdown runs in a channel at a time. The plugin has
+no network calls, does not store data, and cancels pending countdown timers
+when disabled. The closing line is selected randomly from the local quote file
+and is colored green. Configure the timing, anti-spam cooldown, and quote file
+as needed:
+
+~~~yaml
+plugins:
+  doobie:
+    enabled: true
+    countdown_delay_seconds: 1
+    cooldown_seconds: 15
+    quotes_file: "quotes/doobie.txt"
+~~~
+
 ## Puzzle games
 
 Start a timed puzzle challenge in the current channel:
