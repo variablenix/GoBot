@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -79,7 +80,7 @@ func (p *LastFM) Handle(b *bot.Bot, m bot.Message) bool {
 			} `json:"track"`
 		} `json:"recenttracks"`
 	}
-	if err := json.NewDecoder(res.Body).Decode(&data); err != nil || data.Error != 0 {
+	if err := json.NewDecoder(io.LimitReader(res.Body, 512<<10)).Decode(&data); err != nil || data.Error != 0 {
 		b.Send(m.ReplyTarget(), "no Last.fm track found for "+username)
 		return true
 	}

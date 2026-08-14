@@ -81,11 +81,10 @@ plugins:
 Set `BOT_PASTE_BASE_URL` and `BOT_PASTE_TOKEN` in `.env` or the service
 environment. The token is never read from `config.yaml`; oversized input is
 truncated and reported in the single response line. URL fetching is an
-outbound request made from the bot host, follows HTTP redirects, and can reach
-any address permitted by that host's network. Do not enable URL pasting for
-untrusted users without restricting egress at the host or network firewall;
-disable the plugin with `plugins.paste.enabled: false` if that boundary cannot
-be enforced. To insert real line breaks into inline IRC text, enable
+outbound request made from the bot host, disables proxies, rejects private and
+local targets, and follows only redirects that resolve to public HTTP(S)
+addresses. Keep normal host egress controls in place because URL pasting is
+still an outbound network capability. To insert real line breaks into inline IRC text, enable
 `hard_wrap` and choose a `hard_wrap_width` (80 by default). URL-fetched content
 is left unchanged unless `hard_wrap_urls: true` is also configured; softwrap in
 the Opengist editor remains a display preference and does not change file
@@ -110,7 +109,8 @@ library:
 
 Input is capped at 512 characters and results are sanitized before being sent
 to IRC. Invalid input returns one error line. These commands make no network
-requests.
+requests. MD5 and SHA-1 are provided for compatibility and checksums only; do
+not use them for password storage, signatures, or other security decisions.
 
 ## Package metadata
 

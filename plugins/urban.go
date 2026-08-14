@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -54,7 +55,7 @@ func (p *Urban) Handle(b *bot.Bot, m bot.Message) bool {
 			Permalink  string `json:"permalink"`
 		} `json:"list"`
 	}
-	if err := json.NewDecoder(res.Body).Decode(&data); err != nil || len(data.List) == 0 || index < 1 || index > len(data.List) {
+	if err := json.NewDecoder(io.LimitReader(res.Body, 1<<20)).Decode(&data); err != nil || len(data.List) == 0 || index < 1 || index > len(data.List) {
 		b.Send(m.ReplyTarget(), "no Urban Dictionary definition found")
 		return true
 	}
