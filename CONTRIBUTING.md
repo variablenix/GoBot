@@ -13,7 +13,7 @@ review and maintain.
 
 ## Local checks
 
-GoBot currently targets Go `1.26.5` or newer. Before opening a pull request:
+GoBot currently targets Go `1.26.6` or newer. Before opening a pull request:
 
 ```sh
 go test ./...

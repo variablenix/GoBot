@@ -2,7 +2,7 @@
 
 [![GoBot CI](https://github.com/variablenix/GoBot/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/variablenix/GoBot/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/variablenix/GoBot/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/variablenix/GoBot/actions/workflows/codeql.yml)
-[![Go 1.26.5+](https://img.shields.io/badge/Go-1.26.5%2B-00ADD8?logo=go&logoColor=white)](go.mod)
+[![Go 1.26.6+](https://img.shields.io/badge/Go-1.26.6%2B-00ADD8?logo=go&logoColor=white)](go.mod)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 GoBot is an extensible Go IRC bot for long-running use on one or more IRC
@@ -49,7 +49,7 @@ are also persisted so they survive restarts.
 
 Requirements:
 
-- Go `1.26.5+` or a newer supported release
+- Go `1.26.6+` or a newer supported release
 - IRC network access
 - a writable data directory
 
