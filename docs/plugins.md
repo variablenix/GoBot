@@ -464,13 +464,15 @@ The other categories use local, operator-maintained catalogs:
 - `logic`: riddles and sequence questions
 - `anagram`: unscramble a word from the configured scramble catalog
 - `crossword`: short crossword-style clues
-- `random`: chooses among all available categories
+- `random`: rotates through all available categories before repeating one
 
 Text answers are normalized for case, punctuation, and spacing. The first
 correct answer wins. Invalid or unrelated channel messages are ignored, and
 every response is one bounded IRC line. Catalog entries use
 `prompt|answer[|alternate;answers]`, with one entry per line. The default files
 are `data/puzzles/trivia.txt`, `word.txt`, `logic.txt`, and `crossword.txt`.
+Within a channel, clues and anagrams are not repeated until their available
+catalog has been used, then that pool starts a new cycle.
 
 The default round lasts 45 seconds and is tracked separately per network and
 channel. Active rounds are held in memory and disappear if GoBot restarts; no

@@ -29,9 +29,11 @@ expires; an exact match ends the round immediately.
 The other categories are local catalog games: `trivia` asks general knowledge
 questions, `word` asks synonym or antonym prompts, `logic` asks riddles and
 sequences, `anagram` asks players to unscramble a word, and `crossword` gives
-short crossword-style clues. `random` chooses any available category. Text
-answers ignore case, punctuation, and repeated spacing. The first correct
-answer wins; unrelated messages are ignored.
+short crossword-style clues. `random` rotates through all available categories
+before repeating one. Text answers ignore case, punctuation, and repeated
+spacing. The first correct answer wins; unrelated messages are ignored. Clues
+and anagrams also cycle without repeating within each channel until their
+available catalog is exhausted.
 
 Catalog files live under `data/puzzles` by default and use one
 `prompt|answer[|alternate;answers]` entry per line. Anagrams reuse the local

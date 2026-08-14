@@ -155,4 +155,25 @@ func TestPuzzleFallbacksAndCategorySelection(t *testing.T) {
 			t.Fatalf("invalid %s game: %#v", category, game)
 		}
 	}
+
+	plugin.anagrams = []string{"network", "terminal"}
+	seenCategories := make(map[puzzleCategory]struct{})
+	for i := 0; i < 6; i++ {
+		game := plugin.newGame(puzzleRandom, "#variety", time.Now())
+		seenCategories[game.Category] = struct{}{}
+	}
+	if len(seenCategories) != 6 {
+		t.Fatalf("random category cycle = %#v, want all six categories", seenCategories)
+	}
+
+	first := plugin.newGame(puzzleTrivia, "#repeat", time.Now())
+	second := plugin.newGame(puzzleTrivia, "#repeat", time.Now())
+	if first.Prompt == second.Prompt {
+		t.Fatalf("repeated trivia prompt before catalog exhausted: %q", first.Prompt)
+	}
+	firstAnagram := plugin.newGame(puzzleAnagram, "#anagrams", time.Now())
+	secondAnagram := plugin.newGame(puzzleAnagram, "#anagrams", time.Now())
+	if firstAnagram.Answers[0] == secondAnagram.Answers[0] {
+		t.Fatalf("repeated anagram before word list exhausted: %q", firstAnagram.Answers[0])
+	}
 }
