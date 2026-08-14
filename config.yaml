@@ -111,6 +111,7 @@ plugins:
   lastfm: {enabled: true, api_key: ""}
   cats: {enabled: true}
   eightball: {enabled: true, responses_file: "quotes/eightball.txt"}
+  doobie: {enabled: true, countdown_delay_seconds: 1, cooldown_seconds: 15, quotes_file: "quotes/doobie.txt"}
   cheer: {enabled: true, cheers_file: "quotes/cheers.txt", automatic_cooldown_seconds: 15}
   seen: {enabled: true}
   tell: {enabled: true}

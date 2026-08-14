@@ -23,6 +23,7 @@ func All() []bot.Plugin {
 		&LastFM{},
 		&Cats{},
 		&EightBall{},
+		&Doobie{},
 		&Cheer{},
 		&Seen{},
 		&Tell{},
