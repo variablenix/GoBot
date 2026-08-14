@@ -93,8 +93,12 @@ func (p *Audit) Handle(b *bot.Bot, m bot.Message) bool {
 	}
 	if version != "" {
 		if len(response.Vulns) == 0 {
-			if _, metadataErr := lookupPackageMetadata(ctx, ecosystem, parts[1], version); metadataErr == errPackageNotFound {
-				b.Send(m.ReplyTarget(), truncateRunes(formatAuditSuggestions(ctx, ecosystem, parts[1]), maxLength))
+			if _, metadataErr := lookupPackageMetadata(ctx, ecosystem, parts[1], version); metadataErr != nil {
+				if metadataErr == errPackageNotFound {
+					b.Send(m.ReplyTarget(), truncateRunes(formatAuditSuggestions(ctx, ecosystem, parts[1]), maxLength))
+				} else {
+					b.Send(m.ReplyTarget(), "[audit] package version could not be verified")
+				}
 				return true
 			}
 		}

@@ -3,6 +3,7 @@ package plugins
 import (
 	"net/url"
 	"strconv"
+	"strings"
 	"testing"
 )
 
@@ -29,6 +30,16 @@ func TestNewsEndpointRequestsEnglish(t *testing.T) {
 		if got := parsed.Query().Get("pageSize"); got != strconv.Itoa(9) {
 			t.Errorf("query %q used pageSize %q, want 9", tt.query, got)
 		}
+	}
+}
+
+func TestFormatNewsItemsIsOneBoundedLine(t *testing.T) {
+	got := formatNewsItems([]string{"First headline — https://example.test/1", "Second headline — https://example.test/2"}, 80)
+	if strings.ContainsAny(got, "\r\n") {
+		t.Fatalf("news output contains a line break: %q", got)
+	}
+	if len([]rune(cleanExternalText(got))) > 80 {
+		t.Fatalf("news output exceeds limit: %d", len([]rune(cleanExternalText(got))))
 	}
 }
 

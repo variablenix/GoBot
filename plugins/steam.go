@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"html"
+	"io"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -358,7 +359,7 @@ func (p *Steam) getJSON(ctx context.Context, endpoint string, value interface{})
 	if res.StatusCode != http.StatusOK {
 		return fmt.Errorf("Steam returned HTTP %d", res.StatusCode)
 	}
-	return json.NewDecoder(res.Body).Decode(value)
+	return json.NewDecoder(io.LimitReader(res.Body, 4<<20)).Decode(value)
 }
 
 func firstSteamApp(results []steamSearchResult) (steamSearchResult, bool) {

@@ -35,11 +35,11 @@ dependencies, and deployment configuration maintained.
 - External HTTP lookups use timeouts and bound response sizes. Package, audit,
   and Docker requests use fixed public provider hosts; package suggestions use
   only the fixed public Go, npm, and PyPI index hosts.
-- The paste plugin's URL mode is different: it fetches a user-supplied HTTP or
-  HTTPS URL from the bot host and follows redirects. Treat it as an outbound
-  network capability. Only enable it where users are trusted and host/network
-  egress rules prevent access to loopback, private, link-local, metadata, and
-  other sensitive services; otherwise disable `plugins.paste.enabled`.
+- The paste plugin's URL mode fetches a user-supplied HTTP or HTTPS URL from
+  the bot host and follows only redirects that resolve to public addresses.
+  It rejects loopback, private, link-local, multicast, local, and unspecified
+  targets and disables proxy use. Keep normal host egress controls in place
+  because URL fetching is still an outbound network capability.
 - The paste token is sent only to the configured Opengist base URL and should
   use HTTPS. `BOT_PASTE_TOKEN` and `BOT_PASTE_BASE_URL` belong in the service
   environment, not in Git.

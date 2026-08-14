@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -117,7 +118,7 @@ func (p *Weather) Handle(b *bot.Bot, m bot.Message) bool {
 		return true
 	}
 	defer res.Body.Close()
-	if err := json.NewDecoder(res.Body).Decode(&location); err != nil || len(location.Results) == 0 {
+	if err := json.NewDecoder(io.LimitReader(res.Body, 256<<10)).Decode(&location); err != nil || len(location.Results) == 0 {
 		b.Send(m.ReplyTarget(), ircColor(ircRed, "I couldn't find weather for that city."))
 		return true
 	}
@@ -145,7 +146,7 @@ func (p *Weather) Handle(b *bot.Bot, m bot.Message) bool {
 			WeatherCode   int     `json:"weather_code"`
 		} `json:"current"`
 	}
-	if err := json.NewDecoder(res.Body).Decode(&forecast); err != nil {
+	if err := json.NewDecoder(io.LimitReader(res.Body, 256<<10)).Decode(&forecast); err != nil {
 		b.Send(m.ReplyTarget(), ircColor(ircRed, "Weather data is temporarily unavailable."))
 		return true
 	}
