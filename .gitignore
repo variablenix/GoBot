@@ -11,6 +11,8 @@ data/*
 !data/weapons.txt
 !data/acronyms.txt
 !data/scramble.txt
+!data/puzzles/
+!data/puzzles/*.txt
 .env
 .env.bak
 .act-runner/
