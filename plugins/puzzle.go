@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/big"
 	"math/rand"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -21,16 +22,35 @@ const (
 	puzzleMaxTarget   = 999
 )
 
+type puzzleCategory string
+
+const (
+	puzzleNumbers   puzzleCategory = "numbers"
+	puzzleTrivia    puzzleCategory = "trivia"
+	puzzleWord      puzzleCategory = "word"
+	puzzleLogic     puzzleCategory = "logic"
+	puzzleAnagram   puzzleCategory = "anagram"
+	puzzleCrossword puzzleCategory = "crossword"
+	puzzleRandom    puzzleCategory = "random"
+)
+
+var puzzleTextCategories = []puzzleCategory{puzzleTrivia, puzzleWord, puzzleLogic, puzzleAnagram, puzzleCrossword}
+
 type Puzzle struct {
 	mu        sync.Mutex
 	games     map[string]*puzzleGame
+	clues     map[puzzleCategory][]puzzleClue
+	anagrams  []string
 	timeout   time.Duration
 	maxLength int
 }
 
 type puzzleGame struct {
+	Category  puzzleCategory
 	Target    int
 	Numbers   []int
+	Prompt    string
+	Answers   []string
 	TargetIRC string
 	StartedAt time.Time
 	Deadline  time.Time
@@ -45,10 +65,15 @@ type puzzleAttempt struct {
 	Distance   *big.Rat
 }
 
+type puzzleClue struct {
+	Prompt  string
+	Answers []string
+}
+
 func (p *Puzzle) Name() string       { return "puzzle" }
 func (p *Puzzle) Commands() []string { return []string{"puzzle", "puzzles"} }
 func (p *Puzzle) Help() string {
-	return "!puzzle numbers — start a timed arithmetic numbers puzzle; submit expressions in channel (alias: !puzzles)"
+	return "!puzzle <numbers|trivia|word|logic|anagram|crossword|random> — start a timed puzzle; !puzzle status|stop; alias: !puzzles"
 }
 
 func (p *Puzzle) Init(c bot.PluginConfig, _ *storage.DB) error {
@@ -61,6 +86,18 @@ func (p *Puzzle) Init(c bot.PluginConfig, _ *storage.DB) error {
 		p.maxLength = 360
 	}
 	p.timeout = time.Duration(timeoutSeconds) * time.Second
+	dataDir := c.String("data_dir", "data/puzzles")
+	p.clues = map[puzzleCategory][]puzzleClue{
+		puzzleTrivia:    readPuzzleClues(filepath.Join(dataDir, "trivia.txt")),
+		puzzleWord:      readPuzzleClues(filepath.Join(dataDir, "word.txt")),
+		puzzleLogic:     readPuzzleClues(filepath.Join(dataDir, "logic.txt")),
+		puzzleCrossword: readPuzzleClues(filepath.Join(dataDir, "crossword.txt")),
+	}
+	p.anagrams = readScrambleWords(c.String("anagram_file", "data/scramble.txt"))
+	if len(p.anagrams) == 0 {
+		p.anagrams = append([]string(nil), scrambleFallbackWords...)
+	}
+	addPuzzleFallbacks(p.clues)
 	p.mu.Lock()
 	p.games = make(map[string]*puzzleGame)
 	p.mu.Unlock()
@@ -97,21 +134,28 @@ func (p *Puzzle) Handle(b *bot.Bot, m bot.Message) bool {
 func (p *Puzzle) command(b *bot.Bot, m bot.Message, arg string) {
 	key := puzzleStateKey(b.Config.NetworkName, m.Target)
 	switch strings.ToLower(strings.TrimSpace(arg)) {
-	case "", "numbers", "number", "start", "new":
-		p.start(b, m, key)
 	case "status":
 		p.status(b, m, key)
 	case "stop", "cancel":
 		p.cancel(b, m, key)
 	default:
-		b.Send(m.ReplyTarget(), "usage: !puzzle numbers|status|stop")
+		category, ok := puzzleCategoryForArgument(arg)
+		if !ok {
+			b.Send(m.ReplyTarget(), "usage: !puzzle <numbers|trivia|word|logic|anagram|crossword|random>|status|stop")
+			return
+		}
+		p.start(b, m, key, category)
 	}
 }
 
-func (p *Puzzle) start(b *bot.Bot, m bot.Message, key string) {
+func (p *Puzzle) start(b *bot.Bot, m bot.Message, key string, category puzzleCategory) {
 	p.mu.Lock()
 	if current := p.games[key]; current != nil && time.Now().Before(current.Deadline) {
-		response := fmt.Sprintf("⏱ > puzzle already active: target %d, numbers %s", current.Target, formatPuzzleNumbers(current.Numbers))
+		remaining := int(time.Until(current.Deadline).Round(time.Second) / time.Second)
+		if remaining < 1 {
+			remaining = 1
+		}
+		response := fmt.Sprintf("⏱ > puzzle already active: %s, %ds remaining", current.Category, remaining)
 		p.mu.Unlock()
 		b.Send(m.ReplyTarget(), truncateIRCMessage(response, p.maxLength))
 		return
@@ -119,7 +163,7 @@ func (p *Puzzle) start(b *bot.Bot, m bot.Message, key string) {
 	if current := p.games[key]; current != nil && current.Timer != nil {
 		current.Timer.Stop()
 	}
-	game := newPuzzleGame(m.ReplyTarget(), time.Now(), p.timeout)
+	game := p.newGame(category, m.ReplyTarget(), time.Now())
 	p.games[key] = game
 	game.Timer = time.AfterFunc(p.timeout, func() { p.expire(b, key, game) })
 	p.mu.Unlock()
@@ -146,7 +190,7 @@ func (p *Puzzle) status(b *bot.Bot, m bot.Message, key string) {
 	if remaining < 1 {
 		remaining = 1
 	}
-	response := fmt.Sprintf("⏱ > puzzle active: target %d, numbers %s, %ds remaining", game.Target, formatPuzzleNumbers(game.Numbers), remaining)
+	response := formatPuzzleStatus(game, remaining)
 	p.mu.Unlock()
 	b.Send(m.ReplyTarget(), truncateIRCMessage(response, p.maxLength))
 }
@@ -179,6 +223,22 @@ func (p *Puzzle) answer(b *bot.Bot, m bot.Message) bool {
 	}
 	if !time.Now().Before(game.Deadline) {
 		response := p.finishLocked(key, game)
+		p.mu.Unlock()
+		b.Send(m.ReplyTarget(), truncateIRCMessage(response, p.maxLength))
+		return true
+	}
+	if isTextPuzzleCategory(game.Category) {
+		if !puzzleTextAnswerMatches(expression, game.Answers) {
+			p.mu.Unlock()
+			return false
+		}
+		attempt := puzzleAttempt{Nick: cleanExternalText(m.Nick), Expression: normalizePuzzleTextAnswer(expression)}
+		game.Best = &attempt
+		response := fmt.Sprintf("⏱ > %s wins: %s (correct)!", attempt.Nick, attempt.Expression)
+		delete(p.games, key)
+		if game.Timer != nil {
+			game.Timer.Stop()
+		}
 		p.mu.Unlock()
 		b.Send(m.ReplyTarget(), truncateIRCMessage(response, p.maxLength))
 		return true
@@ -232,7 +292,13 @@ func (p *Puzzle) finishLocked(key string, game *puzzleGame) string {
 		game.Timer.Stop()
 	}
 	if game.Best == nil {
-		return fmt.Sprintf("⏱ > Time's up. No valid answers for target %d.", game.Target)
+		if !isTextPuzzleCategory(game.Category) {
+			return fmt.Sprintf("⏱ > Time's up. No valid answers for target %d.", game.Target)
+		}
+		return fmt.Sprintf("⏱ > Time's up. No correct answers for this %s puzzle.", game.Category)
+	}
+	if isTextPuzzleCategory(game.Category) {
+		return fmt.Sprintf("⏱ > Time's up. The winner was %s with %s.", game.Best.Nick, game.Best.Expression)
 	}
 	return fmt.Sprintf("⏱ > Time's up. The winner was %s with %s = %s (%s away).", game.Best.Nick, game.Best.Expression, formatPuzzleRat(game.Best.Value), formatPuzzleRat(game.Best.Distance))
 }
@@ -246,18 +312,85 @@ func isPuzzleCommand(command string) bool {
 	}
 }
 
+func puzzleCategoryForArgument(arg string) (puzzleCategory, bool) {
+	switch strings.ToLower(strings.TrimSpace(arg)) {
+	case "", "numbers", "number", "math", "start", "new":
+		return puzzleNumbers, true
+	case "trivia", "quiz":
+		return puzzleTrivia, true
+	case "word", "words", "vocabulary":
+		return puzzleWord, true
+	case "logic", "riddle", "riddles":
+		return puzzleLogic, true
+	case "anagram", "anagrams":
+		return puzzleAnagram, true
+	case "crossword", "clue", "clues":
+		return puzzleCrossword, true
+	case "random", "any":
+		return puzzleRandom, true
+	default:
+		return "", false
+	}
+}
+
 func puzzleStateKey(network, channel string) string {
 	return strings.ToLower(strings.TrimSpace(network)) + "\x00" + strings.ToLower(strings.TrimSpace(channel))
 }
 
 func newPuzzleGame(target string, started time.Time, timeout time.Duration) *puzzleGame {
+	return newNumbersPuzzleGame(target, started, timeout)
+}
+
+func newNumbersPuzzleGame(target string, started time.Time, timeout time.Duration) *puzzleGame {
 	return &puzzleGame{
+		Category:  puzzleNumbers,
 		Target:    puzzleRandomTarget(),
 		Numbers:   puzzleRandomNumbers(),
 		TargetIRC: target,
 		StartedAt: started,
 		Deadline:  started.Add(timeout),
 	}
+}
+
+func (p *Puzzle) newGame(category puzzleCategory, target string, started time.Time) *puzzleGame {
+	if category == puzzleRandom {
+		available := []puzzleCategory{puzzleNumbers}
+		for _, candidate := range puzzleTextCategories {
+			if candidate == puzzleAnagram {
+				if len(p.anagrams) > 0 {
+					available = append(available, candidate)
+				}
+				continue
+			}
+			if len(p.clues[candidate]) > 0 {
+				available = append(available, candidate)
+			}
+		}
+		category = available[rand.Intn(len(available))]
+	}
+	if category == puzzleNumbers {
+		return newNumbersPuzzleGame(target, started, p.timeout)
+	}
+	game := &puzzleGame{Category: category, TargetIRC: target, StartedAt: started, Deadline: started.Add(p.timeout)}
+	if category == puzzleAnagram {
+		if len(p.anagrams) == 0 {
+			p.anagrams = append([]string(nil), scrambleFallbackWords...)
+		}
+		word := p.anagrams[rand.Intn(len(p.anagrams))]
+		game.Prompt = fmt.Sprintf("Anagram: unscramble %s", scrambleWord(word))
+		game.Answers = []string{word}
+		return game
+	}
+	clues := p.clues[category]
+	if len(clues) == 0 {
+		category = puzzleTrivia
+		clues = p.clues[category]
+		game.Category = category
+	}
+	clue := clues[rand.Intn(len(clues))]
+	game.Prompt = fmt.Sprintf("%s: %s", puzzleCategoryLabel(category), clue.Prompt)
+	game.Answers = append([]string(nil), clue.Answers...)
+	return game
 }
 
 func puzzleRandomTarget() int {
@@ -285,7 +418,38 @@ func formatPuzzleNumbers(numbers []int) string {
 }
 
 func formatPuzzleStart(game *puzzleGame, seconds int) string {
+	if isTextPuzzleCategory(game.Category) {
+		return fmt.Sprintf("⏱ > %s You have %d seconds.", game.Prompt, seconds)
+	}
 	return fmt.Sprintf("⏱ > Numbers: Get as close as possible to %d using the numbers %s (using only + - * / and parentheses). You have %d seconds.", game.Target, formatPuzzleNumbers(game.Numbers), seconds)
+}
+
+func formatPuzzleStatus(game *puzzleGame, remaining int) string {
+	if isTextPuzzleCategory(game.Category) {
+		return fmt.Sprintf("⏱ > %s (%ds remaining)", game.Prompt, remaining)
+	}
+	return fmt.Sprintf("⏱ > puzzle active: target %d, numbers %s, %ds remaining", game.Target, formatPuzzleNumbers(game.Numbers), remaining)
+}
+
+func puzzleCategoryLabel(category puzzleCategory) string {
+	switch category {
+	case puzzleTrivia:
+		return "Trivia"
+	case puzzleWord:
+		return "Word"
+	case puzzleLogic:
+		return "Logic"
+	case puzzleAnagram:
+		return "Anagram"
+	case puzzleCrossword:
+		return "Crossword"
+	default:
+		return "Puzzle"
+	}
+}
+
+func isTextPuzzleCategory(category puzzleCategory) bool {
+	return category != "" && category != puzzleNumbers
 }
 
 func formatPuzzleRat(value *big.Rat) string {
