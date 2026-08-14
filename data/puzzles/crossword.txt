@@ -1,0 +1,11 @@
+# Format: prompt|answer[;alternate answer]
+Crossword-style clue: nocturnal bird of prey (3 letters).|owl
+Crossword-style clue: frozen water (3 letters).|ice
+Crossword-style clue: canine pet (3 letters).|dog
+Crossword-style clue: opposite of yes (2 letters).|no
+Crossword-style clue: red gemstone (4 letters).|ruby
+Crossword-style clue: aquatic mammal that builds dams (7 letters).|beaver
+Crossword-style clue: a young dog (3 letters).|puppy
+Crossword-style clue: planet known as the Red Planet (4 letters).|mars
+Crossword-style clue: large body of salt water (3 letters).|sea
+Crossword-style clue: common citrus fruit (6 letters).|orange

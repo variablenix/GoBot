@@ -1,0 +1,11 @@
+# Format: prompt|answer[;alternate answer]
+I have keys but no locks and space but no room. What am I?|keyboard;a keyboard
+What comes next: 2, 4, 8, 16?|32;thirty two;thirty-two
+What has a face and two hands but no arms or legs?|clock;a clock
+What can travel around the world while staying in one corner?|stamp;a stamp
+The more you take, the more you leave behind. What are they?|steps;footsteps
+What has one eye but cannot see?|needle;a needle
+What gets wetter as it dries?|towel;a towel
+What has cities but no houses, forests but no trees, and water but no fish?|map;a map
+What belongs to you but other people use it more than you do?|name;your name
+What breaks but is never held?|promise;a promise

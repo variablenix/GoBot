@@ -1,0 +1,11 @@
+# Format: prompt|answer[;alternate answer]
+Give a synonym for quick.|fast;rapid;swift
+What is the opposite of ancient?|modern;new
+Give a synonym for silent.|quiet;mute
+What is the opposite of expand?|contract;shrink
+Give a synonym for brave.|courageous;bold;fearless
+What is the opposite of scarce?|abundant;plentiful
+Give a synonym for begin.|start;commence
+What is the opposite of victory?|defeat;loss
+Give a synonym for tiny.|small;little;minute
+What is the opposite of accept?|reject;refuse

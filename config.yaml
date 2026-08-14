@@ -131,7 +131,7 @@ plugins:
   # One persistent claim per user per UTC day; XP is added to Duck Hunt progression.
   daily: {enabled: true, bonus_xp: 25}
   scramble: {enabled: true, data_file: "data/scramble.txt", timeout_minutes: 5, max_length: 240}
-  puzzle: {enabled: true, timeout_seconds: 45, max_length: 360}
+  puzzle: {enabled: true, timeout_seconds: 45, max_length: 360, data_dir: "data/puzzles", anagram_file: "data/scramble.txt"}
   status: {enabled: true}
   define: {enabled: true, timeout_seconds: 8, max_length: 240}
   calc: {enabled: true}

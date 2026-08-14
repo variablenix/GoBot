@@ -47,7 +47,7 @@ Plugins are enabled or disabled under plugins.<name>.enabled in config.yaml.
 - attack: playful target-based actions and messages
 - luv: persistent blue-heart points for spreading kindness
 - scramble: local first-correct-answer word game
-- puzzle: timed local arithmetic numbers puzzle
+- puzzle: timed local numbers, trivia, word, logic, anagram, and crossword puzzles
 - cheer: family-friendly cheers
 - seen, tell, karma, and dice: channel utilities
 - quote, choose, and time: lightweight utilities
@@ -434,29 +434,47 @@ plugins:
     max_length: 240
 ~~~
 
-## Numbers puzzle
+## Puzzle games
 
-Start a timed arithmetic round in the current channel:
+Start a timed puzzle round in the current channel:
 
 ~~~text
 !puzzle numbers
+!puzzle trivia
+!puzzle word
+!puzzle logic
+!puzzle anagram
+!puzzle crossword
+!puzzle random
 !puzzles
 !puzzle status
 !puzzle stop
 ~~~
 
-GoBot generates a target and six numbers. Players submit arithmetic expressions
-as ordinary channel messages, using only the supplied numbers at most once and
-the operators `+`, `-`, `*`, `/`, and parentheses. Division may produce a
-fraction; answers are compared exactly, so the closest result wins. An exact
-answer ends the round immediately. Otherwise, the timer announces the closest
-valid answer when it expires. Invalid expressions are ignored so normal channel
-conversation is not interrupted.
+`numbers` generates a target and six numbers. Players submit arithmetic
+expressions as ordinary channel messages, using only the supplied numbers at
+most once and the operators `+`, `-`, `*`, `/`, and parentheses. Division may
+produce a fraction; answers are compared exactly, so the closest result wins.
+An exact answer ends the round immediately.
+
+The other categories use local, operator-maintained catalogs:
+
+- `trivia`: general knowledge questions
+- `word`: synonym and antonym prompts
+- `logic`: riddles and sequence questions
+- `anagram`: unscramble a word from the configured scramble catalog
+- `crossword`: short crossword-style clues
+- `random`: chooses among all available categories
+
+Text answers are normalized for case, punctuation, and spacing. The first
+correct answer wins. Invalid or unrelated channel messages are ignored, and
+every response is one bounded IRC line. Catalog entries use
+`prompt|answer[|alternate;answers]`, with one entry per line. The default files
+are `data/puzzles/trivia.txt`, `word.txt`, `logic.txt`, and `crossword.txt`.
 
 The default round lasts 45 seconds and is tracked separately per network and
 channel. Active rounds are held in memory and disappear if GoBot restarts; no
-network calls or external game data are required. Every puzzle response is
-bounded to one IRC line.
+network calls or external game data are required.
 
 Optional settings:
 
@@ -466,6 +484,8 @@ plugins:
     enabled: true
     timeout_seconds: 45
     max_length: 360
+    data_dir: "data/puzzles"
+    anagram_file: "data/scramble.txt"
 ~~~
 
 ## Weather
