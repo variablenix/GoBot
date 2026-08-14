@@ -2,6 +2,7 @@ package bot
 
 import (
 	"context"
+	"math"
 	"sync"
 	"time"
 )
@@ -17,13 +18,20 @@ type Queue struct {
 }
 
 func NewQueue(rate float64, burst int, send func(Outgoing)) *Queue {
-	if rate <= 0 {
+	if rate <= 0 || math.IsNaN(rate) {
 		rate = 1
+	}
+	if math.IsInf(rate, 1) || rate > 1000 {
+		rate = 1000
 	}
 	if burst < 1 {
 		burst = 1
 	}
-	q := &Queue{ch: make(chan Outgoing, burst*20), interval: time.Duration(float64(time.Second) / rate), burst: burst, send: send, done: make(chan struct{})}
+	interval := time.Duration(float64(time.Second) / rate)
+	if interval < time.Nanosecond {
+		interval = time.Nanosecond
+	}
+	q := &Queue{ch: make(chan Outgoing, burst*20), interval: interval, burst: burst, send: send, done: make(chan struct{})}
 	go q.loop()
 	return q
 }

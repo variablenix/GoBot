@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -58,19 +59,33 @@ func (p *News) Handle(b *bot.Bot, m bot.Message) bool {
 			URL   string `json:"url"`
 		} `json:"articles"`
 	}
-	if err := json.NewDecoder(res.Body).Decode(&data); err != nil || len(data.Articles) == 0 {
+	if err := json.NewDecoder(io.LimitReader(res.Body, 1<<20)).Decode(&data); err != nil || len(data.Articles) == 0 {
 		b.Send(m.ReplyTarget(), "no news found")
 		return true
 	}
 	if len(data.Articles) > max {
 		data.Articles = data.Articles[:max]
 	}
+	items := make([]string, 0, len(data.Articles))
 	for _, article := range data.Articles {
 		if title := cleanTitle(article.Title); title != "" && article.URL != "" {
-			b.Send(m.ReplyTarget(), fmt.Sprintf("%s — %s", title, article.URL))
+			items = append(items, fmt.Sprintf("%s — %s", title, cleanExternalText(article.URL)))
 		}
 	}
+	if len(items) == 0 {
+		b.Send(m.ReplyTarget(), "no news found")
+		return true
+	}
+	maxLength := p.cfg.Int("max_length", 360)
+	if maxLength < 160 || maxLength > 600 {
+		maxLength = 360
+	}
+	b.Send(m.ReplyTarget(), formatNewsItems(items, maxLength))
 	return true
+}
+
+func formatNewsItems(items []string, maxLength int) string {
+	return truncateIRCMessage(strings.Join(items, " | "), maxLength)
 }
 
 func newsEndpoint(query string, maxResults int) string {

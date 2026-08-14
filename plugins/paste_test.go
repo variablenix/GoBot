@@ -20,7 +20,7 @@ func TestPasteCreateHonorsUnlistedVisibilityAndAuth(t *testing.T) {
 		if r.Method != http.MethodPost || r.URL.String() != "https://paste.example.test/api/gists" {
 			t.Fatalf("unexpected request: %s %s", r.Method, r.URL)
 		}
-		if got := r.Header.Get("Authorization"); got != "Bearer secret" {
+		if got := r.Header.Get("Authorization"); got != "token secret" {
 			t.Fatalf("unexpected auth header: %q", got)
 		}
 		var body struct {
@@ -37,6 +37,18 @@ func TestPasteCreateHonorsUnlistedVisibilityAndAuth(t *testing.T) {
 	got, err := p.createPaste(t.Context(), "hello")
 	if err != nil || got != "https://paste.example.test/abc" {
 		t.Fatalf("createPaste() = %q, %v", got, err)
+	}
+}
+
+func TestFetchPasteURLRejectsPrivateTargets(t *testing.T) {
+	for _, rawURL := range []string{
+		"http://127.0.0.1/secret",
+		"http://10.0.0.1/metadata",
+		"http://localhost/",
+	} {
+		if _, _, err := fetchPasteURL(t.Context(), rawURL, 100); err == nil {
+			t.Fatalf("fetchPasteURL accepted private target %q", rawURL)
+		}
 	}
 }
 

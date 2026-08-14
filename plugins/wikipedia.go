@@ -3,6 +3,7 @@ package plugins
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -92,7 +93,7 @@ func wikipediaSummary(ctx context.Context, query string) (wikipediaSummaryResult
 			} `json:"search"`
 		} `json:"query"`
 	}
-	if err := json.NewDecoder(res.Body).Decode(&search); err != nil || len(search.Query.Search) == 0 {
+	if err := json.NewDecoder(io.LimitReader(res.Body, 1<<20)).Decode(&search); err != nil || len(search.Query.Search) == 0 {
 		return wikipediaSummaryResult{}, false
 	}
 	for _, candidate := range search.Query.Search {
@@ -177,7 +178,7 @@ func wikipediaSummaryPage(ctx context.Context, title string) (wikipediaSummaryRe
 		return wikipediaSummaryResult{}, false
 	}
 	var result wikipediaSummaryResult
-	if err := json.NewDecoder(res.Body).Decode(&result); err != nil || result.Extract == "" {
+	if err := json.NewDecoder(io.LimitReader(res.Body, 1<<20)).Decode(&result); err != nil || result.Extract == "" {
 		return wikipediaSummaryResult{}, false
 	}
 	return result, true

@@ -3,6 +3,7 @@ package plugins
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -83,7 +84,7 @@ func (p *Horoscope) Handle(b *bot.Bot, m bot.Message) bool {
 			Horoscope string `json:"horoscope"`
 		} `json:"data"`
 	}
-	if err := json.NewDecoder(res.Body).Decode(&data); err != nil || strings.TrimSpace(data.Data.Horoscope) == "" {
+	if err := json.NewDecoder(io.LimitReader(res.Body, 256<<10)).Decode(&data); err != nil || strings.TrimSpace(data.Data.Horoscope) == "" {
 		b.Send(m.ReplyTarget(), "horoscope data could not be parsed")
 		return true
 	}

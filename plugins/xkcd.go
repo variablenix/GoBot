@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -52,7 +53,7 @@ func (p *XKCD) Handle(b *bot.Bot, m bot.Message) bool {
 		Num                     int `json:"num"`
 		Title, Year, Month, Day string
 	}
-	if err := json.NewDecoder(res.Body).Decode(&comic); err != nil || comic.Num < 1 || comic.Title == "" {
+	if err := json.NewDecoder(io.LimitReader(res.Body, 128<<10)).Decode(&comic); err != nil || comic.Num < 1 || comic.Title == "" {
 		b.Send(m.ReplyTarget(), "XKCD data could not be parsed")
 		return true
 	}
