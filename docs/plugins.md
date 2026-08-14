@@ -43,6 +43,7 @@ Plugins are enabled or disabled under plugins.<name>.enabled in config.yaml.
 - lastfm: current or recently played Last.fm tracks
 - cats: short cat facts
 - eightball: customizable Magic 8-Ball answers
+- doobie: 3-2-1 smoke countdown with `!doobie`, `!420`, `$doobie`, or `$420`
 - fun: local yo-momma jokes, one-liners, puns, and wisdom
 - attack: playful target-based actions and messages
 - luv: persistent blue-heart points for spreading kindness
@@ -944,6 +945,36 @@ readable without color. Each request produces one bounded message.
 
 Pool's separate 8-ball mode uses `!pool 8 <nick>`, `!pool8 <nick>`, or
 `!8pool <nick>`; `!8ball` is reserved for questions to the magic 8-ball.
+
+## Doobie countdown
+
+The `doobie` plugin provides a timed, local-only social countdown. Use either
+command directly:
+
+~~~text
+!doobie
+!420
+~~~
+
+Standalone `$doobie` or `$420` tokens in a channel message trigger the same
+sequence, including punctuation such as `Who wants to smoke a $doobie?`. The
+common `$dooblie` spelling is accepted as well. The default output is:
+
+~~~text
+📜 3... Grinding...
+👅 2... Rolling...
+🔥 1... Sparking...
+Spark it up and pass it around! 🔥🍁
+~~~
+
+The first line is immediate and the remaining lines are separated by the
+configured delay. The closing line is selected randomly from the local
+`quotes/doobie.txt` catalog and is sent in green. Each sender has a 15-second
+cooldown, and only one countdown can run in a channel at a time. No network
+calls or database storage are used; pending timers are cancelled if the plugin
+is disabled. Configure it under `plugins.doobie` with
+`countdown_delay_seconds` (0–60, default 1), `cooldown_seconds` (1–3600,
+default 15), and `quotes_file`.
 
 ## Fun text catalogs
 
