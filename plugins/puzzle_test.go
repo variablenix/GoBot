@@ -2,6 +2,8 @@ package plugins
 
 import (
 	"math/big"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -90,5 +92,67 @@ func TestPuzzleCommandAliases(t *testing.T) {
 	}
 	if isPuzzleCommand("scramble") {
 		t.Fatal("scramble incorrectly recognized as a puzzle command")
+	}
+}
+
+func TestReadPuzzleClues(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "clues.txt")
+	content := "# ignored\nWhat is 2 + 2?|4; four | FOUR\nmalformed\n|missing prompt\n"
+	if err := os.WriteFile(path, []byte(content), 0600); err != nil {
+		t.Fatal(err)
+	}
+	clues := readPuzzleClues(path)
+	if len(clues) != 1 {
+		t.Fatalf("got %d clues, want 1", len(clues))
+	}
+	if clues[0].Prompt != "What is 2 + 2?" {
+		t.Fatalf("prompt = %q", clues[0].Prompt)
+	}
+	if !puzzleTextAnswerMatches(" four ", clues[0].Answers) {
+		t.Fatalf("answers = %#v", clues[0].Answers)
+	}
+}
+
+func TestPuzzleTextAnswerNormalization(t *testing.T) {
+	if got := normalizePuzzleTextAnswer("  Thirty-two!\r\n"); got != "thirty two" {
+		t.Fatalf("normalized answer = %q", got)
+	}
+	if !puzzleTextAnswerMatches("  KEYBOARD!", []string{"keyboard"}) {
+		t.Fatal("expected normalized answer to match")
+	}
+	if puzzleTextAnswerMatches("wrong", []string{"keyboard"}) {
+		t.Fatal("incorrect answer matched")
+	}
+}
+
+func TestPuzzleFallbacksAndCategorySelection(t *testing.T) {
+	clues := map[puzzleCategory][]puzzleClue{}
+	addPuzzleFallbacks(clues)
+	for _, category := range []puzzleCategory{puzzleTrivia, puzzleWord, puzzleLogic, puzzleCrossword} {
+		if len(clues[category]) == 0 {
+			t.Fatalf("no fallback clues for %s", category)
+		}
+	}
+
+	plugin := &Puzzle{
+		clues:    clues,
+		anagrams: []string{"network"},
+		timeout:  time.Minute,
+	}
+	for _, category := range []puzzleCategory{puzzleTrivia, puzzleWord, puzzleLogic, puzzleAnagram, puzzleCrossword, puzzleNumbers} {
+		game := plugin.newGame(category, "#test", time.Now())
+		if game.Category != category {
+			t.Fatalf("category = %s, want %s", game.Category, category)
+		}
+		if category == puzzleNumbers {
+			if game.Target == 0 || len(game.Numbers) != puzzleNumberCount {
+				t.Fatalf("invalid numbers game: %#v", game)
+			}
+			continue
+		}
+		if game.Prompt == "" || len(game.Answers) == 0 {
+			t.Fatalf("invalid %s game: %#v", category, game)
+		}
 	}
 }

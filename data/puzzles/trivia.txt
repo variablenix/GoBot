@@ -1,0 +1,11 @@
+# Format: prompt|answer[;alternate answer]
+Which planet is known as the Red Planet?|mars
+What is the largest ocean on Earth?|pacific ocean;pacific
+Who wrote Romeo and Juliet?|william shakespeare;shakespeare
+What is the chemical symbol for gold?|au
+How many sides does a hexagon have?|6;six
+What is the capital of Japan?|tokyo
+Which instrument has keys, pedals, and strings?|piano
+What is the fastest land animal?|cheetah
+What gas do plants absorb from the atmosphere?|carbon dioxide;co2
+In which sport is Wimbledon contested?|tennis

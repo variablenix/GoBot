@@ -108,7 +108,7 @@ plugins:
   reddit: {enabled: true, timeout_seconds: 8, max_length: 360}
   daily: {enabled: true, bonus_xp: 25}
   scramble: {enabled: true, data_file: "data/scramble.txt", timeout_minutes: 5, max_length: 240}
-  puzzle: {enabled: true, timeout_seconds: 45, max_length: 360}
+  puzzle: {enabled: true, timeout_seconds: 45, max_length: 360, data_dir: "data/puzzles", anagram_file: "data/scramble.txt"}
   note: {enabled: true, max_notes: 50, max_note_length: 400, expiry_days: 180}
   luv: {enabled: true}
   youtube: {enabled: true, max_length: 320, timeout_seconds: 10, api_key: ""}
