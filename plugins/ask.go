@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/variablenix/GoBot/bot"
@@ -33,7 +34,7 @@ type Ask struct {
 func (p *Ask) Name() string       { return "ask" }
 func (p *Ask) Commands() []string { return []string{"ask", "question", "q"} }
 func (p *Ask) Help() string {
-	return "!ask <question> — answer from English Wikipedia or DuckDuckGo; optional AI rewrite (aliases: !question, !q)"
+	return "!ask <question> — Wolfram|Alpha answer with DuckDuckGo/Wikidata fallbacks; optional AI rewrite (aliases: !question, !q)"
 }
 
 func (p *Ask) Init(c bot.PluginConfig, _ *storage.DB) error {
@@ -77,9 +78,10 @@ func (p *Ask) configSnapshot() bot.PluginConfig {
 // withAskEnvironment applies the ask-specific environment variables after
 // the config file has been decoded. Viper can read bound scalar environment
 // values with Get, but nested map values are not reliably reflected when the
-// whole plugin map is unmarshaled into PluginConfig. Applying these two
-// switches here makes the documented .env overrides authoritative without
-// requiring secrets in config.yaml.
+// whole plugin map is unmarshaled into PluginConfig. Applying these switches
+// here makes the documented .env overrides authoritative without requiring
+// secrets in config.yaml. The Wolfram AppID is read directly when a request is
+// made so it never becomes part of the plugin config or a loggable snapshot.
 func withAskEnvironment(c bot.PluginConfig) bot.PluginConfig {
 	cfg := make(bot.PluginConfig, len(c)+2)
 	for key, value := range c {
@@ -308,48 +310,149 @@ type askSource struct {
 }
 
 func (p *Ask) findSource(ctx context.Context, question string, cfg bot.PluginConfig) (askSource, bool) {
-	tryWikipedia := cfg.Bool("wikipedia_first", true)
-	tryDuckDuckGo := cfg.Bool("duckduckgo_fallback", true)
-	if tryWikipedia {
-		if source, ok := askWikipedia(ctx, question); ok {
+	if cfg.Bool("wolfram_enabled", true) {
+		if source, ok := askWolfram(ctx, question); ok {
 			return source, true
 		}
 	}
-	if tryDuckDuckGo {
+	focused := askFocusedTerm(question)
+	if askDuckDuckGoEnabled(cfg) {
 		if source, ok := askDuckDuckGo(ctx, question); ok {
 			return source, true
 		}
+		if focused != "" && !strings.EqualFold(focused, strings.TrimSpace(question)) {
+			if source, ok := askDuckDuckGo(ctx, focused); ok {
+				return source, true
+			}
+		}
 	}
-	if !tryWikipedia {
-		return askWikipedia(ctx, question)
+	if cfg.Bool("wikidata_fallback", true) && focused != "" {
+		if source, ok := askWikidata(ctx, focused); ok {
+			return source, true
+		}
 	}
 	return askSource{}, false
 }
 
-func askWikipedia(ctx context.Context, question string) (askSource, bool) {
-	result, ok := wikipediaSummary(ctx, question)
-	if !ok {
+func askWolframAppID() string {
+	return firstAskValue(os.Getenv("BOT_WOLFRAM_APPID"), os.Getenv("BOT_ASK_WOLFRAM_APPID"))
+}
+
+// askWolfram uses the Short Answers API as the primary source. It is a
+// knowledge/computation lookup rather than an AI rewrite, and the AppID is
+// supplied only from the process environment. A failed or empty result is
+// intentionally treated as a normal fallback condition because Wolfram is
+// strongest for concise factual/computational questions, not every long-tail
+// or conversational subject.
+func askWolfram(ctx context.Context, question string) (askSource, bool) {
+	appID := askWolframAppID()
+	question = strings.TrimSpace(question)
+	if appID == "" || question == "" {
 		return askSource{}, false
 	}
-	pageURL := strings.TrimSpace(result.ContentURLs.Desktop.Page)
-	if pageURL == "" && result.Title != "" {
-		pageURL = "https://en.wikipedia.org/wiki/" + url.PathEscape(strings.ReplaceAll(result.Title, " ", "_"))
+	values := url.Values{}
+	values.Set("appid", appID)
+	values.Set("i", question)
+	endpoint := "https://api.wolframalpha.com/v1/result?" + values.Encode()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return askSource{}, false
 	}
-	return askSource{Title: result.Title, Summary: result.Extract, URL: pageURL}, strings.TrimSpace(result.Extract) != ""
+	req.Header.Set("Accept", "text/plain")
+	req.Header.Set("User-Agent", "GoBot/1.0 (IRC bot; question lookup)")
+	res, err := askHTTPClient.Do(req)
+	if err != nil {
+		return askSource{}, false
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		return askSource{}, false
+	}
+	body, err := io.ReadAll(io.LimitReader(res.Body, 64<<10))
+	if err != nil {
+		return askSource{}, false
+	}
+	answer := cleanExternalText(strings.TrimSpace(string(body)))
+	if !usableWolframAnswer(answer) {
+		return askSource{}, false
+	}
+	return askSource{
+		Title:   "Wolfram|Alpha",
+		Summary: answer,
+		URL:     "https://www.wolframalpha.com/input?i=" + url.QueryEscape(question),
+	}, true
+}
+
+func usableWolframAnswer(answer string) bool {
+	answer = strings.ToLower(strings.TrimSpace(answer))
+	if answer == "" {
+		return false
+	}
+	for _, phrase := range []string{
+		"did not understand the input",
+		"didn't understand the input",
+		"not enough information",
+		"wolfram|alpha isn't sure",
+		"wolfram|alpha is not sure",
+	} {
+		if strings.Contains(answer, phrase) {
+			return false
+		}
+	}
+	return true
+}
+
+// askDuckDuckGoEnabled accepts the old key as a compatibility fallback while
+// keeping the new name honest: it is an enabled source, not merely a fallback
+// behind Wikipedia (which !ask no longer uses).
+func askDuckDuckGoEnabled(cfg bot.PluginConfig) bool {
+	if _, configured := cfg["duckduckgo_enabled"]; configured {
+		return cfg.Bool("duckduckgo_enabled", true)
+	}
+	return cfg.Bool("duckduckgo_fallback", true)
+}
+
+// askFocusedTerm extracts the likely subject from a conversational question.
+// It removes question phrasing, possessive remnants, and broad intent words
+// so "What is Mark Normand's comedy?" resolves the entity "Mark Normand"
+// instead of searching for an incidental page containing the word "Mark".
+func askFocusedTerm(query string) string {
+	words := strings.FieldsFunc(strings.ToLower(strings.TrimSpace(query)), func(r rune) bool {
+		return !unicode.IsLetter(r) && !unicode.IsNumber(r)
+	})
+	stop := map[string]struct{}{
+		"a": {}, "about": {}, "an": {}, "and": {}, "are": {}, "can": {},
+		"could": {}, "current": {}, "currently": {}, "define": {}, "did": {},
+		"do": {}, "does": {}, "exactly": {}, "explain": {}, "for": {},
+		"from": {}, "happening": {}, "how": {}, "in": {}, "is": {}, "it": {},
+		"latest": {}, "me": {}, "more": {}, "now": {}, "of": {}, "on": {},
+		"please": {}, "recent": {}, "tell": {}, "the": {}, "to": {},
+		"today": {}, "was": {}, "what": {}, "when": {}, "where": {},
+		"who": {}, "why": {}, "would": {}, "you": {}, "your": {}, "know": {},
+		// These commonly describe the requested fact rather than the entity.
+		"actor": {}, "actress": {}, "bio": {}, "biography": {}, "career": {},
+		"comedy": {}, "comedian": {}, "details": {}, "facts": {}, "history": {},
+		"information": {}, "language": {}, "life": {}, "meaning": {},
+		"programming": {}, "profile": {}, "s": {}, "work": {},
+	}
+	focused := make([]string, 0, len(words))
+	for _, word := range words {
+		if _, ignored := stop[word]; !ignored {
+			focused = append(focused, word)
+		}
+	}
+	return strings.Join(focused, " ")
 }
 
 type duckDuckGoAnswer struct {
-	Heading       string `json:"Heading"`
-	AbstractText  string `json:"AbstractText"`
-	AbstractURL   string `json:"AbstractURL"`
-	RelatedTopics []struct {
-		Text     string `json:"Text"`
-		FirstURL string `json:"FirstURL"`
-		Topics   []struct {
-			Text     string `json:"Text"`
-			FirstURL string `json:"FirstURL"`
-		} `json:"Topics"`
-	} `json:"RelatedTopics"`
+	Heading          string `json:"Heading"`
+	AbstractText     string `json:"AbstractText"`
+	AbstractURL      string `json:"AbstractURL"`
+	AbstractSource   string `json:"AbstractSource"`
+	Answer           string `json:"Answer"`
+	Definition       string `json:"Definition"`
+	DefinitionURL    string `json:"DefinitionURL"`
+	DefinitionSource string `json:"DefinitionSource"`
 }
 
 func askDuckDuckGo(ctx context.Context, question string) (askSource, bool) {
@@ -372,35 +475,136 @@ func askDuckDuckGo(ctx context.Context, question string) (askSource, bool) {
 	if err := json.NewDecoder(io.LimitReader(res.Body, 1<<20)).Decode(&payload); err != nil {
 		return askSource{}, false
 	}
-	if strings.TrimSpace(payload.AbstractText) != "" && validHTTPURL(payload.AbstractURL) {
+	if strings.TrimSpace(payload.Answer) != "" {
+		return askSource{Title: payload.Heading, Summary: payload.Answer, URL: duckDuckGoSearchURL(question)}, true
+	}
+	if strings.TrimSpace(payload.Definition) != "" && !wikipediaBackedSource(payload.DefinitionSource, payload.DefinitionURL) {
+		return askSource{Title: payload.Heading, Summary: payload.Definition, URL: payload.DefinitionURL}, true
+	}
+	if strings.TrimSpace(payload.AbstractText) != "" && validHTTPURL(payload.AbstractURL) && !wikipediaBackedSource(payload.AbstractSource, payload.AbstractURL) {
 		return askSource{Title: payload.Heading, Summary: payload.AbstractText, URL: payload.AbstractURL}, true
 	}
-	text, firstURL := firstDuckTopic(payload.RelatedTopics)
-	if text == "" || !validHTTPURL(firstURL) {
-		return askSource{}, false
-	}
-	return askSource{Title: payload.Heading, Summary: text, URL: firstURL}, true
+	return askSource{}, false
 }
 
-func firstDuckTopic(topics []struct {
-	Text     string `json:"Text"`
-	FirstURL string `json:"FirstURL"`
-	Topics   []struct {
-		Text     string `json:"Text"`
-		FirstURL string `json:"FirstURL"`
-	} `json:"Topics"`
-}) (string, string) {
-	for _, topic := range topics {
-		if strings.TrimSpace(topic.Text) != "" && strings.TrimSpace(topic.FirstURL) != "" {
-			return topic.Text, topic.FirstURL
+func duckDuckGoSearchURL(query string) string {
+	return "https://duckduckgo.com/?q=" + url.QueryEscape(strings.TrimSpace(query))
+}
+
+func wikipediaBackedSource(source, rawURL string) bool {
+	if strings.EqualFold(strings.TrimSpace(source), "wikipedia") {
+		return true
+	}
+	parsed, err := url.Parse(strings.TrimSpace(rawURL))
+	if err != nil {
+		return false
+	}
+	host := strings.ToLower(parsed.Hostname())
+	return host == "wikipedia.org" || strings.HasSuffix(host, ".wikipedia.org")
+}
+
+type wikidataSearchResponse struct {
+	Search []wikidataEntity `json:"search"`
+}
+
+type wikidataEntity struct {
+	ID          string `json:"id"`
+	Label       string `json:"label"`
+	Description string `json:"description"`
+	Match       struct {
+		Text string `json:"text"`
+	} `json:"match"`
+}
+
+// askWikidata provides a small, structured entity fallback. It deliberately
+// returns only Wikidata's label/description and an entity URL; it does not
+// fetch or summarize a Wikipedia article.
+func askWikidata(ctx context.Context, query string) (askSource, bool) {
+	endpoint := "https://www.wikidata.org/w/api.php?action=wbsearchentities&search=" + url.QueryEscape(query) + "&language=en&uselang=en&format=json&limit=8"
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return askSource{}, false
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", "GoBot/1.0 (https://github.com/variablenix/GoBot; IRC bot)")
+	res, err := askHTTPClient.Do(req)
+	if err != nil {
+		return askSource{}, false
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		return askSource{}, false
+	}
+	var payload wikidataSearchResponse
+	if err := json.NewDecoder(io.LimitReader(res.Body, 512<<10)).Decode(&payload); err != nil {
+		return askSource{}, false
+	}
+	entity, ok := bestWikidataEntity(query, payload.Search)
+	if !ok {
+		return askSource{}, false
+	}
+	return askSource{Title: entity.Label, Summary: entity.Description, URL: "https://www.wikidata.org/wiki/" + entity.ID}, true
+}
+
+func bestWikidataEntity(query string, entities []wikidataEntity) (wikidataEntity, bool) {
+	query = strings.ToLower(strings.TrimSpace(query))
+	queryWords := strings.Fields(query)
+	if query == "" || len(queryWords) == 0 {
+		return wikidataEntity{}, false
+	}
+	bestScore := -1
+	var best wikidataEntity
+	for index, entity := range entities {
+		if !validWikidataID(entity.ID) || strings.TrimSpace(entity.Description) == "" {
+			continue
 		}
-		for _, nested := range topic.Topics {
-			if strings.TrimSpace(nested.Text) != "" && strings.TrimSpace(nested.FirstURL) != "" {
-				return nested.Text, nested.FirstURL
+		label := strings.ToLower(strings.TrimSpace(entity.Label))
+		match := strings.ToLower(strings.TrimSpace(entity.Match.Text))
+		labelWords := strings.Fields(label)
+		matches := 0
+		labelSet := make(map[string]struct{}, len(labelWords))
+		for _, word := range labelWords {
+			labelSet[word] = struct{}{}
+		}
+		for _, word := range queryWords {
+			if _, ok := labelSet[word]; ok {
+				matches++
 			}
 		}
+		// A multi-word subject must match completely. Accepting a one-word
+		// partial here would recreate the original "Mark" ambiguity.
+		if len(queryWords) > 1 && matches < len(queryWords) {
+			continue
+		}
+		score := matches * 10
+		if label == query {
+			score += 1000
+		}
+		if match == query {
+			score += 500
+		}
+		if matches == len(queryWords) {
+			score += 100
+		}
+		score -= index
+		if score > bestScore {
+			bestScore = score
+			best = entity
+		}
 	}
-	return "", ""
+	return best, bestScore >= 10
+}
+
+func validWikidataID(id string) bool {
+	if len(id) < 2 || id[0] != 'Q' {
+		return false
+	}
+	for _, r := range id[1:] {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 func validHTTPURL(raw string) bool {

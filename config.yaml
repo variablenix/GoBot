@@ -84,13 +84,15 @@ plugins:
   weather: {enabled: true, default_units: imperial}
   steam: {enabled: true, timeout_seconds: 10, max_length: 360}
   news: {enabled: true, api_key: "", max_results: 3, max_length: 360}
-  # Source-grounded answers stay keyless by default. AI rewriting is opt-in.
+  # Wolfram|Alpha is primary when BOT_WOLFRAM_APPID is set; keyless sources
+  # remain available as fallbacks. AI rewriting is opt-in.
   # Use BOT_OPENROUTER_API_KEY, BOT_OPENAI_API_KEY, or BOT_GEMINI_API_KEY
   # instead of putting provider secrets in this file.
   ask:
     enabled: true
-    wikipedia_first: true
-    duckduckgo_fallback: true
+    wolfram_enabled: true
+    duckduckgo_enabled: true
+    wikidata_fallback: true
     ai_rewrite: false
     provider: none # none, openrouter, openai, gemini, ollama
     max_length: 360
