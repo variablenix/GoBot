@@ -34,7 +34,7 @@ type Ask struct {
 func (p *Ask) Name() string       { return "ask" }
 func (p *Ask) Commands() []string { return []string{"ask", "question", "q"} }
 func (p *Ask) Help() string {
-	return "!ask <question> — Wolfram|Alpha answer with DuckDuckGo/Wikidata fallbacks; optional AI rewrite (aliases: !question, !q)"
+	return "!ask <question> — Wolfram|Alpha LLM answer with Short Answers/DuckDuckGo/Wikidata fallbacks; optional AI rewrite (aliases: !question, !q)"
 }
 
 func (p *Ask) Init(c bot.PluginConfig, _ *storage.DB) error {
@@ -311,8 +311,15 @@ type askSource struct {
 
 func (p *Ask) findSource(ctx context.Context, question string, cfg bot.PluginConfig) (askSource, bool) {
 	if cfg.Bool("wolfram_enabled", true) {
-		if source, ok := askWolfram(ctx, question); ok {
-			return source, true
+		if cfg.Bool("wolfram_llm_enabled", true) {
+			if source, ok := askWolframLLM(ctx, question); ok {
+				return source, true
+			}
+		}
+		if cfg.Bool("wolfram_short_enabled", true) {
+			if source, ok := askWolframShort(ctx, question); ok {
+				return source, true
+			}
 		}
 	}
 	focused := askFocusedTerm(question)
@@ -338,13 +345,109 @@ func askWolframAppID() string {
 	return firstAskValue(os.Getenv("BOT_WOLFRAM_APPID"), os.Getenv("BOT_ASK_WOLFRAM_APPID"))
 }
 
-// askWolfram uses the Short Answers API as the primary source. It is a
-// knowledge/computation lookup rather than an AI rewrite, and the AppID is
-// supplied only from the process environment. A failed or empty result is
-// intentionally treated as a normal fallback condition because Wolfram is
-// strongest for concise factual/computational questions, not every long-tail
-// or conversational subject.
-func askWolfram(ctx context.Context, question string) (askSource, bool) {
+func askWolframLLMAppID() string {
+	return firstAskValue(os.Getenv("BOT_WOLFRAM_LLM_APPID"), os.Getenv("BOT_ASK_WOLFRAM_LLM_APPID"))
+}
+
+// askWolframLLM uses Wolfram's structured LLM API as the primary source. The
+// response is knowledge output for a client to consume, not an AI rewrite, so
+// it remains compatible with provider: none. Its AppID is read only from the
+// process environment and is never included in an IRC response.
+func askWolframLLM(ctx context.Context, question string) (askSource, bool) {
+	appID := askWolframLLMAppID()
+	question = strings.TrimSpace(question)
+	if appID == "" || question == "" {
+		return askSource{}, false
+	}
+	values := url.Values{}
+	values.Set("input", question)
+	endpoint := "https://www.wolframalpha.com/api/v1/llm-api?" + values.Encode()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return askSource{}, false
+	}
+	req.Header.Set("Accept", "text/plain")
+	// The LLM API supports the AppID as a bearer token. Keeping it out of the
+	// URL prevents it from appearing in proxy/access logs or copied links.
+	req.Header.Set("Authorization", "Bearer "+appID)
+	req.Header.Set("User-Agent", "GoBot/1.0 (IRC bot; question lookup)")
+	res, err := askHTTPClient.Do(req)
+	if err != nil {
+		return askSource{}, false
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		return askSource{}, false
+	}
+	body, err := io.ReadAll(io.LimitReader(res.Body, 128<<10))
+	if err != nil {
+		return askSource{}, false
+	}
+	answer := parseWolframLLMAnswer(string(body))
+	if !usableWolframAnswer(answer) {
+		return askSource{}, false
+	}
+	return askSource{Title: "Wolfram|Alpha LLM", Summary: answer}, true
+}
+
+// parseWolframLLMAnswer keeps the Result section and drops query metadata,
+// input interpretation, images, and other display-oriented sections. The
+// final formatter performs the IRC one-line and length bounds.
+func parseWolframLLMAnswer(raw string) string {
+	raw = strings.ReplaceAll(strings.ReplaceAll(raw, "\r\n", "\n"), "\r", "\n")
+	lines := strings.Split(raw, "\n")
+	started := false
+	parts := make([]string, 0, len(lines))
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		lower := strings.ToLower(trimmed)
+		if !started {
+			if strings.HasPrefix(lower, "result:") {
+				started = true
+				if value := strings.TrimSpace(trimmed[len("result:"):]); value != "" {
+					parts = append(parts, value)
+				}
+			}
+			continue
+		}
+		if wolframLLMSectionHeader(lower) {
+			break
+		}
+		if trimmed != "" {
+			parts = append(parts, trimmed)
+		}
+	}
+	if started {
+		return cleanExternalText(strings.Join(parts, " "))
+	}
+	// Keep the parser tolerant of a future/plain single-answer response, but
+	// never pass structured metadata as if it were an answer.
+	lower := strings.ToLower(raw)
+	if strings.Contains(lower, "query:") || strings.Contains(lower, "input interpretation:") {
+		return ""
+	}
+	return cleanExternalText(raw)
+}
+
+func wolframLLMSectionHeader(line string) bool {
+	for _, header := range []string{
+		"query:", "input interpretation:", "images:", "image:", "links:",
+		"sources:", "assumptions:", "related queries:", "input:",
+		"periodic table location:", "basic elemental properties:",
+		"thermodynamic properties:", "material properties:", "atomic properties:",
+		"nuclear properties:", "reactivity:", "abundances:",
+		"wolfram|alpha website result:",
+	} {
+		if line == header || strings.HasPrefix(line, header+" ") {
+			return true
+		}
+	}
+	return false
+}
+
+// askWolframShort is the concise computational fallback. It deliberately
+// returns no Wolfram URL so the available IRC line is reserved for the answer.
+func askWolframShort(ctx context.Context, question string) (askSource, bool) {
 	appID := askWolframAppID()
 	question = strings.TrimSpace(question)
 	if appID == "" || question == "" {
@@ -376,11 +479,7 @@ func askWolfram(ctx context.Context, question string) (askSource, bool) {
 	if !usableWolframAnswer(answer) {
 		return askSource{}, false
 	}
-	return askSource{
-		Title:   "Wolfram|Alpha",
-		Summary: answer,
-		URL:     "https://www.wolframalpha.com/input?i=" + url.QueryEscape(question),
-	}, true
+	return askSource{Title: "Wolfram|Alpha", Summary: answer}, true
 }
 
 func usableWolframAnswer(answer string) bool {
@@ -391,7 +490,16 @@ func usableWolframAnswer(answer string) bool {
 	for _, phrase := range []string{
 		"did not understand the input",
 		"didn't understand the input",
+		"did not understand your input",
+		"didn't understand your input",
 		"not enough information",
+		"no result",
+		"i don't know",
+		"i do not know",
+		"not sure",
+		"unable to answer",
+		"couldn't find",
+		"could not find",
 		"wolfram|alpha isn't sure",
 		"wolfram|alpha is not sure",
 	} {
@@ -432,8 +540,12 @@ func askFocusedTerm(query string) string {
 		// These commonly describe the requested fact rather than the entity.
 		"actor": {}, "actress": {}, "bio": {}, "biography": {}, "career": {},
 		"comedy": {}, "comedian": {}, "details": {}, "facts": {}, "history": {},
-		"information": {}, "language": {}, "life": {}, "meaning": {},
-		"programming": {}, "profile": {}, "s": {}, "work": {},
+		"information": {}, "language": {}, "learn": {}, "life": {},
+		"meaning": {}, "programming": {}, "profile": {}, "s": {},
+		"start": {}, "started": {}, "teach": {}, "tutorial": {},
+		"use": {}, "using": {}, "want": {}, "work": {}, "write": {},
+		"build": {}, "begin": {}, "beginner": {}, "code": {}, "coding": {},
+		"created": {}, "creator": {}, "get": {}, "help": {},
 	}
 	focused := make([]string, 0, len(words))
 	for _, word := range words {
