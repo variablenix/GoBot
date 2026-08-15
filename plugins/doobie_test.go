@@ -83,6 +83,20 @@ func TestDoobieLoadsConfiguredClosingQuotes(t *testing.T) {
 	}
 }
 
+func TestDoobieCatalogIncludesHotboxLineAndPunchlines(t *testing.T) {
+	quotes := readQuotes(filepath.Join("..", "quotes", "doobie.txt"))
+	if len(quotes) < 15 {
+		t.Fatalf("doobie quote catalog has %d entries, want at least 15", len(quotes))
+	}
+	wanted := "Hotboxing with this doobie 🚗💨"
+	for _, quote := range quotes {
+		if quote == wanted {
+			return
+		}
+	}
+	t.Fatalf("doobie quote catalog is missing %q", wanted)
+}
+
 func TestDoobieSequenceSendsFourSingleLineMessages(t *testing.T) {
 	sent := make(chan string, len(doobieCountdownSteps)+1)
 	cfg := bot.Config{NetworkName: "test", CommandPrefix: "!"}
