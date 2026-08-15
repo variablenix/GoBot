@@ -118,11 +118,13 @@ plugins:
   # Local operator-maintained ACRONYM|expansion[|context] entries.
   acronym: {enabled: true, data_file: "data/acronyms.txt", max_length: 320}
   steam: {enabled: true, timeout_seconds: 10, max_length: 360}
-  # Wolfram|Alpha is primary when BOT_WOLFRAM_APPID is set; keyless sources
-  # remain available as fallbacks. AI rewriting is opt-in.
+  # Wolfram|Alpha LLM is primary when BOT_WOLFRAM_LLM_APPID is set; Short
+  # Answers, DuckDuckGo, and Wikidata remain available as fallbacks.
   ask:
     enabled: true
     wolfram_enabled: true
+    wolfram_llm_enabled: true
+    wolfram_short_enabled: true
     duckduckgo_enabled: true
     wikidata_fallback: true
     ai_rewrite: false
@@ -164,11 +166,12 @@ plugins:
 ```
 
 `status`, `calc`, `foods`, `sports`, `car`, and `weapons` are local. When
-`BOT_WOLFRAM_APPID` is configured and `wolfram_enabled` is true, `ask` tries
-Wolfram|Alpha's Short Answers API first, then falls back to DuckDuckGo's
-public Instant Answer endpoint and exact-match Wikidata entity search. It does
+`BOT_WOLFRAM_LLM_APPID` is configured and `wolfram_enabled` is true, `ask`
+tries Wolfram|Alpha's LLM API first, then its Short Answers API, DuckDuckGo's
+public Instant Answer endpoint, and exact-match Wikidata entity search. It does
 not call Wikipedia; use `!wiki` for that. In its default `provider: none` mode
-it uses no AI and returns a compact source-grounded answer with a source link.
+it uses no AI and returns a compact source-grounded answer. Wolfram answers do
+not add a Wolfram link, preserving the one-line IRC response budget.
 Set `ai_rewrite: true` and choose `openrouter`, `openai`, `gemini`, or `ollama`
 to optionally rewrite the retrieved source into a more conversational answer.
 Provider credentials belong in environment variables such as

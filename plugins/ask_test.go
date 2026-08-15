@@ -37,6 +37,8 @@ func TestAskFocusedTermDisambiguatesNamedPeople(t *testing.T) {
 func TestAskDoesNotUseWikipediaFallback(t *testing.T) {
 	t.Setenv("BOT_WOLFRAM_APPID", "")
 	t.Setenv("BOT_ASK_WOLFRAM_APPID", "")
+	t.Setenv("BOT_WOLFRAM_LLM_APPID", "")
+	t.Setenv("BOT_ASK_WOLFRAM_LLM_APPID", "")
 	oldAskClient, oldAPIClient := askHTTPClient, apiHTTPClient
 	t.Cleanup(func() {
 		askHTTPClient = oldAskClient
@@ -69,9 +71,11 @@ func TestAskDoesNotUseWikipediaFallback(t *testing.T) {
 	}
 }
 
-func TestAskWolframUsesEnvironmentAppID(t *testing.T) {
+func TestAskWolframShortUsesEnvironmentAppID(t *testing.T) {
 	t.Setenv("BOT_WOLFRAM_APPID", "test-app-id")
 	t.Setenv("BOT_ASK_WOLFRAM_APPID", "")
+	t.Setenv("BOT_WOLFRAM_LLM_APPID", "")
+	t.Setenv("BOT_ASK_WOLFRAM_LLM_APPID", "")
 	old := askHTTPClient
 	t.Cleanup(func() { askHTTPClient = old })
 	askHTTPClient = &http.Client{Transport: newPluginRoundTripper(func(r *http.Request) (*http.Response, error) {
@@ -90,32 +94,132 @@ func TestAskWolframUsesEnvironmentAppID(t *testing.T) {
 		return newPluginResponse(http.StatusOK, "4"), nil
 	})}
 
-	source, ok := askWolfram(context.Background(), "What is 2+2?")
+	source, ok := askWolframShort(context.Background(), "What is 2+2?")
 	if !ok || source.Summary != "4" {
-		t.Fatalf("askWolfram() = %#v, %v; want summary 4", source, ok)
+		t.Fatalf("askWolframShort() = %#v, %v; want summary 4", source, ok)
 	}
-	if strings.Contains(source.URL, "test-app-id") {
-		t.Fatalf("Wolfram AppID leaked into source URL: %q", source.URL)
+	if source.URL != "" {
+		t.Fatalf("Short Answers source unexpectedly included a URL: %q", source.URL)
 	}
 }
 
-func TestAskWolframSkipsWithoutAppID(t *testing.T) {
+func TestAskWolframShortSkipsWithoutAppID(t *testing.T) {
 	t.Setenv("BOT_WOLFRAM_APPID", "")
 	t.Setenv("BOT_ASK_WOLFRAM_APPID", "")
+	t.Setenv("BOT_WOLFRAM_LLM_APPID", "")
+	t.Setenv("BOT_ASK_WOLFRAM_LLM_APPID", "")
 	old := askHTTPClient
 	t.Cleanup(func() { askHTTPClient = old })
 	askHTTPClient = &http.Client{Transport: newPluginRoundTripper(func(*http.Request) (*http.Response, error) {
 		t.Fatal("Wolfram request made without an AppID")
 		return nil, nil
 	})}
-	if source, ok := askWolfram(context.Background(), "What is 2+2?"); ok || source != (askSource{}) {
-		t.Fatalf("askWolfram() = %#v, %v without AppID; want no result", source, ok)
+	if source, ok := askWolframShort(context.Background(), "What is 2+2?"); ok || source != (askSource{}) {
+		t.Fatalf("askWolframShort() = %#v, %v without AppID; want no result", source, ok)
+	}
+}
+
+func TestAskWolframLLMUsesInputAndParsesResult(t *testing.T) {
+	t.Setenv("BOT_WOLFRAM_LLM_APPID", "test-llm-app-id")
+	t.Setenv("BOT_ASK_WOLFRAM_LLM_APPID", "")
+	old := askHTTPClient
+	t.Cleanup(func() { askHTTPClient = old })
+	askHTTPClient = &http.Client{Transport: newPluginRoundTripper(func(r *http.Request) (*http.Response, error) {
+		if r.URL.Host != "www.wolframalpha.com" || r.URL.Path != "/api/v1/llm-api" {
+			t.Fatalf("unexpected Wolfram LLM endpoint: %s", r.URL)
+		}
+		if got := r.URL.Query().Get("appid"); got != "" {
+			t.Fatalf("appid query = %q, want AppID omitted from URL", got)
+		}
+		if got := r.Header.Get("Authorization"); got != "Bearer test-llm-app-id" {
+			t.Fatalf("Authorization = %q, want bearer AppID", got)
+		}
+		if got := r.URL.Query().Get("input"); got != "Who created Linux?" {
+			t.Fatalf("input query = %q, want question", got)
+		}
+		return newPluginResponse(http.StatusOK, "Query: Who created Linux?\nInput interpretation: creator of Linux\nResult:\nLinus Torvalds\nImages:\nimage: https://example.test/image.png"), nil
+	})}
+
+	source, ok := askWolframLLM(context.Background(), "Who created Linux?")
+	if !ok || source.Summary != "Linus Torvalds" {
+		t.Fatalf("askWolframLLM() = %#v, %v; want parsed result", source, ok)
+	}
+	if source.URL != "" || strings.Contains(source.Summary, "test-llm-app-id") {
+		t.Fatalf("Wolfram LLM output leaked link or AppID: %#v", source)
+	}
+}
+
+func TestAskFindSourcePrefersLLMThenShort(t *testing.T) {
+	t.Setenv("BOT_WOLFRAM_LLM_APPID", "test-llm-app-id")
+	t.Setenv("BOT_ASK_WOLFRAM_LLM_APPID", "")
+	t.Setenv("BOT_WOLFRAM_APPID", "test-short-app-id")
+	t.Setenv("BOT_ASK_WOLFRAM_APPID", "")
+	old := askHTTPClient
+	t.Cleanup(func() { askHTTPClient = old })
+	requests := 0
+	askHTTPClient = &http.Client{Transport: newPluginRoundTripper(func(r *http.Request) (*http.Response, error) {
+		requests++
+		if r.URL.Path != "/api/v1/llm-api" {
+			t.Fatalf("Short Answers or another fallback ran before LLM: %s", r.URL)
+		}
+		return newPluginResponse(http.StatusOK, "Result: Linus Torvalds"), nil
+	})}
+
+	source, ok := (&Ask{}).findSource(context.Background(), "Who created Linux?", bot.PluginConfig{
+		"wolfram_enabled":       true,
+		"wolfram_llm_enabled":   true,
+		"wolfram_short_enabled": true,
+		"duckduckgo_enabled":    true,
+		"wikidata_fallback":     true,
+	})
+	if !ok || source.Title != "Wolfram|Alpha LLM" || source.Summary != "Linus Torvalds" || requests != 1 {
+		t.Fatalf("findSource() = %#v, %v with %d requests; want LLM first", source, ok, requests)
+	}
+}
+
+func TestAskFindSourceFallsThroughFailedWolframStages(t *testing.T) {
+	t.Setenv("BOT_WOLFRAM_LLM_APPID", "test-llm-app-id")
+	t.Setenv("BOT_ASK_WOLFRAM_LLM_APPID", "")
+	t.Setenv("BOT_WOLFRAM_APPID", "test-short-app-id")
+	t.Setenv("BOT_ASK_WOLFRAM_APPID", "")
+	old := askHTTPClient
+	t.Cleanup(func() { askHTTPClient = old })
+	requests := 0
+	// With both Wolfram stages unusable, the keyless sources are next. The
+	// fake response supplies a safe Wikidata result to prove the chain does not
+	// stop at Wolfram's failure.
+	askHTTPClient = &http.Client{Transport: newPluginRoundTripper(func(r *http.Request) (*http.Response, error) {
+		requests++
+		switch r.URL.Host {
+		case "www.wikidata.org":
+			return newPluginResponse(http.StatusOK, `{"search":[{"id":"Q388","label":"Linux","description":"family of Unix-like operating systems","match":{"text":"Linux"}}]}`), nil
+		case "www.wolframalpha.com":
+			return newPluginResponse(http.StatusNotImplemented, "no result"), nil
+		case "api.wolframalpha.com":
+			return newPluginResponse(http.StatusNotImplemented, "did not understand your input"), nil
+		default:
+			t.Fatalf("unexpected fallback request: %s", r.URL)
+			return nil, nil
+		}
+	})}
+
+	source, ok := (&Ask{}).findSource(context.Background(), "Who created Linux?", bot.PluginConfig{
+		"wolfram_enabled":       true,
+		"wolfram_llm_enabled":   true,
+		"wolfram_short_enabled": true,
+		"duckduckgo_enabled":    false,
+		"wikidata_fallback":     true,
+	})
+	if !ok || source.Title != "Linux" || requests != 3 {
+		t.Fatalf("findSource() = %#v, %v with %d requests; want Wikidata after Wolfram failures", source, ok, requests)
 	}
 }
 
 func TestAskFindSourcePrefersWolfram(t *testing.T) {
 	t.Setenv("BOT_WOLFRAM_APPID", "test-app-id")
 	t.Setenv("BOT_ASK_WOLFRAM_APPID", "")
+	t.Setenv("BOT_WOLFRAM_LLM_APPID", "")
+	t.Setenv("BOT_ASK_WOLFRAM_LLM_APPID", "")
 	old := askHTTPClient
 	t.Cleanup(func() { askHTTPClient = old })
 	askHTTPClient = &http.Client{Transport: newPluginRoundTripper(func(r *http.Request) (*http.Response, error) {
