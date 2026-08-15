@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -18,9 +19,8 @@ import (
 	"github.com/variablenix/GoBot/storage"
 )
 
-// Ask provides a small, source-grounded question lookup. It intentionally has
-// DuckDuckGo Instant Answers are primary and exact Wikidata entities are the
-// fallback.
+// Ask provides a small, source-grounded question lookup. DuckDuckGo Instant
+// Answers are primary and exact Wikidata entities are the fallback.
 type Ask struct {
 	cfg         bot.PluginConfig
 	cfgMu       sync.RWMutex
@@ -215,27 +215,32 @@ func askLocalAnswer(question string) (string, bool) {
 }
 
 func askFocusedTerm(query string) string {
-	words := strings.FieldsFunc(strings.ToLower(strings.TrimSpace(query)), func(r rune) bool {
+	normalized := strings.ToLower(strings.TrimSpace(query))
+	normalized = strings.ReplaceAll(normalized, "who's", "who is")
+	for _, phrase := range askQueryFramingPhrases {
+		normalized = strings.ReplaceAll(normalized, phrase, " ")
+	}
+	words := strings.FieldsFunc(normalized, func(r rune) bool {
 		return !unicode.IsLetter(r) && !unicode.IsNumber(r)
 	})
 	stop := map[string]struct{}{
-		"a": {}, "about": {}, "an": {}, "and": {}, "are": {}, "can": {},
+		"a": {}, "about": {}, "after": {}, "ago": {}, "an": {}, "and": {}, "are": {}, "around": {}, "at": {}, "before": {}, "been": {}, "began": {}, "born": {}, "by": {}, "can": {}, "came": {}, "come": {}, "comes": {},
 		"could": {}, "current": {}, "currently": {}, "define": {}, "did": {},
-		"do": {}, "does": {}, "exactly": {}, "explain": {}, "for": {},
-		"from": {}, "happening": {}, "how": {}, "in": {}, "is": {}, "it": {},
-		"latest": {}, "me": {}, "more": {}, "now": {}, "of": {}, "on": {},
+		"date": {}, "debut": {}, "debuted": {}, "do": {}, "does": {}, "during": {}, "era": {}, "established": {}, "event": {}, "exactly": {}, "explain": {}, "for": {},
+		"from": {}, "happening": {}, "has": {}, "have": {}, "how": {}, "in": {}, "is": {}, "it": {},
+		"into": {}, "introduced": {}, "latest": {}, "me": {}, "more": {}, "month": {}, "now": {}, "of": {}, "on": {},
 		"please": {}, "recent": {}, "tell": {}, "the": {}, "to": {},
 		"today": {}, "was": {}, "what": {}, "when": {}, "where": {},
 		"who": {}, "why": {}, "would": {}, "you": {}, "your": {}, "know": {},
 		"actor": {}, "bio": {}, "biography": {}, "career": {}, "comedy": {},
 		"comedian": {}, "details": {}, "facts": {}, "history": {},
 		"author": {}, "designer": {}, "founder": {}, "inventor": {}, "owner": {},
-		"information": {}, "language": {}, "learn": {}, "life": {}, "meaning": {},
-		"month": {}, "old": {}, "time": {}, "year": {}, "years": {},
-		"come": {}, "first": {}, "out": {}, "programming": {}, "profile": {}, "release": {}, "released": {}, "s": {}, "start": {}, "started": {},
+		"information": {}, "language": {}, "launch": {}, "launched": {}, "learn": {}, "life": {}, "made": {}, "meaning": {},
+		"age": {}, "old": {}, "origin": {}, "originated": {}, "out": {}, "period": {}, "premiere": {}, "premiered": {}, "profile": {}, "programming": {}, "published": {}, "publication": {}, "release": {}, "released": {}, "s": {}, "since": {}, "start": {}, "started": {},
 		"teach": {}, "tutorial": {}, "use": {}, "using": {}, "want": {},
-		"work": {}, "write": {}, "build": {}, "begin": {}, "beginner": {},
-		"code": {}, "coding": {}, "created": {}, "creator": {}, "get": {}, "help": {},
+		"which": {}, "with": {}, "work": {}, "write": {}, "build": {}, "begin": {}, "beginner": {}, "exist": {}, "existed": {},
+		"code": {}, "coding": {}, "created": {}, "creator": {}, "first": {}, "appear": {}, "appeared": {}, "appearance": {}, "announced": {}, "available": {}, "broadcast": {}, "deployed": {}, "emerge": {}, "emerged": {}, "existence": {}, "form": {}, "formed": {}, "get": {}, "help": {}, "originally": {}, "public": {}, "publish": {},
+		"time": {}, "year": {}, "years": {},
 	}
 	focused := make([]string, 0, len(words))
 	for _, word := range words {
@@ -246,21 +251,37 @@ func askFocusedTerm(query string) string {
 	return strings.Join(focused, " ")
 }
 
+// askQueryFramingPhrases is a local synonym lexicon for question framing. It
+// is deliberately data-driven and bounded: runtime dictionary or thesaurus
+// calls would add latency and another external failure point to every lookup.
+var askQueryFramingPhrases = []string{
+	"how many years ago", "how long has", "how long ago", "what is the age of",
+	"what was the age of", "what year did", "what year was", "what year were",
+	"which year did", "which year was", "which year were", "what date did", "what date was", "what date were",
+	"come into existence", "came into existence", "comes into existence", "first came out",
+	"first come out", "first appeared", "first appear", "first debuted", "first premiered", "was first released", "were first released",
+	"was released", "were released", "release date", "publication date", "date of", "year of",
+}
+
 func askNeedsRelationshipAnswer(question string) bool {
-	words := strings.FieldsFunc(strings.ToLower(question), func(r rune) bool {
+	lowerQuestion := strings.ToLower(question)
+	lowerQuestion = strings.ReplaceAll(lowerQuestion, "who's", "who is")
+	words := strings.FieldsFunc(lowerQuestion, func(r rune) bool {
 		return !unicode.IsLetter(r) && !unicode.IsNumber(r)
 	})
-	hasWho := false
+	hasPersonQuestion := strings.Contains(lowerQuestion, "which person") || strings.Contains(lowerQuestion, "what person") || strings.Contains(lowerQuestion, "what company") || strings.Contains(lowerQuestion, "which company") || strings.Contains(lowerQuestion, "what organization") || strings.Contains(lowerQuestion, "which organization") || strings.Contains(lowerQuestion, "what group") || strings.Contains(lowerQuestion, "which group")
 	for _, word := range words {
-		if word == "who" {
-			hasWho = true
-			continue
+		if word == "who" || word == "whom" || word == "whose" {
+			hasPersonQuestion = true
 		}
+	}
+	if !hasPersonQuestion {
+		return false
+	}
+	for _, word := range words {
 		switch word {
-		case "author", "created", "creator", "developed", "designed", "discovered", "founded", "founder", "invented", "inventor", "made", "owns", "owner", "wrote":
-			if hasWho {
-				return true
-			}
+		case "author", "authored", "created", "creator", "developed", "designed", "discovered", "founded", "founder", "invented", "inventor", "made", "owns", "owner", "wrote", "written":
+			return true
 		}
 	}
 	return false
@@ -270,16 +291,29 @@ func askNeedsTemporalAnswer(question string) bool {
 	if askNeedsRelationshipAnswer(question) {
 		return false
 	}
-	words := strings.FieldsFunc(strings.ToLower(question), func(r rune) bool {
+	lowerQuestion := strings.ToLower(question)
+	for _, phrase := range askTemporalPhrases {
+		if strings.Contains(lowerQuestion, phrase) {
+			return true
+		}
+	}
+	words := strings.FieldsFunc(lowerQuestion, func(r rune) bool {
 		return !unicode.IsLetter(r) && !unicode.IsNumber(r)
 	})
 	for _, word := range words {
 		switch word {
-		case "birth", "born", "created", "date", "established", "founded", "launched", "launch", "released", "start", "started", "when", "year", "years":
+		case "birth", "born", "created", "creation", "date", "debut", "debuted", "established", "founded", "formed", "launched", "launch", "originated", "premiere", "premiered", "published", "publication", "released", "release", "start", "started", "begin", "began", "unveiled", "when", "year", "years":
 			return true
 		}
 	}
 	return false
+}
+
+var askTemporalPhrases = []string{
+	"come out", "came out", "comes out", "come into existence", "came into existence", "comes into existence",
+	"first appear", "first appeared", "first debuted", "first premiered", "first released", "release date", "publication date",
+	"when did", "when was", "when were", "since when", "as of when", "what date", "which date", "what month",
+	"which month", "what year", "which year", "how long ago", "how long has", "how many years ago", "how old is", "how old was", "how old were", "age of", "what age",
 }
 
 var (
@@ -311,14 +345,9 @@ func refineFocusedAskSource(question string, source askSource) (askSource, bool)
 		if date == "" || title == "" {
 			return askSource{}, false
 		}
-		preposition := "in"
-		if strings.Contains(date, " ") && !askYearOnlyPattern.MatchString(date) {
-			preposition = "on"
-		}
-		phrase := askTemporalPhrase(question)
 		return askSource{
 			Title:   title,
-			Summary: fmt.Sprintf("%s %s %s %s.", title, phrase, preposition, date),
+			Summary: formatAskTemporalSummary(title, question, date),
 			URL:     source.URL,
 		}, true
 	}
@@ -357,7 +386,26 @@ func askRelationshipGerund(question string) string {
 }
 
 func askTemporalPhrase(question string) string {
-	words := strings.FieldsFunc(strings.ToLower(question), func(r rune) bool {
+	lowerQuestion := strings.ToLower(question)
+	if strings.Contains(lowerQuestion, "how long ago") || strings.Contains(lowerQuestion, "how long has") || strings.Contains(lowerQuestion, "how many years ago") || strings.Contains(lowerQuestion, "how old is") || strings.Contains(lowerQuestion, "how old was") || strings.Contains(lowerQuestion, "how old were") || strings.Contains(lowerQuestion, "what age") || strings.Contains(lowerQuestion, "age of") {
+		return "dates to"
+	}
+	if strings.Contains(lowerQuestion, "come out") || strings.Contains(lowerQuestion, "release") {
+		return "was first released"
+	}
+	if strings.Contains(lowerQuestion, "debut") || strings.Contains(lowerQuestion, "premier") || strings.Contains(lowerQuestion, "first appeared") {
+		return "first appeared"
+	}
+	if strings.Contains(lowerQuestion, "publish") {
+		return "was published"
+	}
+	if strings.Contains(lowerQuestion, "originat") {
+		return "originated"
+	}
+	if strings.Contains(lowerQuestion, "unveil") || strings.Contains(lowerQuestion, "introduc") {
+		return "was introduced"
+	}
+	words := strings.FieldsFunc(lowerQuestion, func(r rune) bool {
 		return !unicode.IsLetter(r) && !unicode.IsNumber(r)
 	})
 	for _, word := range words {
@@ -366,17 +414,33 @@ func askTemporalPhrase(question string) string {
 			return "was born"
 		case "created":
 			return "was created"
-		case "established", "founded":
+		case "established":
+			return "was established"
+		case "founded":
 			return "was founded"
 		case "launched", "launch":
 			return "was launched"
-		case "released":
-			return "was first released"
+		case "formed":
+			return "was formed"
+		case "began", "begin":
+			return "began"
 		case "start", "started":
 			return "started"
 		}
 	}
 	return "was first released"
+}
+
+func formatAskTemporalSummary(title, question, date string) string {
+	phrase := askTemporalPhrase(question)
+	if phrase == "dates to" {
+		return fmt.Sprintf("%s dates to %s.", title, date)
+	}
+	preposition := "in"
+	if strings.Contains(date, " ") && !askYearOnlyPattern.MatchString(date) && (date[0] >= '0' && date[0] <= '9' || strings.Contains(date, ",")) {
+		preposition = "on"
+	}
+	return fmt.Sprintf("%s %s %s %s.", title, phrase, preposition, date)
 }
 
 type duckDuckGoAnswer struct {
@@ -501,11 +565,7 @@ func askWikidataTemporal(ctx context.Context, query, question string) (askSource
 	if !ok {
 		return askSource{}, false
 	}
-	properties := []string{"P571", "P577"}
-	lowerQuestion := strings.ToLower(question)
-	if strings.Contains(lowerQuestion, "releas") || strings.Contains(lowerQuestion, "come out") {
-		properties = []string{"P577", "P571"}
-	}
+	properties := askTemporalClaimProperties(question)
 	for _, property := range properties {
 		for _, claim := range claims[property] {
 			if claim.MainSnak.SnakType != "value" {
@@ -515,18 +575,22 @@ func askWikidataTemporal(ctx context.Context, query, question string) (askSource
 			if date == "" {
 				continue
 			}
-			preposition := "in"
-			if strings.Contains(date, " ") {
-				preposition = "on"
-			}
 			return askSource{
 				Title:   entity.Label,
-				Summary: fmt.Sprintf("%s %s %s %s.", entity.Label, askTemporalPhrase(question), preposition, date),
+				Summary: formatAskTemporalSummary(entity.Label, question, date),
 				URL:     "https://www.wikidata.org/wiki/" + entity.ID,
 			}, true
 		}
 	}
 	return askSource{}, false
+}
+
+func askTemporalClaimProperties(question string) []string {
+	lowerQuestion := strings.ToLower(question)
+	if strings.Contains(lowerQuestion, "releas") || strings.Contains(lowerQuestion, "come out") || strings.Contains(lowerQuestion, "debut") || strings.Contains(lowerQuestion, "premier") || strings.Contains(lowerQuestion, "publish") || strings.Contains(lowerQuestion, "launch") || strings.Contains(lowerQuestion, "introduc") || strings.Contains(lowerQuestion, "unveil") || strings.Contains(lowerQuestion, "first appeared") {
+		return []string{"P577", "P571"}
+	}
+	return []string{"P571", "P577"}
 }
 
 func fetchWikidataClaims(ctx context.Context, id string) (map[string][]wikidataClaim, bool) {
@@ -558,10 +622,28 @@ func fetchWikidataClaims(ctx context.Context, id string) (map[string][]wikidataC
 
 func formatWikidataDate(raw string) string {
 	raw = strings.TrimPrefix(strings.TrimSpace(raw), "+")
-	if len(raw) < len("2002-03-11") {
+	if len(raw) < len("2002-00-00") {
 		return ""
 	}
-	datePart := raw[:len("2002-03-11")]
+	datePart := raw[:len("2002-00-00")]
+	parts := strings.Split(datePart, "-")
+	if len(parts) != 3 || len(parts[0]) != 4 {
+		return ""
+	}
+	month, err := strconv.Atoi(parts[1])
+	if err != nil || month < 0 || month > 12 {
+		return ""
+	}
+	day, err := strconv.Atoi(parts[2])
+	if err != nil || day < 0 || day > 31 {
+		return ""
+	}
+	if month == 0 {
+		return parts[0]
+	}
+	if day == 0 {
+		return fmt.Sprintf("%s %s", time.Month(month), parts[0])
+	}
 	parsed, err := time.Parse("2006-01-02", datePart)
 	if err != nil {
 		return ""

@@ -30,13 +30,17 @@ func TestAskHelpDescribesSimpleFallbacks(t *testing.T) {
 
 func TestAskFocusedTermDisambiguatesNamedPeople(t *testing.T) {
 	tests := map[string]string{
-		"What is Mark Normand's comedy?":       "mark normand",
-		"tell me about the Linux kernel":       "linux kernel",
-		"What is the programming language Go?": "go",
-		"what year was Linux created?":         "linux",
-		"what year did Arch Linux come out?":   "arch linux",
-		"what year was Arch Linux released?":   "arch linux",
-		"what year was Linux first released?":  "linux",
+		"What is Mark Normand's comedy?":           "mark normand",
+		"tell me about the Linux kernel":           "linux kernel",
+		"What is the programming language Go?":     "go",
+		"what year was Linux created?":             "linux",
+		"what year did Arch Linux come out?":       "arch linux",
+		"what year was Arch Linux released?":       "arch linux",
+		"what year was Linux first released?":      "linux",
+		"when did Ubuntu first appear?":            "ubuntu",
+		"what was the release date of Debian?":     "debian",
+		"how long ago was Firefox published?":      "firefox",
+		"what year did Linux come into existence?": "linux",
 	}
 	for input, want := range tests {
 		if got := askFocusedTerm(input); got != want {
@@ -123,6 +127,16 @@ func TestAskRelationshipQuestionsSkipGenericWikidata(t *testing.T) {
 	if !askNeedsRelationshipAnswer("Who created Linux?") {
 		t.Fatal("relationship question was not detected")
 	}
+	for _, question := range []string{
+		"By whom was Linux created?",
+		"Who's the creator of Linux?",
+		"Which person developed Go?",
+		"What company created Example?",
+	} {
+		if !askNeedsRelationshipAnswer(question) {
+			t.Fatalf("relationship variant %q was not detected", question)
+		}
+	}
 	if askNeedsRelationshipAnswer("What is Linux?") {
 		t.Fatal("definition question was incorrectly classified as relationship lookup")
 	}
@@ -154,8 +168,31 @@ func TestAskIntentVariants(t *testing.T) {
 	if !askNeedsTemporalAnswer("When was Example founded?") {
 		t.Fatal("founded temporal question was not detected")
 	}
+	for _, question := range []string{
+		"When did Example first appear?",
+		"What was the publication date of Example?",
+		"How long has Example existed?",
+		"How old is Example?",
+	} {
+		if !askNeedsTemporalAnswer(question) {
+			t.Fatalf("temporal variant %q was not detected", question)
+		}
+	}
 	if got := askTemporalPhrase("What year was Example founded?"); got != "was founded" {
 		t.Fatalf("askTemporalPhrase() = %q, want was founded", got)
+	}
+	for question, want := range map[string]string{
+		"What year did Example come out?":    "was first released",
+		"What year was Example published?":   "was published",
+		"When did Example first debut?":      "first appeared",
+		"How long ago was Example released?": "dates to",
+		"What year was Example established?": "was established",
+		"What year was Example introduced?":  "was introduced",
+		"What year did Example begin?":       "began",
+	} {
+		if got := askTemporalPhrase(question); got != want {
+			t.Errorf("askTemporalPhrase(%q) = %q, want %q", question, got, want)
+		}
 	}
 }
 
@@ -163,8 +200,17 @@ func TestFormatWikidataDate(t *testing.T) {
 	if got := formatWikidataDate("+2002-03-11T00:00:00Z"); got != "11 March 2002" {
 		t.Fatalf("formatWikidataDate() = %q, want 11 March 2002", got)
 	}
+	if got := formatWikidataDate("+2002-03-00T00:00:00Z"); got != "March 2002" {
+		t.Fatalf("formatWikidataDate(month precision) = %q, want March 2002", got)
+	}
+	if got := formatWikidataDate("+2002-00-00T00:00:00Z"); got != "2002" {
+		t.Fatalf("formatWikidataDate(year precision) = %q, want 2002", got)
+	}
 	if got := formatWikidataDate("invalid"); got != "" {
 		t.Fatalf("formatWikidataDate(invalid) = %q, want empty", got)
+	}
+	if got := formatAskTemporalSummary("Example", "When was Example published?", "March 2002"); got != "Example was published in March 2002." {
+		t.Fatalf("formatAskTemporalSummary(month) = %q, want month-level preposition", got)
 	}
 }
 
