@@ -190,6 +190,12 @@ func (p *Ask) findSource(ctx context.Context, question string, cfg bot.PluginCon
 		}
 	}
 	if cfg.Bool("wikidata_fallback", true) && focused != "" && !askNeedsRelationshipAnswer(question) {
+		if askNeedsTemporalAnswer(question) {
+			if source, ok := askWikidataTemporal(ctx, focused, question); ok {
+				return source, true
+			}
+			return askSource{}, false
+		}
 		if source, ok := askWikidata(ctx, focused); ok {
 			return source, true
 		}
@@ -226,7 +232,7 @@ func askFocusedTerm(query string) string {
 		"author": {}, "designer": {}, "founder": {}, "inventor": {}, "owner": {},
 		"information": {}, "language": {}, "learn": {}, "life": {}, "meaning": {},
 		"month": {}, "old": {}, "time": {}, "year": {}, "years": {},
-		"programming": {}, "profile": {}, "s": {}, "start": {}, "started": {},
+		"come": {}, "first": {}, "out": {}, "programming": {}, "profile": {}, "release": {}, "released": {}, "s": {}, "start": {}, "started": {},
 		"teach": {}, "tutorial": {}, "use": {}, "using": {}, "want": {},
 		"work": {}, "write": {}, "build": {}, "begin": {}, "beginner": {},
 		"code": {}, "coding": {}, "created": {}, "creator": {}, "get": {}, "help": {},
@@ -427,6 +433,25 @@ type wikidataSearchResponse struct {
 	Search []wikidataEntity `json:"search"`
 }
 
+type wikidataClaimsResponse struct {
+	Entities map[string]wikidataClaimsEntity `json:"entities"`
+}
+
+type wikidataClaimsEntity struct {
+	Claims map[string][]wikidataClaim `json:"claims"`
+}
+
+type wikidataClaim struct {
+	MainSnak struct {
+		SnakType  string `json:"snaktype"`
+		DataValue struct {
+			Value struct {
+				Time string `json:"time"`
+			} `json:"value"`
+		} `json:"datavalue"`
+	} `json:"mainsnak"`
+}
+
 type wikidataEntity struct {
 	ID          string `json:"id"`
 	Label       string `json:"label"`
@@ -437,30 +462,111 @@ type wikidataEntity struct {
 }
 
 func askWikidata(ctx context.Context, query string) (askSource, bool) {
+	entity, ok := searchWikidataEntity(ctx, query)
+	if !ok {
+		return askSource{}, false
+	}
+	return askSource{Title: entity.Label, Summary: entity.Description, URL: "https://www.wikidata.org/wiki/" + entity.ID}, true
+}
+
+func searchWikidataEntity(ctx context.Context, query string) (wikidataEntity, bool) {
 	endpoint := "https://www.wikidata.org/w/api.php?action=wbsearchentities&search=" + url.QueryEscape(query) + "&language=en&uselang=en&format=json&limit=8"
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
-		return askSource{}, false
+		return wikidataEntity{}, false
 	}
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", "GoBot/1.0 (https://github.com/variablenix/GoBot; IRC bot)")
 	res, err := askHTTPClient.Do(req)
 	if err != nil {
-		return askSource{}, false
+		return wikidataEntity{}, false
 	}
 	defer res.Body.Close()
 	if !askHTTPSuccess(res.StatusCode) {
-		return askSource{}, false
+		return wikidataEntity{}, false
 	}
 	var payload wikidataSearchResponse
 	if err := json.NewDecoder(io.LimitReader(res.Body, 512<<10)).Decode(&payload); err != nil {
-		return askSource{}, false
+		return wikidataEntity{}, false
 	}
-	entity, ok := bestWikidataEntity(query, payload.Search)
+	return bestWikidataEntity(query, payload.Search)
+}
+
+func askWikidataTemporal(ctx context.Context, query, question string) (askSource, bool) {
+	entity, ok := searchWikidataEntity(ctx, query)
 	if !ok {
 		return askSource{}, false
 	}
-	return askSource{Title: entity.Label, Summary: entity.Description, URL: "https://www.wikidata.org/wiki/" + entity.ID}, true
+	claims, ok := fetchWikidataClaims(ctx, entity.ID)
+	if !ok {
+		return askSource{}, false
+	}
+	properties := []string{"P571", "P577"}
+	lowerQuestion := strings.ToLower(question)
+	if strings.Contains(lowerQuestion, "releas") || strings.Contains(lowerQuestion, "come out") {
+		properties = []string{"P577", "P571"}
+	}
+	for _, property := range properties {
+		for _, claim := range claims[property] {
+			if claim.MainSnak.SnakType != "value" {
+				continue
+			}
+			date := formatWikidataDate(claim.MainSnak.DataValue.Value.Time)
+			if date == "" {
+				continue
+			}
+			preposition := "in"
+			if strings.Contains(date, " ") {
+				preposition = "on"
+			}
+			return askSource{
+				Title:   entity.Label,
+				Summary: fmt.Sprintf("%s %s %s %s.", entity.Label, askTemporalPhrase(question), preposition, date),
+				URL:     "https://www.wikidata.org/wiki/" + entity.ID,
+			}, true
+		}
+	}
+	return askSource{}, false
+}
+
+func fetchWikidataClaims(ctx context.Context, id string) (map[string][]wikidataClaim, bool) {
+	endpoint := "https://www.wikidata.org/w/api.php?action=wbgetentities&ids=" + url.QueryEscape(id) + "&props=claims&format=json"
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return nil, false
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", "GoBot/1.0 (https://github.com/variablenix/GoBot; IRC bot)")
+	res, err := askHTTPClient.Do(req)
+	if err != nil {
+		return nil, false
+	}
+	defer res.Body.Close()
+	if !askHTTPSuccess(res.StatusCode) {
+		return nil, false
+	}
+	var payload wikidataClaimsResponse
+	if err := json.NewDecoder(io.LimitReader(res.Body, 512<<10)).Decode(&payload); err != nil {
+		return nil, false
+	}
+	entity, ok := payload.Entities[id]
+	if !ok {
+		return nil, false
+	}
+	return entity.Claims, true
+}
+
+func formatWikidataDate(raw string) string {
+	raw = strings.TrimPrefix(strings.TrimSpace(raw), "+")
+	if len(raw) < len("2002-03-11") {
+		return ""
+	}
+	datePart := raw[:len("2002-03-11")]
+	parsed, err := time.Parse("2006-01-02", datePart)
+	if err != nil {
+		return ""
+	}
+	return parsed.Format("2 January 2006")
 }
 
 func bestWikidataEntity(query string, entities []wikidataEntity) (wikidataEntity, bool) {
