@@ -33,6 +33,7 @@ func TestAskFocusedTermDisambiguatesNamedPeople(t *testing.T) {
 		"What is Mark Normand's comedy?":       "mark normand",
 		"tell me about the Linux kernel":       "linux kernel",
 		"What is the programming language Go?": "go",
+		"what year was Linux created?":         "linux",
 	}
 	for input, want := range tests {
 		if got := askFocusedTerm(input); got != want {
