@@ -59,15 +59,15 @@ func TestAskDuckDuckGoParsesAnswersIncludingWikipediaBackedSummaries(t *testing.
 		return newPluginResponse(http.StatusOK, `{"Heading":"Go","Answer":"Go is a programming language.","AbstractText":""}`), nil
 	})}
 	source, ok := askDuckDuckGo(context.Background(), "What is Go?")
-	if !ok || source.Summary != "Go is a programming language." || source.URL == "" {
+	if !ok || source.Summary != "Go is a programming language." || source.URL != "https://duckduckgo.com/?q=What+is+Go%3F" {
 		t.Fatalf("askDuckDuckGo() = %#v, %v; want parsed answer", source, ok)
 	}
 
 	askHTTPClient = &http.Client{Transport: newPluginRoundTripper(func(*http.Request) (*http.Response, error) {
 		return newPluginResponse(http.StatusOK, `{"Heading":"Linux","AbstractText":"Linux is a family of free and open-source Unix-like operating systems.","AbstractURL":"https://en.wikipedia.org/wiki/Linux","AbstractSource":"Wikipedia"}`), nil
 	})}
-	if source, ok := askDuckDuckGo(context.Background(), "What is Linux?"); !ok || source.Summary == "" || source.URL != "https://en.wikipedia.org/wiki/Linux" {
-		t.Fatalf("askDuckDuckGo discarded Wikipedia-backed summary: %#v, %v", source, ok)
+	if source, ok := askDuckDuckGo(context.Background(), "What is Linux?"); !ok || source.Summary == "" || source.URL != "https://duckduckgo.com/?q=What+is+Linux%3F" {
+		t.Fatalf("askDuckDuckGo discarded Wikipedia-backed summary or used the upstream URL: %#v, %v", source, ok)
 	}
 }
 
