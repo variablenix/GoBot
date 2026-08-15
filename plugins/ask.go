@@ -5,10 +5,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"html"
 	"io"
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -218,7 +220,7 @@ func askProviderInfo(provider string, cfg bot.PluginConfig) (string, bool) {
 		key := firstAskValue(cfg.String("openai_api_key", ""), os.Getenv("BOT_OPENAI_API_KEY"))
 		return model, key != ""
 	case "gemini":
-		model := firstAskValue(cfg.String("gemini_model", ""), os.Getenv("BOT_GEMINI_MODEL"), "gemini-2.0-flash")
+		model := firstAskValue(cfg.String("gemini_model", ""), os.Getenv("BOT_GEMINI_MODEL"), "gemini-3.6-flash")
 		key := firstAskValue(cfg.String("gemini_api_key", ""), os.Getenv("BOT_GEMINI_API_KEY"))
 		return model, key != ""
 	case "ollama":
@@ -333,12 +335,104 @@ func (p *Ask) findSource(ctx context.Context, question string, cfg bot.PluginCon
 			}
 		}
 	}
-	if cfg.Bool("wikidata_fallback", true) && focused != "" {
+	if cfg.Bool("brave_enabled", true) {
+		if source, ok := askBrave(ctx, question); ok {
+			return source, true
+		}
+		if focused != "" && !strings.EqualFold(focused, strings.TrimSpace(question)) {
+			if source, ok := askBrave(ctx, focused); ok {
+				return source, true
+			}
+		}
+	}
+	if cfg.Bool("wikidata_fallback", true) && focused != "" && !askNeedsRelationshipAnswer(question) {
 		if source, ok := askWikidata(ctx, focused); ok {
 			return source, true
 		}
 	}
 	return askSource{}, false
+}
+
+func askBraveSearchAPIKey() string {
+	return firstAskValue(os.Getenv("BOT_BRAVE_SEARCH_API_KEY"), os.Getenv("BOT_ASK_BRAVE_SEARCH_API_KEY"))
+}
+
+type braveSearchResponse struct {
+	Web struct {
+		Results []struct {
+			Title       string `json:"title"`
+			URL         string `json:"url"`
+			Description string `json:"description"`
+		} `json:"results"`
+	} `json:"web"`
+}
+
+var braveHTMLTagRegex = regexp.MustCompile(`<[^>]*>`)
+
+// askBrave provides a web-search fallback for questions that need a current
+// or relational answer rather than a single knowledge-graph description.
+// Snippets remain source-grounded; Gemini can optionally rewrite them later.
+func askBrave(ctx context.Context, query string) (askSource, bool) {
+	key := askBraveSearchAPIKey()
+	query = strings.TrimSpace(query)
+	if key == "" || query == "" {
+		return askSource{}, false
+	}
+	endpoint := "https://api.search.brave.com/res/v1/web/search?q=" + url.QueryEscape(query) + "&count=3&search_lang=en"
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return askSource{}, false
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("X-Subscription-Token", key)
+	req.Header.Set("User-Agent", "GoBot/1.0 (IRC bot; question lookup)")
+	res, err := askHTTPClient.Do(req)
+	if err != nil {
+		return askSource{}, false
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		return askSource{}, false
+	}
+	var payload braveSearchResponse
+	if err := json.NewDecoder(io.LimitReader(res.Body, 1<<20)).Decode(&payload); err != nil {
+		return askSource{}, false
+	}
+	for _, result := range payload.Web.Results {
+		if !validHTTPURL(result.URL) {
+			continue
+		}
+		summary := cleanBraveText(result.Description)
+		if summary == "" {
+			continue
+		}
+		return askSource{Title: cleanBraveText(result.Title), Summary: summary, URL: result.URL}, true
+	}
+	return askSource{}, false
+}
+
+func cleanBraveText(text string) string {
+	return cleanExternalText(html.UnescapeString(braveHTMLTagRegex.ReplaceAllString(text, " ")))
+}
+
+func askNeedsRelationshipAnswer(question string) bool {
+	words := strings.FieldsFunc(strings.ToLower(question), func(r rune) bool {
+		return !unicode.IsLetter(r) && !unicode.IsNumber(r)
+	})
+	hasWho := false
+	for _, word := range words {
+		if word == "who" {
+			hasWho = true
+			continue
+		}
+		switch word {
+		case "created", "creator", "developed", "discovered", "founded", "invented", "made", "wrote", "directed", "designed", "owns":
+			if hasWho {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func askWolframAppID() string {
@@ -909,7 +1003,7 @@ func (p *Ask) openAICompatible(ctx context.Context, provider, system, prompt str
 
 func (p *Ask) gemini(ctx context.Context, system, prompt string, cfg bot.PluginConfig) (string, bool) {
 	key := firstAskValue(cfg.String("gemini_api_key", ""), os.Getenv("BOT_GEMINI_API_KEY"))
-	model := firstAskValue(cfg.String("gemini_model", ""), os.Getenv("BOT_GEMINI_MODEL"), "gemini-2.0-flash")
+	model := firstAskValue(cfg.String("gemini_model", ""), os.Getenv("BOT_GEMINI_MODEL"), "gemini-3.6-flash")
 	if key == "" {
 		return "", false
 	}
