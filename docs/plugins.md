@@ -1109,23 +1109,13 @@ Ask GoBot a general question with any of these aliases:
 !q what does TLS protect?
 ~~~
 
-The `!ask` plugin does not call Wikipedia; use `!wiki` when you specifically
-want a Wikipedia summary. When `BOT_WOLFRAM_LLM_APPID` is configured, Wolfram's
-LLM API is tried first for structured, disambiguated knowledge output. GoBot
-then falls back to Short Answers, DuckDuckGo Instant Answers, Brave web search
-when configured, and exact-match Wikidata entity search. For relationship
-questions such as “who created Linux?”, Wikidata claims are used to identify
-the related person instead of returning a generic entity description. Missing
-credentials,
-timeouts, non-success responses, and unusable answers all continue to the next
-source. The plugin does not call Wikipedia; `!wiki` remains the
-dedicated Wikipedia command. Wikipedia-backed DuckDuckGo abstracts and loose
-related-topic snippets are rejected. Gemini rewriting is enabled in the
-tracked configuration when `BOT_GEMINI_API_KEY` is present; it turns the
-selected source into a concise natural-language answer and falls back to the
-source text if unavailable. Wolfram answers intentionally omit a Wolfram link
-so the response can use the full one-line IRC budget. A sender-specific
-cooldown prevents repeated lookups from becoming a flood source.
+The `!ask` plugin uses DuckDuckGo's keyless Instant Answer endpoint first and
+exact-match Wikidata entity search as a fallback. It does not call Wikipedia;
+use `!wiki` for a Wikipedia summary. DuckDuckGo's browser “Ask AI”/Duck.ai
+feature is a separate chat product and is not used by GoBot because there is no
+documented public bot endpoint for it. Wikipedia-backed DuckDuckGo abstracts
+and loose related-topic snippets are rejected. A sender-specific cooldown
+prevents repeated lookups from becoming a flood source.
 
 The plugin is configured under `plugins.ask`:
 
@@ -1133,80 +1123,18 @@ The plugin is configured under `plugins.ask`:
 plugins:
   ask:
     enabled: true
-    wolfram_enabled: true
-    wolfram_llm_enabled: true
-    wolfram_short_enabled: true
     duckduckgo_enabled: true
-    brave_enabled: true
     wikidata_fallback: true
-    ai_rewrite: true
-    provider: gemini # none, openrouter, openai, gemini, ollama
     max_length: 360
     max_response_chars: 240
-    timeout_seconds: 12
+    timeout_seconds: 8
     cooldown_seconds: 15
 ~~~
 
-Set the two Wolfram AppIDs only in the environment, never in `config.yaml`:
-
-~~~env
-BOT_WOLFRAM_LLM_APPID=your-wolfram-llm-appid
-BOT_WOLFRAM_APPID=your-wolfram-short-answers-appid
-~~~
-
-If either Wolfram AppID is absent or its API returns no usable result, `!ask`
-automatically continues to the next source. The optional
-`BOT_ASK_WOLFRAM_LLM_APPID` and `BOT_ASK_WOLFRAM_APPID` names are also accepted
-for deployments that prefer ask-specific variables. Set
-`wolfram_llm_enabled: false` or `wolfram_short_enabled: false` to disable one
-stage; set `wolfram_enabled: false` to disable both while retaining the
-keyless fallbacks.
-
-`ai_rewrite` uses Gemini by default in the tracked configuration. When enabled, GoBot gives the selected provider the
-retrieved source and asks it to turn that source into a concise, factual,
-single-paragraph answer. It does not use an AI provider when `provider: none`
-is selected, and it falls back to the source summary if the provider is
-unavailable. `BOT_ASK_PROVIDER` and `BOT_ASK_AI_REWRITE` override the
-corresponding nested config values. Set them to `none` and `false` to disable
-rewriting for a deployment. Keep provider credentials out of `config.yaml`:
-
-~~~env
-BOT_ASK_PROVIDER=gemini
-BOT_ASK_AI_REWRITE=true
-BOT_GEMINI_API_KEY=...
-# Alternative provider: comment out the Gemini settings and select one provider.
-# BOT_ASK_PROVIDER=openrouter
-# BOT_OPENROUTER_API_KEY=...
-# A specific instruction-tuned free model is more consistent than a random
-# free-model router for this short source-rewrite task.
-# BOT_OPENROUTER_MODEL=google/gemma-4-31b-it:free
-~~~
-
-OpenAI uses `BOT_OPENAI_API_KEY` and `BOT_OPENAI_MODEL`; Gemini uses
-`BOT_GEMINI_API_KEY` and `BOT_GEMINI_MODEL`. Brave uses
-`BOT_BRAVE_SEARCH_API_KEY` for the web-search fallback. For a local Ollama instance, use
-`BOT_ASK_PROVIDER=ollama`, `BOT_OLLAMA_URL`, and `BOT_OLLAMA_MODEL`. The output
-limits still apply regardless of provider. If a provider returns meta-text
-such as “the user asks” or “the source does not”, GoBot makes one stricter
-correction request within the original timeout. If that still fails, or the
-provider returns `INSUFFICIENT_SOURCE`, GoBot rejects it and keeps the
-source-grounded answer instead. The question and retrieved source are treated
-as untrusted data in the rewrite prompt; instructions contained in them are
-not followed.
-
-To verify that the key is actually being used, check the service log after one
-fresh `!ask` request:
-
-~~~text
-ask AI rewrite requested ... provider=openrouter ... api_key_configured=true
-ask AI rewrite used ... provider=openrouter ...
-~~~
-
-If the provider call fails, GoBot logs `ask AI rewrite unavailable; using source
-summary` and still returns the source answer. The API key is never written to
-the log. A source-only response is usually faster; an AI rewrite adds one
-external request, and free models may take longer when they are cold or busy.
-Use `BOT_ASK_AI_REWRITE=false` to compare source-only behavior.
+No API key or `.env` setting is required. The response is sanitized, limited to
+one IRC line, and includes a source link when the upstream response provides a
+safe HTTP URL. If neither source has a usable answer, GoBot says so clearly
+instead of inventing one.
 
 ## Daily bonus
 
