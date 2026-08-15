@@ -20,9 +20,9 @@ const (
 var doobieInlineRX = regexp.MustCompile(`(?i)(^|[^a-z0-9_])\$(doobie|dooblie|420)([^a-z0-9_]|$)`)
 
 var doobieCountdownSteps = []string{
-	"📜 3... Grinding...",
+	ircColor(ircGreen, "📜 3... Grinding..."),
 	"👅 2... Rolling...",
-	"🔥 1... Sparking...",
+	ircColor(ircCyan, "🔥 1... Sparking..."),
 }
 
 var doobieFallbackQuotes = []string{
@@ -216,5 +216,5 @@ func (p *Doobie) randomClosingLine() string {
 	if quote == "" {
 		quote = doobieFallbackQuotes[0]
 	}
-	return truncateIRCMessage(ircColor(ircGreen, cleanExternalText(strings.TrimSpace(quote))), 240)
+	return truncateIRCMessage(ircColor(ircLightGreen, cleanExternalText(strings.TrimSpace(quote))), 240)
 }
