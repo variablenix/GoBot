@@ -57,7 +57,7 @@ func TestAskDuckDuckGoParsesAnswersIncludingWikipediaBackedSummaries(t *testing.
 		if r.URL.Host != "api.duckduckgo.com" {
 			t.Fatalf("unexpected host: %s", r.URL.Host)
 		}
-		return newPluginResponse(http.StatusOK, `{"Heading":"Go","Answer":"Go is a programming language.","AbstractText":""}`), nil
+		return newPluginResponse(http.StatusAccepted, `{"Heading":"Go","Answer":"Go is a programming language.","AbstractText":""}`), nil
 	})}
 	source, ok := askDuckDuckGo(context.Background(), "What is Go?")
 	if !ok || source.Summary != "Go is a programming language." || source.URL != "https://duckduckgo.com/?q=What+is+Go%3F" {
@@ -83,6 +83,21 @@ func TestAskWikidataPrefersExactLabel(t *testing.T) {
 	}
 	if _, ok := bestWikidataEntity("mark normand", entities[:1]); ok {
 		t.Fatal("bestWikidataEntity accepted a partial multi-word match")
+	}
+}
+
+func TestAskWikidataPrefersPrimaryExactMatchOverLowerRankedAmbiguity(t *testing.T) {
+	entities := []wikidataEntity{
+		{ID: "Q698", Label: "Mozilla Firefox", Description: "free and open source web browser", Match: struct {
+			Text string `json:"text"`
+		}{Text: "Firefox"}},
+		{ID: "Q3072842", Label: "Firefox", Description: "1984 arcade video game", Match: struct {
+			Text string `json:"text"`
+		}{Text: "Firefox"}},
+	}
+	got, ok := bestWikidataEntity("firefox", entities)
+	if !ok || got.ID != "Q698" {
+		t.Fatalf("bestWikidataEntity() = %#v, %v; want Mozilla Firefox", got, ok)
 	}
 }
 
