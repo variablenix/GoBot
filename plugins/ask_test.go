@@ -34,6 +34,9 @@ func TestAskFocusedTermDisambiguatesNamedPeople(t *testing.T) {
 		"tell me about the Linux kernel":       "linux kernel",
 		"What is the programming language Go?": "go",
 		"what year was Linux created?":         "linux",
+		"what year did Arch Linux come out?":   "arch linux",
+		"what year was Arch Linux released?":   "arch linux",
+		"what year was Linux first released?":  "linux",
 	}
 	for input, want := range tests {
 		if got := askFocusedTerm(input); got != want {
@@ -153,6 +156,30 @@ func TestAskIntentVariants(t *testing.T) {
 	}
 	if got := askTemporalPhrase("What year was Example founded?"); got != "was founded" {
 		t.Fatalf("askTemporalPhrase() = %q, want was founded", got)
+	}
+}
+
+func TestFormatWikidataDate(t *testing.T) {
+	if got := formatWikidataDate("+2002-03-11T00:00:00Z"); got != "11 March 2002" {
+		t.Fatalf("formatWikidataDate() = %q, want 11 March 2002", got)
+	}
+	if got := formatWikidataDate("invalid"); got != "" {
+		t.Fatalf("formatWikidataDate(invalid) = %q, want empty", got)
+	}
+}
+
+func TestAskWikidataTemporalUsesReleaseClaims(t *testing.T) {
+	old := askHTTPClient
+	t.Cleanup(func() { askHTTPClient = old })
+	askHTTPClient = &http.Client{Transport: newPluginRoundTripper(func(r *http.Request) (*http.Response, error) {
+		if r.URL.Query().Get("action") == "wbsearchentities" {
+			return newPluginResponse(http.StatusOK, `{"search":[{"id":"Q185576","label":"Arch Linux","description":"Linux distribution","match":{"text":"Arch Linux"}}]}`), nil
+		}
+		return newPluginResponse(http.StatusOK, `{"entities":{"Q185576":{"claims":{"P577":[{"mainsnak":{"snaktype":"value","datavalue":{"value":{"time":"+2002-03-12T00:00:00Z"}}}}]}}}}`), nil
+	})}
+	source, ok := askWikidataTemporal(context.Background(), "arch linux", "What year was Arch Linux released?")
+	if !ok || source.Summary != "Arch Linux was first released on 12 March 2002." || source.URL != "https://www.wikidata.org/wiki/Q185576" {
+		t.Fatalf("askWikidataTemporal() = %#v, %v; want release claim answer", source, ok)
 	}
 }
 
