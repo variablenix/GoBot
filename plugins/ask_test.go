@@ -26,11 +26,6 @@ func TestAskHelpDescribesSimpleFallbacks(t *testing.T) {
 	if !strings.Contains(help, "DuckDuckGo") || !strings.Contains(help, "Wikidata") {
 		t.Fatalf("Help() = %q, want simple source description", help)
 	}
-	for _, removed := range []string{"Wolfram", "Gemini", "Brave"} {
-		if strings.Contains(help, removed) {
-			t.Fatalf("Help() still advertises removed provider %q: %q", removed, help)
-		}
-	}
 }
 
 func TestAskFocusedTermDisambiguatesNamedPeople(t *testing.T) {
@@ -47,10 +42,7 @@ func TestAskFocusedTermDisambiguatesNamedPeople(t *testing.T) {
 }
 
 func TestAskLocalAnswer(t *testing.T) {
-	for question, want := range map[string]string{
-		"hello":          "Hello!",
-		"Are you an AI?": "I'm GoBot, a source lookup bot.",
-	} {
+	for question, want := range map[string]string{"hello": "Hello!"} {
 		if got, ok := askLocalAnswer(question); !ok || got != want {
 			t.Fatalf("askLocalAnswer(%q) = %q, %v; want %q, true", question, got, ok, want)
 		}

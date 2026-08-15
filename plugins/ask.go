@@ -17,8 +17,8 @@ import (
 )
 
 // Ask provides a small, source-grounded question lookup. It intentionally has
-// no AI, API keys, or provider-specific configuration: DuckDuckGo Instant
-// Answers are primary and exact Wikidata entities are the fallback.
+// DuckDuckGo Instant Answers are primary and exact Wikidata entities are the
+// fallback.
 type Ask struct {
 	cfg         bot.PluginConfig
 	cfgMu       sync.RWMutex
@@ -196,8 +196,6 @@ func askLocalAnswer(question string) (string, bool) {
 	switch normalized {
 	case "hello", "hi", "hey", "hello bot", "hi bot", "hey bot":
 		return "Hello!", true
-	case "are you an ai", "are you artificial intelligence":
-		return "I'm GoBot, a source lookup bot.", true
 	default:
 		return "", false
 	}

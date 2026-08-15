@@ -157,13 +157,9 @@ plugins:
 `status`, `calc`, `foods`, `sports`, `car`, and `weapons` are local. When
 `ask` uses DuckDuckGo's keyless Instant Answer endpoint first, then exact-match
 Wikidata entity search for definition-style questions. It does not call
-Wikipedia; use `!wiki` for that. DuckDuckGo's browser “Ask AI”/Duck.ai feature
-is a separate chat product and is not used by GoBot because there is no
-documented public bot endpoint for it. Responses remain source-grounded,
-sanitized, one-line, and bounded by `max_length` and `max_response_chars`.
-The plugin has no provider, AI, or API-key environment settings; old
-`BOT_WOLFRAM_*`, `BOT_GEMINI_*`, `BOT_BRAVE_*`, and related variables are not
-read.
+Wikipedia; use `!wiki` for that. Responses remain source-grounded, sanitized,
+one-line, and bounded by `max_length` and `max_response_chars`. No credentials
+are required.
 `define` uses the public English dictionary service, `reddit` uses Reddit's public post and
 subreddit JSON endpoints with an RSS fallback, and `horoscope` uses a public
 daily horoscope API. `foods` and `sports` use local text files only. `fun` uses

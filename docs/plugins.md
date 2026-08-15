@@ -1111,11 +1111,9 @@ Ask GoBot a general question with any of these aliases:
 
 The `!ask` plugin uses DuckDuckGo's keyless Instant Answer endpoint first and
 exact-match Wikidata entity search as a fallback. It does not call Wikipedia;
-use `!wiki` for a Wikipedia summary. DuckDuckGo's browser “Ask AI”/Duck.ai
-feature is a separate chat product and is not used by GoBot because there is no
-documented public bot endpoint for it. Wikipedia-backed DuckDuckGo abstracts
-and loose related-topic snippets are rejected. A sender-specific cooldown
-prevents repeated lookups from becoming a flood source.
+use `!wiki` for a Wikipedia summary. Wikipedia-backed DuckDuckGo abstracts and
+loose related-topic snippets are rejected. A sender-specific cooldown prevents
+repeated lookups from becoming a flood source.
 
 The plugin is configured under `plugins.ask`:
 
@@ -1131,12 +1129,10 @@ plugins:
     cooldown_seconds: 15
 ~~~
 
-No API key or `.env` setting is required. The response is sanitized, limited to
-one IRC line, and includes a source link when the upstream response provides a
-safe HTTP URL. If neither source has a usable answer, GoBot says so clearly
-instead of inventing one. There is no provider, AI rewrite, or API-key setting
-for this plugin; older Wolfram, Gemini, Brave, OpenRouter, OpenAI, and Ollama
-settings are intentionally unsupported and ignored.
+No credential or `.env` setting is required. The response is sanitized, limited
+to one IRC line, and includes a source link when the upstream response provides
+a safe HTTP URL. If neither source has a usable answer, GoBot says so clearly
+instead of inventing one.
 
 ## Daily bonus
 
