@@ -78,8 +78,8 @@ func TestDoobieLoadsConfiguredClosingQuotes(t *testing.T) {
 	if len(p.quotes) != 2 || p.quotes[0] != "First puff, best puff." {
 		t.Fatalf("loaded quotes = %#v", p.quotes)
 	}
-	if got := p.randomClosingLine(); !strings.Contains(got, ircGreen) || !strings.Contains(got, ircReset) {
-		t.Fatalf("closing line is not green IRC text: %q", got)
+	if got := p.randomClosingLine(); !strings.Contains(got, ircLightGreen) || !strings.Contains(got, ircReset) {
+		t.Fatalf("closing line is not light-green IRC text: %q", got)
 	}
 }
 
@@ -121,8 +121,17 @@ func TestDoobieSequenceSendsFourSingleLineMessages(t *testing.T) {
 			t.Fatalf("message %d contains a line break: %q", i, got[i])
 		}
 	}
-	if !strings.Contains(got[len(got)-1], ircGreen) || !strings.Contains(got[len(got)-1], ircReset) {
-		t.Fatalf("closing message is not green IRC text: %q", got[len(got)-1])
+	if !strings.Contains(got[0], ircGreen) {
+		t.Fatalf("grinding message is not dark-green IRC text: %q", got[0])
+	}
+	if strings.Contains(got[1], "\x03") || strings.Contains(got[1], ircReset) {
+		t.Fatalf("rolling message should be plain text: %q", got[1])
+	}
+	if !strings.Contains(got[2], ircCyan) {
+		t.Fatalf("sparking message is not cyan IRC text: %q", got[2])
+	}
+	if !strings.Contains(got[len(got)-1], ircLightGreen) || !strings.Contains(got[len(got)-1], ircReset) {
+		t.Fatalf("closing message is not light-green IRC text: %q", got[len(got)-1])
 	}
 }
 

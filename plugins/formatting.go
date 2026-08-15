@@ -8,13 +8,14 @@ import (
 // These are standard mIRC IRC formatting controls. IRC clients that support
 // colors render them; clients that do not will still receive the plain text.
 const (
-	ircReset  = "\x0f"
-	ircBold   = "\x02"
-	ircGreen  = "\x0303"
-	ircRed    = "\x0304"
-	ircTan    = "\x0307" // mIRC orange, a practical tan approximation
-	ircCyan   = "\x0311"
-	ircYellow = "\x0308"
+	ircReset      = "\x0f"
+	ircBold       = "\x02"
+	ircGreen      = "\x0303"
+	ircLightGreen = "\x0309"
+	ircRed        = "\x0304"
+	ircTan        = "\x0307" // mIRC orange, a practical tan approximation
+	ircCyan       = "\x0311"
+	ircYellow     = "\x0308"
 )
 
 func ircColor(color, text string) string {
@@ -33,6 +34,7 @@ func truncateIRCMessage(text string, max int) string {
 		ircReset, "",
 		ircBold, "",
 		ircGreen, "",
+		ircLightGreen, "",
 		ircRed, "",
 		ircTan, "",
 		ircCyan, "",
