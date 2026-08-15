@@ -170,7 +170,9 @@ plugins:
 `BOT_WOLFRAM_LLM_APPID` is configured and `wolfram_enabled` is true, `ask`
 tries Wolfram|Alpha's LLM API first, then its Short Answers API, DuckDuckGo's
 public Instant Answer endpoint, Brave web search when keyed, and exact-match
-Wikidata entity search. It does not call Wikipedia; use `!wiki` for that.
+Wikidata entity search. Relationship questions use Wikidata claims when
+available instead of a generic entity description. It does not call Wikipedia;
+use `!wiki` for that.
 The tracked default uses Gemini rewriting when `BOT_GEMINI_API_KEY` is set;
 without that key it safely falls back to the source-grounded answer. Wolfram
 answers do not add a Wolfram link, preserving the one-line IRC response budget.

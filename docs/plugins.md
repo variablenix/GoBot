@@ -1113,10 +1113,12 @@ The `!ask` plugin does not call Wikipedia; use `!wiki` when you specifically
 want a Wikipedia summary. When `BOT_WOLFRAM_LLM_APPID` is configured, Wolfram's
 LLM API is tried first for structured, disambiguated knowledge output. GoBot
 then falls back to Short Answers, DuckDuckGo Instant Answers, Brave web search
-when configured, and exact-match Wikidata entity search. Missing credentials,
+when configured, and exact-match Wikidata entity search. For relationship
+questions such as “who created Linux?”, Wikidata claims are used to identify
+the related person instead of returning a generic entity description. Missing
+credentials,
 timeouts, non-success responses, and unusable answers all continue to the next
-source. Generic Wikidata descriptions are not used for relationship questions
-such as “who created…”. The plugin does not call Wikipedia; `!wiki` remains the
+source. The plugin does not call Wikipedia; `!wiki` remains the
 dedicated Wikipedia command. Wikipedia-backed DuckDuckGo abstracts and loose
 related-topic snippets are rejected. Gemini rewriting is enabled in the
 tracked configuration when `BOT_GEMINI_API_KEY` is present; it turns the
@@ -1172,10 +1174,12 @@ rewriting for a deployment. Keep provider credentials out of `config.yaml`:
 BOT_ASK_PROVIDER=gemini
 BOT_ASK_AI_REWRITE=true
 BOT_GEMINI_API_KEY=...
-BOT_OPENROUTER_API_KEY=...
+# Alternative provider: comment out the Gemini settings and select one provider.
+# BOT_ASK_PROVIDER=openrouter
+# BOT_OPENROUTER_API_KEY=...
 # A specific instruction-tuned free model is more consistent than a random
 # free-model router for this short source-rewrite task.
-BOT_OPENROUTER_MODEL=google/gemma-4-31b-it:free
+# BOT_OPENROUTER_MODEL=google/gemma-4-31b-it:free
 ~~~
 
 OpenAI uses `BOT_OPENAI_API_KEY` and `BOT_OPENAI_MODEL`; Gemini uses
