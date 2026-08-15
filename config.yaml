@@ -85,7 +85,7 @@ plugins:
   steam: {enabled: true, timeout_seconds: 10, max_length: 360}
   news: {enabled: true, api_key: "", max_results: 3, max_length: 360}
   # Keyless DuckDuckGo Instant Answers with a Wikidata entity fallback.
-  # This plugin has no provider, AI, or API-key environment settings.
+  # No credentials are required.
   ask:
     enabled: true
     duckduckgo_enabled: true
