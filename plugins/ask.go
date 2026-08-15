@@ -252,14 +252,10 @@ func askNeedsRelationshipAnswer(question string) bool {
 }
 
 type duckDuckGoAnswer struct {
-	Heading          string `json:"Heading"`
-	AbstractText     string `json:"AbstractText"`
-	AbstractURL      string `json:"AbstractURL"`
-	AbstractSource   string `json:"AbstractSource"`
-	Answer           string `json:"Answer"`
-	Definition       string `json:"Definition"`
-	DefinitionURL    string `json:"DefinitionURL"`
-	DefinitionSource string `json:"DefinitionSource"`
+	Heading      string `json:"Heading"`
+	AbstractText string `json:"AbstractText"`
+	Answer       string `json:"Answer"`
+	Definition   string `json:"Definition"`
 }
 
 var askHTTPClient = &http.Client{Timeout: 15 * time.Second}
@@ -284,14 +280,15 @@ func askDuckDuckGo(ctx context.Context, question string) (askSource, bool) {
 	if err := json.NewDecoder(io.LimitReader(res.Body, 1<<20)).Decode(&payload); err != nil {
 		return askSource{}, false
 	}
+	searchURL := duckDuckGoSearchURL(question)
 	if summary := cleanExternalText(payload.Answer); summary != "" {
-		return askSource{Title: cleanExternalText(payload.Heading), Summary: summary, URL: duckDuckGoSearchURL(question)}, true
+		return askSource{Title: cleanExternalText(payload.Heading), Summary: summary, URL: searchURL}, true
 	}
-	if summary := cleanExternalText(payload.Definition); summary != "" && validHTTPURL(payload.DefinitionURL) {
-		return askSource{Title: cleanExternalText(payload.Heading), Summary: summary, URL: payload.DefinitionURL}, true
+	if summary := cleanExternalText(payload.Definition); summary != "" {
+		return askSource{Title: cleanExternalText(payload.Heading), Summary: summary, URL: searchURL}, true
 	}
-	if summary := cleanExternalText(payload.AbstractText); summary != "" && validHTTPURL(payload.AbstractURL) {
-		return askSource{Title: cleanExternalText(payload.Heading), Summary: summary, URL: payload.AbstractURL}, true
+	if summary := cleanExternalText(payload.AbstractText); summary != "" {
+		return askSource{Title: cleanExternalText(payload.Heading), Summary: summary, URL: searchURL}, true
 	}
 	return askSource{}, false
 }
