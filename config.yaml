@@ -84,7 +84,7 @@ plugins:
   weather: {enabled: true, default_units: imperial}
   steam: {enabled: true, timeout_seconds: 10, max_length: 360}
   news: {enabled: true, api_key: "", max_results: 3, max_length: 360}
-  # Keyless DuckDuckGo Instant Answers with a Wikidata entity fallback.
+  # Keyless DuckDuckGo Instant Answers with Wikidata entity/date fallbacks.
   # No credentials are required.
   ask:
     enabled: true
