@@ -1112,15 +1112,18 @@ Ask GoBot a general question with any of these aliases:
 The `!ask` plugin does not call Wikipedia; use `!wiki` when you specifically
 want a Wikipedia summary. When `BOT_WOLFRAM_LLM_APPID` is configured, Wolfram's
 LLM API is tried first for structured, disambiguated knowledge output. GoBot
-then falls back to Short Answers, DuckDuckGo Instant Answers, and exact-match
-Wikidata entity search. Missing credentials, timeouts, non-success responses,
-and unusable answers all continue to the next source. The plugin does not call
-Wikipedia; `!wiki` remains the dedicated Wikipedia command. Wikipedia-backed
-DuckDuckGo abstracts and loose related-topic snippets are rejected, and an
-ambiguous entity produces a no-result message instead of being presented as
-fact. Wolfram answers intentionally omit a Wolfram link so the response can
-use the full one-line IRC budget. A sender-specific cooldown prevents repeated
-lookups from becoming a flood source.
+then falls back to Short Answers, DuckDuckGo Instant Answers, Brave web search
+when configured, and exact-match Wikidata entity search. Missing credentials,
+timeouts, non-success responses, and unusable answers all continue to the next
+source. Generic Wikidata descriptions are not used for relationship questions
+such as “who created…”. The plugin does not call Wikipedia; `!wiki` remains the
+dedicated Wikipedia command. Wikipedia-backed DuckDuckGo abstracts and loose
+related-topic snippets are rejected. Gemini rewriting is enabled in the
+tracked configuration when `BOT_GEMINI_API_KEY` is present; it turns the
+selected source into a concise natural-language answer and falls back to the
+source text if unavailable. Wolfram answers intentionally omit a Wolfram link
+so the response can use the full one-line IRC budget. A sender-specific
+cooldown prevents repeated lookups from becoming a flood source.
 
 The plugin is configured under `plugins.ask`:
 
@@ -1132,9 +1135,10 @@ plugins:
     wolfram_llm_enabled: true
     wolfram_short_enabled: true
     duckduckgo_enabled: true
+    brave_enabled: true
     wikidata_fallback: true
-    ai_rewrite: false
-    provider: none # none, openrouter, openai, gemini, ollama
+    ai_rewrite: true
+    provider: gemini # none, openrouter, openai, gemini, ollama
     max_length: 360
     max_response_chars: 240
     timeout_seconds: 12
@@ -1156,19 +1160,18 @@ for deployments that prefer ask-specific variables. Set
 stage; set `wolfram_enabled: false` to disable both while retaining the
 keyless fallbacks.
 
-`ai_rewrite` is optional. When enabled, GoBot gives the selected provider the
+`ai_rewrite` uses Gemini by default in the tracked configuration. When enabled, GoBot gives the selected provider the
 retrieved source and asks it to turn that source into a concise, factual,
 single-paragraph answer. It does not use an AI provider when `provider: none`
 is selected, and it falls back to the source summary if the provider is
 unavailable. `BOT_ASK_PROVIDER` and `BOT_ASK_AI_REWRITE` override the
-corresponding nested config values; this means `provider: none` and
-`ai_rewrite: false` can remain in the tracked example while a deployment
-enables rewriting through `.env`. Keep provider credentials out of
-`config.yaml`:
+corresponding nested config values. Set them to `none` and `false` to disable
+rewriting for a deployment. Keep provider credentials out of `config.yaml`:
 
 ~~~env
-BOT_ASK_PROVIDER=openrouter
+BOT_ASK_PROVIDER=gemini
 BOT_ASK_AI_REWRITE=true
+BOT_GEMINI_API_KEY=...
 BOT_OPENROUTER_API_KEY=...
 # A specific instruction-tuned free model is more consistent than a random
 # free-model router for this short source-rewrite task.
@@ -1176,7 +1179,8 @@ BOT_OPENROUTER_MODEL=google/gemma-4-31b-it:free
 ~~~
 
 OpenAI uses `BOT_OPENAI_API_KEY` and `BOT_OPENAI_MODEL`; Gemini uses
-`BOT_GEMINI_API_KEY` and `BOT_GEMINI_MODEL`. For a local Ollama instance, use
+`BOT_GEMINI_API_KEY` and `BOT_GEMINI_MODEL`. Brave uses
+`BOT_BRAVE_SEARCH_API_KEY` for the web-search fallback. For a local Ollama instance, use
 `BOT_ASK_PROVIDER=ollama`, `BOT_OLLAMA_URL`, and `BOT_OLLAMA_MODEL`. The output
 limits still apply regardless of provider. If a provider returns meta-text
 such as “the user asks” or “the source does not”, GoBot makes one stricter
