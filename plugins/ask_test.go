@@ -49,7 +49,7 @@ func TestAskLocalAnswer(t *testing.T) {
 	}
 }
 
-func TestAskDuckDuckGoParsesAnswerAndRejectsWikipedia(t *testing.T) {
+func TestAskDuckDuckGoParsesAnswersIncludingWikipediaBackedSummaries(t *testing.T) {
 	old := askHTTPClient
 	t.Cleanup(func() { askHTTPClient = old })
 	askHTTPClient = &http.Client{Transport: newPluginRoundTripper(func(r *http.Request) (*http.Response, error) {
@@ -64,10 +64,10 @@ func TestAskDuckDuckGoParsesAnswerAndRejectsWikipedia(t *testing.T) {
 	}
 
 	askHTTPClient = &http.Client{Transport: newPluginRoundTripper(func(*http.Request) (*http.Response, error) {
-		return newPluginResponse(http.StatusOK, `{"Heading":"Wrong","AbstractText":"Wikipedia text","AbstractURL":"https://en.wikipedia.org/wiki/Wrong","AbstractSource":"Wikipedia"}`), nil
+		return newPluginResponse(http.StatusOK, `{"Heading":"Linux","AbstractText":"Linux is a family of free and open-source Unix-like operating systems.","AbstractURL":"https://en.wikipedia.org/wiki/Linux","AbstractSource":"Wikipedia"}`), nil
 	})}
-	if source, ok := askDuckDuckGo(context.Background(), "Wrong"); ok || source != (askSource{}) {
-		t.Fatalf("askDuckDuckGo accepted Wikipedia fallback: %#v, %v", source, ok)
+	if source, ok := askDuckDuckGo(context.Background(), "What is Linux?"); !ok || source.Summary == "" || source.URL != "https://en.wikipedia.org/wiki/Linux" {
+		t.Fatalf("askDuckDuckGo discarded Wikipedia-backed summary: %#v, %v", source, ok)
 	}
 }
 
