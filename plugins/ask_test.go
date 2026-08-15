@@ -39,6 +39,8 @@ func TestAskDoesNotUseWikipediaFallback(t *testing.T) {
 	t.Setenv("BOT_ASK_WOLFRAM_APPID", "")
 	t.Setenv("BOT_WOLFRAM_LLM_APPID", "")
 	t.Setenv("BOT_ASK_WOLFRAM_LLM_APPID", "")
+	t.Setenv("BOT_BRAVE_SEARCH_API_KEY", "")
+	t.Setenv("BOT_ASK_BRAVE_SEARCH_API_KEY", "")
 	oldAskClient, oldAPIClient := askHTTPClient, apiHTTPClient
 	t.Cleanup(func() {
 		askHTTPClient = oldAskClient
@@ -76,6 +78,8 @@ func TestAskWolframShortUsesEnvironmentAppID(t *testing.T) {
 	t.Setenv("BOT_ASK_WOLFRAM_APPID", "")
 	t.Setenv("BOT_WOLFRAM_LLM_APPID", "")
 	t.Setenv("BOT_ASK_WOLFRAM_LLM_APPID", "")
+	t.Setenv("BOT_BRAVE_SEARCH_API_KEY", "")
+	t.Setenv("BOT_ASK_BRAVE_SEARCH_API_KEY", "")
 	old := askHTTPClient
 	t.Cleanup(func() { askHTTPClient = old })
 	askHTTPClient = &http.Client{Transport: newPluginRoundTripper(func(r *http.Request) (*http.Response, error) {
@@ -108,6 +112,8 @@ func TestAskWolframShortSkipsWithoutAppID(t *testing.T) {
 	t.Setenv("BOT_ASK_WOLFRAM_APPID", "")
 	t.Setenv("BOT_WOLFRAM_LLM_APPID", "")
 	t.Setenv("BOT_ASK_WOLFRAM_LLM_APPID", "")
+	t.Setenv("BOT_BRAVE_SEARCH_API_KEY", "")
+	t.Setenv("BOT_ASK_BRAVE_SEARCH_API_KEY", "")
 	old := askHTTPClient
 	t.Cleanup(func() { askHTTPClient = old })
 	askHTTPClient = &http.Client{Transport: newPluginRoundTripper(func(*http.Request) (*http.Response, error) {
@@ -122,6 +128,8 @@ func TestAskWolframShortSkipsWithoutAppID(t *testing.T) {
 func TestAskWolframLLMUsesInputAndParsesResult(t *testing.T) {
 	t.Setenv("BOT_WOLFRAM_LLM_APPID", "test-llm-app-id")
 	t.Setenv("BOT_ASK_WOLFRAM_LLM_APPID", "")
+	t.Setenv("BOT_BRAVE_SEARCH_API_KEY", "")
+	t.Setenv("BOT_ASK_BRAVE_SEARCH_API_KEY", "")
 	old := askHTTPClient
 	t.Cleanup(func() { askHTTPClient = old })
 	askHTTPClient = &http.Client{Transport: newPluginRoundTripper(func(r *http.Request) (*http.Response, error) {
@@ -154,6 +162,8 @@ func TestAskFindSourcePrefersLLMThenShort(t *testing.T) {
 	t.Setenv("BOT_ASK_WOLFRAM_LLM_APPID", "")
 	t.Setenv("BOT_WOLFRAM_APPID", "test-short-app-id")
 	t.Setenv("BOT_ASK_WOLFRAM_APPID", "")
+	t.Setenv("BOT_BRAVE_SEARCH_API_KEY", "")
+	t.Setenv("BOT_ASK_BRAVE_SEARCH_API_KEY", "")
 	old := askHTTPClient
 	t.Cleanup(func() { askHTTPClient = old })
 	requests := 0
@@ -182,6 +192,8 @@ func TestAskFindSourceFallsThroughFailedWolframStages(t *testing.T) {
 	t.Setenv("BOT_ASK_WOLFRAM_LLM_APPID", "")
 	t.Setenv("BOT_WOLFRAM_APPID", "test-short-app-id")
 	t.Setenv("BOT_ASK_WOLFRAM_APPID", "")
+	t.Setenv("BOT_BRAVE_SEARCH_API_KEY", "")
+	t.Setenv("BOT_ASK_BRAVE_SEARCH_API_KEY", "")
 	old := askHTTPClient
 	t.Cleanup(func() { askHTTPClient = old })
 	requests := 0
@@ -203,7 +215,7 @@ func TestAskFindSourceFallsThroughFailedWolframStages(t *testing.T) {
 		}
 	})}
 
-	source, ok := (&Ask{}).findSource(context.Background(), "Who created Linux?", bot.PluginConfig{
+	source, ok := (&Ask{}).findSource(context.Background(), "What is Linux?", bot.PluginConfig{
 		"wolfram_enabled":       true,
 		"wolfram_llm_enabled":   true,
 		"wolfram_short_enabled": true,
@@ -220,6 +232,8 @@ func TestAskFindSourcePrefersWolfram(t *testing.T) {
 	t.Setenv("BOT_ASK_WOLFRAM_APPID", "")
 	t.Setenv("BOT_WOLFRAM_LLM_APPID", "")
 	t.Setenv("BOT_ASK_WOLFRAM_LLM_APPID", "")
+	t.Setenv("BOT_BRAVE_SEARCH_API_KEY", "")
+	t.Setenv("BOT_ASK_BRAVE_SEARCH_API_KEY", "")
 	old := askHTTPClient
 	t.Cleanup(func() { askHTTPClient = old })
 	askHTTPClient = &http.Client{Transport: newPluginRoundTripper(func(r *http.Request) (*http.Response, error) {
@@ -236,6 +250,38 @@ func TestAskFindSourcePrefersWolfram(t *testing.T) {
 	})
 	if !ok || source.Title != "Wolfram|Alpha" || source.Summary != "The answer" {
 		t.Fatalf("findSource() = %#v, %v; want Wolfram source", source, ok)
+	}
+}
+
+func TestAskBraveParsesGroundedSnippet(t *testing.T) {
+	t.Setenv("BOT_BRAVE_SEARCH_API_KEY", "test-brave-key")
+	t.Setenv("BOT_ASK_BRAVE_SEARCH_API_KEY", "")
+	old := askHTTPClient
+	t.Cleanup(func() { askHTTPClient = old })
+	askHTTPClient = &http.Client{Transport: newPluginRoundTripper(func(r *http.Request) (*http.Response, error) {
+		if r.URL.Host != "api.search.brave.com" || r.URL.Path != "/res/v1/web/search" {
+			t.Fatalf("unexpected Brave endpoint: %s", r.URL)
+		}
+		if got := r.Header.Get("X-Subscription-Token"); got != "test-brave-key" {
+			t.Fatalf("Brave token = %q, want test-brave-key", got)
+		}
+		return newPluginResponse(http.StatusOK, `{"web":{"results":[{"title":"Linux history","url":"https://example.test/linux","description":"<strong>Linux was created by Linus Torvalds.</strong>"}]}}`), nil
+	})}
+
+	source, ok := askBrave(context.Background(), "who created Linux?")
+	if !ok || source.Summary != "Linux was created by Linus Torvalds." || source.URL != "https://example.test/linux" {
+		t.Fatalf("askBrave() = %#v, %v; want cleaned grounded snippet", source, ok)
+	}
+}
+
+func TestAskRelationshipQuestionsDoNotUseGenericWikidataDescription(t *testing.T) {
+	for _, question := range []string{"Who created Linux?", "Who invented the telephone?", "Who founded Go?"} {
+		if !askNeedsRelationshipAnswer(question) {
+			t.Errorf("askNeedsRelationshipAnswer(%q) = false, want true", question)
+		}
+	}
+	if askNeedsRelationshipAnswer("Who is Linus Torvalds?") {
+		t.Fatal("person identity question was incorrectly classified as a relationship lookup")
 	}
 }
 
