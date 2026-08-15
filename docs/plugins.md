@@ -1110,16 +1110,17 @@ Ask GoBot a general question with any of these aliases:
 ~~~
 
 The `!ask` plugin does not call Wikipedia; use `!wiki` when you specifically
-want a Wikipedia summary. The default source-only mode needs no API key unless
-Wolfram|Alpha is enabled with `BOT_WOLFRAM_APPID`. When configured, Wolfram's
-Short Answers API is tried first because it can return concise computational
-and factual answers. DuckDuckGo Instant Answers is then tried, followed by a
-structured Wikidata entity lookup. The plugin does not call Wikipedia;
-`!wiki` remains the dedicated Wikipedia command. Wikipedia-backed DuckDuckGo
-abstracts and loose related-topic snippets are rejected, and an ambiguous
-entity produces a no-result message instead of being presented as fact. A
-sender-specific cooldown prevents repeated lookups from becoming a flood
-source.
+want a Wikipedia summary. When `BOT_WOLFRAM_LLM_APPID` is configured, Wolfram's
+LLM API is tried first for structured, disambiguated knowledge output. GoBot
+then falls back to Short Answers, DuckDuckGo Instant Answers, and exact-match
+Wikidata entity search. Missing credentials, timeouts, non-success responses,
+and unusable answers all continue to the next source. The plugin does not call
+Wikipedia; `!wiki` remains the dedicated Wikipedia command. Wikipedia-backed
+DuckDuckGo abstracts and loose related-topic snippets are rejected, and an
+ambiguous entity produces a no-result message instead of being presented as
+fact. Wolfram answers intentionally omit a Wolfram link so the response can
+use the full one-line IRC budget. A sender-specific cooldown prevents repeated
+lookups from becoming a flood source.
 
 The plugin is configured under `plugins.ask`:
 
@@ -1128,6 +1129,8 @@ plugins:
   ask:
     enabled: true
     wolfram_enabled: true
+    wolfram_llm_enabled: true
+    wolfram_short_enabled: true
     duckduckgo_enabled: true
     wikidata_fallback: true
     ai_rewrite: false
@@ -1138,17 +1141,20 @@ plugins:
     cooldown_seconds: 15
 ~~~
 
-Set the Wolfram AppID only in the environment, never in `config.yaml`:
+Set the two Wolfram AppIDs only in the environment, never in `config.yaml`:
 
 ~~~env
-BOT_WOLFRAM_APPID=your-wolfram-appid
+BOT_WOLFRAM_LLM_APPID=your-wolfram-llm-appid
+BOT_WOLFRAM_APPID=your-wolfram-short-answers-appid
 ~~~
 
-If `BOT_WOLFRAM_APPID` is absent or Wolfram returns no usable result,
-`!ask` automatically continues to DuckDuckGo and Wikidata. The optional
-`BOT_ASK_WOLFRAM_APPID` name is also accepted for deployments that prefer an
-ask-specific variable. Set `wolfram_enabled: false` to disable the Wolfram
-stage while retaining the keyless fallbacks.
+If either Wolfram AppID is absent or its API returns no usable result, `!ask`
+automatically continues to the next source. The optional
+`BOT_ASK_WOLFRAM_LLM_APPID` and `BOT_ASK_WOLFRAM_APPID` names are also accepted
+for deployments that prefer ask-specific variables. Set
+`wolfram_llm_enabled: false` or `wolfram_short_enabled: false` to disable one
+stage; set `wolfram_enabled: false` to disable both while retaining the
+keyless fallbacks.
 
 `ai_rewrite` is optional. When enabled, GoBot gives the selected provider the
 retrieved source and asks it to turn that source into a concise, factual,
