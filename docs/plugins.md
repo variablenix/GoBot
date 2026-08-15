@@ -1109,11 +1109,17 @@ Ask GoBot a general question with any of these aliases:
 !q what does TLS protect?
 ~~~
 
-GoBot first looks for a concise English Wikipedia summary and can fall back to
-DuckDuckGo's public Instant Answer data. The default source-only mode needs no
-API key. It replies in one compact IRC message and includes a `Read more` link
-when the source provides one. A sender-specific cooldown prevents repeated
-lookups from becoming a flood source.
+The `!ask` plugin does not call Wikipedia; use `!wiki` when you specifically
+want a Wikipedia summary. The default source-only mode needs no API key unless
+Wolfram|Alpha is enabled with `BOT_WOLFRAM_APPID`. When configured, Wolfram's
+Short Answers API is tried first because it can return concise computational
+and factual answers. DuckDuckGo Instant Answers is then tried, followed by a
+structured Wikidata entity lookup. The plugin does not call Wikipedia;
+`!wiki` remains the dedicated Wikipedia command. Wikipedia-backed DuckDuckGo
+abstracts and loose related-topic snippets are rejected, and an ambiguous
+entity produces a no-result message instead of being presented as fact. A
+sender-specific cooldown prevents repeated lookups from becoming a flood
+source.
 
 The plugin is configured under `plugins.ask`:
 
@@ -1121,8 +1127,9 @@ The plugin is configured under `plugins.ask`:
 plugins:
   ask:
     enabled: true
-    wikipedia_first: true
-    duckduckgo_fallback: true
+    wolfram_enabled: true
+    duckduckgo_enabled: true
+    wikidata_fallback: true
     ai_rewrite: false
     provider: none # none, openrouter, openai, gemini, ollama
     max_length: 360
@@ -1130,6 +1137,18 @@ plugins:
     timeout_seconds: 12
     cooldown_seconds: 15
 ~~~
+
+Set the Wolfram AppID only in the environment, never in `config.yaml`:
+
+~~~env
+BOT_WOLFRAM_APPID=your-wolfram-appid
+~~~
+
+If `BOT_WOLFRAM_APPID` is absent or Wolfram returns no usable result,
+`!ask` automatically continues to DuckDuckGo and Wikidata. The optional
+`BOT_ASK_WOLFRAM_APPID` name is also accepted for deployments that prefer an
+ask-specific variable. Set `wolfram_enabled: false` to disable the Wolfram
+stage while retaining the keyless fallbacks.
 
 `ai_rewrite` is optional. When enabled, GoBot gives the selected provider the
 retrieved source and asks it to turn that source into a concise, factual,

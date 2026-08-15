@@ -118,11 +118,13 @@ plugins:
   # Local operator-maintained ACRONYM|expansion[|context] entries.
   acronym: {enabled: true, data_file: "data/acronyms.txt", max_length: 320}
   steam: {enabled: true, timeout_seconds: 10, max_length: 360}
-  # Keyless source-grounded answers by default; AI rewriting is opt-in.
+  # Wolfram|Alpha is primary when BOT_WOLFRAM_APPID is set; keyless sources
+  # remain available as fallbacks. AI rewriting is opt-in.
   ask:
     enabled: true
-    wikipedia_first: true
-    duckduckgo_fallback: true
+    wolfram_enabled: true
+    duckduckgo_enabled: true
+    wikidata_fallback: true
     ai_rewrite: false
     provider: none # none, openrouter, openai, gemini, ollama
     max_length: 360
@@ -161,13 +163,16 @@ plugins:
   docker: {enabled: true, timeout_seconds: 8, max_length: 300}
 ```
 
-`status`, `calc`, `foods`, `sports`, `car`, and `weapons` are local. `ask` uses
-English Wikipedia first and DuckDuckGo's public Instant Answer endpoint as a
-fallback. In its default `provider: none` mode it needs no API key and returns
-a compact source-grounded answer with a source link. Set `ai_rewrite: true`
-and choose `openrouter`, `openai`, `gemini`, or `ollama` to optionally rewrite
-the retrieved source into a more conversational answer. Provider credentials
-belong in environment variables such as `BOT_OPENROUTER_API_KEY`,
+`status`, `calc`, `foods`, `sports`, `car`, and `weapons` are local. When
+`BOT_WOLFRAM_APPID` is configured and `wolfram_enabled` is true, `ask` tries
+Wolfram|Alpha's Short Answers API first, then falls back to DuckDuckGo's
+public Instant Answer endpoint and exact-match Wikidata entity search. It does
+not call Wikipedia; use `!wiki` for that. In its default `provider: none` mode
+it uses no AI and returns a compact source-grounded answer with a source link.
+Set `ai_rewrite: true` and choose `openrouter`, `openai`, `gemini`, or `ollama`
+to optionally rewrite the retrieved source into a more conversational answer.
+Provider credentials belong in environment variables such as
+`BOT_OPENROUTER_API_KEY`,
 `BOT_OPENAI_API_KEY`, or `BOT_GEMINI_API_KEY`; never commit them to this file.
 `define` uses the public English dictionary service, `reddit` uses Reddit's public post and
 subreddit JSON endpoints with an RSS fallback, and `horoscope` uses a public

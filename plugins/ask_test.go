@@ -1,6 +1,8 @@
 package plugins
 
 import (
+	"context"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -16,6 +18,156 @@ func TestAskCommandAliases(t *testing.T) {
 	}
 	if isAskCommand("asker") {
 		t.Error("unexpectedly accepted invalid ask command")
+	}
+}
+
+func TestAskFocusedTermDisambiguatesNamedPeople(t *testing.T) {
+	tests := map[string]string{
+		"What is Mark Normand's comedy?":       "mark normand",
+		"tell me about the Linux kernel":       "linux kernel",
+		"What is the programming language Go?": "go",
+	}
+	for input, want := range tests {
+		if got := askFocusedTerm(input); got != want {
+			t.Errorf("askFocusedTerm(%q) = %q, want %q", input, got, want)
+		}
+	}
+}
+
+func TestAskDoesNotUseWikipediaFallback(t *testing.T) {
+	t.Setenv("BOT_WOLFRAM_APPID", "")
+	t.Setenv("BOT_ASK_WOLFRAM_APPID", "")
+	oldAskClient, oldAPIClient := askHTTPClient, apiHTTPClient
+	t.Cleanup(func() {
+		askHTTPClient = oldAskClient
+		apiHTTPClient = oldAPIClient
+	})
+	wikipediaResponse := `{"Heading":"Mark Normand","AbstractText":"wrong source","AbstractURL":"https://en.wikipedia.org/wiki/Mark_Normand","AbstractSource":"Wikipedia"}`
+	wikidataResponse := `{"search":[{"id":"Q58062048","label":"Mark Normand","description":"American comedian and actor","match":{"text":"Mark Normand"}}]}`
+	askHTTPClient = &http.Client{Transport: newPluginRoundTripper(func(r *http.Request) (*http.Response, error) {
+		if r.URL.Host == "api.duckduckgo.com" {
+			return newPluginResponse(http.StatusOK, wikipediaResponse), nil
+		}
+		if r.URL.Host == "www.wikidata.org" {
+			return newPluginResponse(http.StatusOK, wikidataResponse), nil
+		}
+		t.Fatalf("unexpected ask source request: %s", r.URL)
+		return nil, nil
+	})}
+	apiHTTPClient = &http.Client{Transport: newPluginRoundTripper(func(r *http.Request) (*http.Response, error) {
+		t.Fatalf("ask unexpectedly called Wikipedia: %s", r.URL)
+		return nil, nil
+	})}
+
+	p := &Ask{}
+	source, ok := p.findSource(context.Background(), "What is Mark Normand's comedy?", bot.PluginConfig{
+		"duckduckgo_enabled": true,
+		"wikidata_fallback":  true,
+	})
+	if !ok || source.Title != "Mark Normand" || source.URL != "https://www.wikidata.org/wiki/Q58062048" {
+		t.Fatalf("findSource() = %#v, %v; want Wikidata Mark Normand", source, ok)
+	}
+}
+
+func TestAskWolframUsesEnvironmentAppID(t *testing.T) {
+	t.Setenv("BOT_WOLFRAM_APPID", "test-app-id")
+	t.Setenv("BOT_ASK_WOLFRAM_APPID", "")
+	old := askHTTPClient
+	t.Cleanup(func() { askHTTPClient = old })
+	askHTTPClient = &http.Client{Transport: newPluginRoundTripper(func(r *http.Request) (*http.Response, error) {
+		if r.URL.Host != "api.wolframalpha.com" || r.URL.Path != "/v1/result" {
+			t.Fatalf("unexpected Wolfram endpoint: %s", r.URL)
+		}
+		if got := r.URL.Query().Get("appid"); got != "test-app-id" {
+			t.Fatalf("appid query = %q, want test-app-id", got)
+		}
+		if got := r.URL.Query().Get("i"); got != "What is 2+2?" {
+			t.Fatalf("input query = %q, want question", got)
+		}
+		if got := r.Header.Get("Accept"); got != "text/plain" {
+			t.Fatalf("Accept = %q, want text/plain", got)
+		}
+		return newPluginResponse(http.StatusOK, "4"), nil
+	})}
+
+	source, ok := askWolfram(context.Background(), "What is 2+2?")
+	if !ok || source.Summary != "4" {
+		t.Fatalf("askWolfram() = %#v, %v; want summary 4", source, ok)
+	}
+	if strings.Contains(source.URL, "test-app-id") {
+		t.Fatalf("Wolfram AppID leaked into source URL: %q", source.URL)
+	}
+}
+
+func TestAskWolframSkipsWithoutAppID(t *testing.T) {
+	t.Setenv("BOT_WOLFRAM_APPID", "")
+	t.Setenv("BOT_ASK_WOLFRAM_APPID", "")
+	old := askHTTPClient
+	t.Cleanup(func() { askHTTPClient = old })
+	askHTTPClient = &http.Client{Transport: newPluginRoundTripper(func(*http.Request) (*http.Response, error) {
+		t.Fatal("Wolfram request made without an AppID")
+		return nil, nil
+	})}
+	if source, ok := askWolfram(context.Background(), "What is 2+2?"); ok || source != (askSource{}) {
+		t.Fatalf("askWolfram() = %#v, %v without AppID; want no result", source, ok)
+	}
+}
+
+func TestAskFindSourcePrefersWolfram(t *testing.T) {
+	t.Setenv("BOT_WOLFRAM_APPID", "test-app-id")
+	t.Setenv("BOT_ASK_WOLFRAM_APPID", "")
+	old := askHTTPClient
+	t.Cleanup(func() { askHTTPClient = old })
+	askHTTPClient = &http.Client{Transport: newPluginRoundTripper(func(r *http.Request) (*http.Response, error) {
+		if r.URL.Host != "api.wolframalpha.com" {
+			t.Fatalf("fallback source was called before Wolfram: %s", r.URL)
+		}
+		return newPluginResponse(http.StatusOK, "The answer"), nil
+	})}
+
+	source, ok := (&Ask{}).findSource(context.Background(), "What is the answer?", bot.PluginConfig{
+		"wolfram_enabled":    true,
+		"duckduckgo_enabled": true,
+		"wikidata_fallback":  true,
+	})
+	if !ok || source.Title != "Wolfram|Alpha" || source.Summary != "The answer" {
+		t.Fatalf("findSource() = %#v, %v; want Wolfram source", source, ok)
+	}
+}
+
+func TestUsableWolframAnswerRejectsFailureText(t *testing.T) {
+	for _, answer := range []string{"", "Wolfram|Alpha did not understand the input", "not enough information"} {
+		if usableWolframAnswer(answer) {
+			t.Errorf("usableWolframAnswer(%q) = true, want false", answer)
+		}
+	}
+	if !usableWolframAnswer("The population is 68 million") {
+		t.Fatal("usableWolframAnswer rejected a normal answer")
+	}
+}
+
+func TestAskDuckDuckGoRejectsWikipediaAndLooseRelatedTopics(t *testing.T) {
+	old := askHTTPClient
+	t.Cleanup(func() { askHTTPClient = old })
+	askHTTPClient = &http.Client{Transport: newPluginRoundTripper(func(*http.Request) (*http.Response, error) {
+		return newPluginResponse(http.StatusOK, `{"AbstractText":"wrong","AbstractURL":"https://en.wikipedia.org/wiki/Wrong","AbstractSource":"Wikipedia","RelatedTopics":[{"Text":"unrelated","FirstURL":"https://example.test/unrelated"}]}`), nil
+	})}
+	if source, ok := askDuckDuckGo(context.Background(), "Mark Normand"); ok || source != (askSource{}) {
+		t.Fatalf("askDuckDuckGo accepted an unsafe fallback: %#v, %v", source, ok)
+	}
+}
+
+func TestBestWikidataEntityPrefersExactLabel(t *testing.T) {
+	entities := []wikidataEntity{
+		{ID: "Q999", Label: "Mark", Description: "an unrelated person"},
+		{ID: "Q58062048", Label: "Mark Normand", Description: "American comedian and actor"},
+	}
+	got, ok := bestWikidataEntity("mark normand", entities)
+	if !ok || got.ID != "Q58062048" {
+		t.Fatalf("bestWikidataEntity() = %#v, %v; want Mark Normand", got, ok)
+	}
+	if _, ok := bestWikidataEntity("mark normand", entities[:1]); ok {
+		t.Fatal("bestWikidataEntity accepted a partial multi-word match")
 	}
 }
 
