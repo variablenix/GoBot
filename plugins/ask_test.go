@@ -136,8 +136,23 @@ func TestRefineFocusedAskSourceAnswersSpecificLinuxQuestions(t *testing.T) {
 		t.Fatalf("relationship refinement = %#v, %v", created, ok)
 	}
 	year, ok := refineFocusedAskSource("What year did Linux start?", source)
-	if !ok || year.Summary != "Linux was first released on 17 September 1991." {
+	if !ok || year.Summary != "Linux started on 17 September 1991." {
 		t.Fatalf("temporal refinement = %#v, %v", year, ok)
+	}
+}
+
+func TestAskIntentVariants(t *testing.T) {
+	if !askNeedsRelationshipAnswer("Who is the founder of Example?") {
+		t.Fatal("founder relationship was not detected")
+	}
+	if !askNeedsRelationshipAnswer("Who invented Example?") {
+		t.Fatal("inventor relationship was not detected")
+	}
+	if !askNeedsTemporalAnswer("When was Example founded?") {
+		t.Fatal("founded temporal question was not detected")
+	}
+	if got := askTemporalPhrase("What year was Example founded?"); got != "was founded" {
+		t.Fatalf("askTemporalPhrase() = %q, want was founded", got)
 	}
 }
 
