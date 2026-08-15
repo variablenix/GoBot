@@ -217,6 +217,7 @@ func askFocusedTerm(query string) string {
 		"actor": {}, "bio": {}, "biography": {}, "career": {}, "comedy": {},
 		"comedian": {}, "details": {}, "facts": {}, "history": {},
 		"information": {}, "language": {}, "learn": {}, "life": {}, "meaning": {},
+		"month": {}, "old": {}, "time": {}, "year": {}, "years": {},
 		"programming": {}, "profile": {}, "s": {}, "start": {}, "started": {},
 		"teach": {}, "tutorial": {}, "use": {}, "using": {}, "want": {},
 		"work": {}, "write": {}, "build": {}, "begin": {}, "beginner": {},
