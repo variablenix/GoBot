@@ -1110,10 +1110,14 @@ Ask GoBot a general question with any of these aliases:
 ~~~
 
 The `!ask` plugin uses DuckDuckGo's keyless Instant Answer endpoint first and
-exact-match Wikidata entity search as a fallback. It does not call Wikipedia;
-use `!wiki` for a Wikipedia summary. Wikipedia-backed DuckDuckGo abstracts and
-loose related-topic snippets are rejected. A sender-specific cooldown prevents
-repeated lookups from becoming a flood source.
+Wikidata as a fallback. DuckDuckGo summaries may be backed by encyclopedia
+sources; GoBot presents them as bounded answers and links to the corresponding
+DuckDuckGo search page. Query framing is normalized across common definition,
+relationship, origin, release, publication, debut, launch, and date phrases.
+Relationship and temporal questions use intent checks and structured Wikidata
+claims where available, so a generic entity description is not reused as the
+answer to a specific person or date question. A sender-specific cooldown
+prevents repeated lookups from becoming a flood source.
 
 The plugin is configured under `plugins.ask`:
 
