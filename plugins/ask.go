@@ -3,9 +3,11 @@ package plugins
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -174,11 +176,16 @@ func (p *Ask) findSource(ctx context.Context, question string, cfg bot.PluginCon
 	focused := askFocusedTerm(question)
 	if cfg.Bool("duckduckgo_enabled", true) {
 		if source, ok := askDuckDuckGo(ctx, question); ok {
+			if refined, ok := refineFocusedAskSource(question, source); ok {
+				return refined, true
+			}
 			return source, true
 		}
 		if focused != "" && !strings.EqualFold(focused, strings.TrimSpace(question)) {
 			if source, ok := askDuckDuckGo(ctx, focused); ok {
-				return source, true
+				if source, ok = refineFocusedAskSource(question, source); ok {
+					return source, true
+				}
 			}
 		}
 	}
@@ -250,6 +257,87 @@ func askNeedsRelationshipAnswer(question string) bool {
 		}
 	}
 	return false
+}
+
+func askNeedsTemporalAnswer(question string) bool {
+	if askNeedsRelationshipAnswer(question) {
+		return false
+	}
+	words := strings.FieldsFunc(strings.ToLower(question), func(r rune) bool {
+		return !unicode.IsLetter(r) && !unicode.IsNumber(r)
+	})
+	for _, word := range words {
+		switch word {
+		case "when", "year", "years", "date", "started", "start", "founded", "released", "launched", "launch", "created":
+			return true
+		}
+	}
+	return false
+}
+
+var (
+	askByNamePattern   = regexp.MustCompile(`\bby\s+([A-Z][A-Za-z.'-]*(?:\s+[A-Z][A-Za-z.'-]*){0,4})`)
+	askDatePattern     = regexp.MustCompile(`\b(?:[0-9]{1,2}\s+(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+(?:19|20)\d{2}|(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+[0-9]{1,2},?\s+(?:19|20)\d{2}|(?:19|20)\d{2})\b`)
+	askYearOnlyPattern = regexp.MustCompile(`^(?:19|20)\d{2}$`)
+)
+
+func refineFocusedAskSource(question string, source askSource) (askSource, bool) {
+	if askNeedsRelationshipAnswer(question) {
+		match := askByNamePattern.FindStringSubmatch(source.Summary)
+		if len(match) < 2 {
+			return askSource{}, false
+		}
+		name := cleanExternalText(strings.TrimRight(strings.TrimSpace(match[1]), ".,;:!?"))
+		title := cleanExternalText(source.Title)
+		if name == "" || title == "" {
+			return askSource{}, false
+		}
+		return askSource{
+			Title:   title,
+			Summary: fmt.Sprintf("%s is credited with %s %s.", name, askRelationshipGerund(question), title),
+			URL:     source.URL,
+		}, true
+	}
+	if askNeedsTemporalAnswer(question) {
+		date := askDatePattern.FindString(source.Summary)
+		title := cleanExternalText(source.Title)
+		if date == "" || title == "" {
+			return askSource{}, false
+		}
+		preposition := "in"
+		if strings.Contains(date, " ") && !askYearOnlyPattern.MatchString(date) {
+			preposition = "on"
+		}
+		return askSource{
+			Title:   title,
+			Summary: fmt.Sprintf("%s was first released %s %s.", title, preposition, date),
+			URL:     source.URL,
+		}, true
+	}
+	return source, true
+}
+
+func askRelationshipGerund(question string) string {
+	words := strings.FieldsFunc(strings.ToLower(question), func(r rune) bool {
+		return !unicode.IsLetter(r) && !unicode.IsNumber(r)
+	})
+	for _, word := range words {
+		switch word {
+		case "developed":
+			return "developing"
+		case "founded":
+			return "founding"
+		case "invented":
+			return "inventing"
+		case "wrote":
+			return "writing"
+		case "directed":
+			return "directing"
+		case "designed":
+			return "designing"
+		}
+	}
+	return "creating"
 }
 
 type duckDuckGoAnswer struct {

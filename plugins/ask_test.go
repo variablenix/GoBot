@@ -125,6 +125,50 @@ func TestAskRelationshipQuestionsSkipGenericWikidata(t *testing.T) {
 	}
 }
 
+func TestRefineFocusedAskSourceAnswersSpecificLinuxQuestions(t *testing.T) {
+	source := askSource{
+		Title:   "Linux",
+		Summary: "Linux is based on the Linux kernel, which was first released on 17 September 1991 by Linus Torvalds.",
+		URL:     "https://duckduckgo.com/?q=linux",
+	}
+	created, ok := refineFocusedAskSource("Who created Linux?", source)
+	if !ok || !strings.Contains(created.Summary, "Linus Torvalds") || !strings.Contains(created.Summary, "creating Linux") {
+		t.Fatalf("relationship refinement = %#v, %v", created, ok)
+	}
+	year, ok := refineFocusedAskSource("What year did Linux start?", source)
+	if !ok || year.Summary != "Linux was first released on 17 September 1991." {
+		t.Fatalf("temporal refinement = %#v, %v", year, ok)
+	}
+}
+
+func TestRefineFocusedAskSourceRejectsUnrelatedSpecificQuestion(t *testing.T) {
+	source := askSource{Title: "Linux", Summary: "Linux is a family of Unix-like operating systems.", URL: "https://duckduckgo.com/?q=linux"}
+	if _, ok := refineFocusedAskSource("Who created Linux?", source); ok {
+		t.Fatal("generic focused summary was accepted as a relationship answer")
+	}
+}
+
+func TestAskFindSourceRefinesFocusedDuckDuckGoAnswer(t *testing.T) {
+	old := askHTTPClient
+	t.Cleanup(func() { askHTTPClient = old })
+	var queries []string
+	askHTTPClient = &http.Client{Transport: newPluginRoundTripper(func(r *http.Request) (*http.Response, error) {
+		query := r.URL.Query().Get("q")
+		queries = append(queries, query)
+		if strings.EqualFold(query, "who created linux?") {
+			return newPluginResponse(http.StatusAccepted, `{}`), nil
+		}
+		return newPluginResponse(http.StatusAccepted, `{"Heading":"Linux","AbstractText":"Linux is based on the Linux kernel, which was first released on 17 September 1991 by Linus Torvalds."}`), nil
+	})}
+	source, ok := (&Ask{}).findSource(context.Background(), "Who created Linux?", bot.PluginConfig{"duckduckgo_enabled": true, "wikidata_fallback": false})
+	if !ok || source.Summary != "Linus Torvalds is credited with creating Linux." {
+		t.Fatalf("findSource() = %#v, %v; want refined relationship answer", source, ok)
+	}
+	if len(queries) != 2 || queries[1] != "linux" {
+		t.Fatalf("DuckDuckGo queries = %#v; want full question followed by focused term", queries)
+	}
+}
+
 func TestAskResponseIsSingleLineAndBounded(t *testing.T) {
 	answer := strings.Repeat("This is a useful answer. ", 40) + "\nignore this line break"
 	got := formatAskResponse("Echo", answer, "https://example.test/source", 180, 120)
