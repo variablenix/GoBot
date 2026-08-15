@@ -1134,7 +1134,9 @@ plugins:
 No API key or `.env` setting is required. The response is sanitized, limited to
 one IRC line, and includes a source link when the upstream response provides a
 safe HTTP URL. If neither source has a usable answer, GoBot says so clearly
-instead of inventing one.
+instead of inventing one. There is no provider, AI rewrite, or API-key setting
+for this plugin; older Wolfram, Gemini, Brave, OpenRouter, OpenAI, and Ollama
+settings are intentionally unsupported and ignored.
 
 ## Daily bonus
 
