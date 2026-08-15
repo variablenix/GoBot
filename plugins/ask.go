@@ -287,10 +287,10 @@ func askDuckDuckGo(ctx context.Context, question string) (askSource, bool) {
 	if summary := cleanExternalText(payload.Answer); summary != "" {
 		return askSource{Title: cleanExternalText(payload.Heading), Summary: summary, URL: duckDuckGoSearchURL(question)}, true
 	}
-	if summary := cleanExternalText(payload.Definition); summary != "" && !wikipediaBackedSource(payload.DefinitionSource, payload.DefinitionURL) {
+	if summary := cleanExternalText(payload.Definition); summary != "" && validHTTPURL(payload.DefinitionURL) {
 		return askSource{Title: cleanExternalText(payload.Heading), Summary: summary, URL: payload.DefinitionURL}, true
 	}
-	if summary := cleanExternalText(payload.AbstractText); summary != "" && validHTTPURL(payload.AbstractURL) && !wikipediaBackedSource(payload.AbstractSource, payload.AbstractURL) {
+	if summary := cleanExternalText(payload.AbstractText); summary != "" && validHTTPURL(payload.AbstractURL) {
 		return askSource{Title: cleanExternalText(payload.Heading), Summary: summary, URL: payload.AbstractURL}, true
 	}
 	return askSource{}, false
@@ -298,18 +298,6 @@ func askDuckDuckGo(ctx context.Context, question string) (askSource, bool) {
 
 func duckDuckGoSearchURL(query string) string {
 	return "https://duckduckgo.com/?q=" + url.QueryEscape(strings.TrimSpace(query))
-}
-
-func wikipediaBackedSource(source, rawURL string) bool {
-	if strings.EqualFold(strings.TrimSpace(source), "wikipedia") {
-		return true
-	}
-	parsed, err := url.Parse(strings.TrimSpace(rawURL))
-	if err != nil {
-		return false
-	}
-	host := strings.ToLower(parsed.Hostname())
-	return host == "wikipedia.org" || strings.HasSuffix(host, ".wikipedia.org")
 }
 
 type wikidataSearchResponse struct {
