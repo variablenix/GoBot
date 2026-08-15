@@ -24,7 +24,8 @@ import (
 )
 
 // Ask answers questions from a small set of public sources. AI rewriting is
-// deliberately opt-in: source lookup works without a provider or API key.
+// optional and remains source-grounded: lookup works without a provider or
+// API key.
 type Ask struct {
 	cfg         bot.PluginConfig
 	cfgMu       sync.RWMutex
@@ -144,6 +145,10 @@ func (p *Ask) Handle(b *bot.Bot, m bot.Message) bool {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
 	defer cancel()
+	if localAnswer, ok := askLocalAnswer(question); ok {
+		b.Send(target, formatAskResponse(m.Nick, localAnswer, "", cfg.Int("max_length", 360), cfg.Int("max_response_chars", 240)))
+		return true
+	}
 
 	source, found := p.findSource(ctx, question, cfg)
 	if !found {
@@ -152,6 +157,10 @@ func (p *Ask) Handle(b *bot.Bot, m bot.Message) bool {
 	}
 
 	answer := cleanExternalText(source.Summary)
+	if !usableAskSourceSummary(answer) {
+		b.Send(target, "I couldn't find a reliable source for that question.")
+		return true
+	}
 	provider := strings.ToLower(strings.TrimSpace(cfg.String("provider", "none")))
 	if cfg.Bool("ai_rewrite", false) && provider != "none" {
 		model, keyConfigured := askProviderInfo(provider, cfg)
@@ -263,8 +272,12 @@ func (p *Ask) allowWarning(key string) bool {
 }
 
 func usableAskRewrite(answer string) bool {
-	answer = strings.ToLower(strings.TrimSpace(answer))
-	if answer == "" {
+	raw := strings.TrimSpace(answer)
+	answer = strings.ToLower(raw)
+	if !usableAskSourceSummary(raw) {
+		return false
+	}
+	if strings.HasPrefix(raw, "?") || strings.HasPrefix(raw, ":") {
 		return false
 	}
 	for _, phrase := range []string{
@@ -284,11 +297,12 @@ func usableAskRewrite(answer string) bool {
 }
 
 func askRewriteRejectionReason(answer string) string {
-	answer = strings.ToLower(strings.TrimSpace(answer))
+	raw := strings.TrimSpace(answer)
+	answer = strings.ToLower(raw)
 	if answer == "" {
 		return "empty_response"
 	}
-	if strings.Contains(answer, "insufficient_source") || strings.Contains(answer, "not enough information in this source") {
+	if isAskFailureMarker(raw) || strings.Contains(answer, "not enough information in this source") {
 		return "insufficient_source"
 	}
 	for _, phrase := range []string{
@@ -302,7 +316,34 @@ func askRewriteRejectionReason(answer string) string {
 			return "provider_meta_text"
 		}
 	}
+	if strings.HasPrefix(raw, "?") || strings.HasPrefix(raw, ":") {
+		return "malformed_response"
+	}
 	return "unusable_response"
+}
+
+func isAskFailureMarker(text string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(text))
+	normalized = strings.Trim(normalized, " \t\r\n.,:;!?-")
+	return normalized == "insufficient_source" || normalized == "insufficient source"
+}
+
+func usableAskSourceSummary(text string) bool {
+	text = strings.TrimSpace(text)
+	return text != "" && !isAskFailureMarker(text)
+}
+
+func askLocalAnswer(question string) (string, bool) {
+	normalized := strings.ToLower(strings.TrimSpace(question))
+	normalized = strings.Trim(normalized, " \t\r\n?!.")
+	switch normalized {
+	case "hello", "hi", "hey", "hello bot", "hi bot", "hey bot":
+		return "Hello!", true
+	case "are you gemini", "are you an ai", "are you artificial intelligence":
+		return "I'm GoBot, not Gemini.", true
+	default:
+		return "", false
+	}
 }
 
 type askSource struct {
@@ -345,8 +386,8 @@ func (p *Ask) findSource(ctx context.Context, question string, cfg bot.PluginCon
 			}
 		}
 	}
-	if cfg.Bool("wikidata_fallback", true) && focused != "" && !askNeedsRelationshipAnswer(question) {
-		if source, ok := askWikidata(ctx, focused); ok {
+	if cfg.Bool("wikidata_fallback", true) && focused != "" {
+		if source, ok := askWikidata(ctx, focused, question); ok {
 			return source, true
 		}
 	}
@@ -581,6 +622,9 @@ func usableWolframAnswer(answer string) bool {
 	if answer == "" {
 		return false
 	}
+	if isAskFailureMarker(answer) {
+		return false
+	}
 	for _, phrase := range []string{
 		"did not understand the input",
 		"didn't understand the input",
@@ -722,10 +766,11 @@ type wikidataEntity struct {
 	} `json:"match"`
 }
 
-// askWikidata provides a small, structured entity fallback. It deliberately
-// returns only Wikidata's label/description and an entity URL; it does not
-// fetch or summarize a Wikipedia article.
-func askWikidata(ctx context.Context, query string) (askSource, bool) {
+// askWikidata provides a small, structured entity fallback. It returns an
+// entity description for definition questions and follows structured claims
+// for relationship questions; it does not fetch or summarize a Wikipedia
+// article.
+func askWikidata(ctx context.Context, query, question string) (askSource, bool) {
 	endpoint := "https://www.wikidata.org/w/api.php?action=wbsearchentities&search=" + url.QueryEscape(query) + "&language=en&uselang=en&format=json&limit=8"
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
@@ -749,7 +794,179 @@ func askWikidata(ctx context.Context, query string) (askSource, bool) {
 	if !ok {
 		return askSource{}, false
 	}
+	if askNeedsRelationshipAnswer(question) {
+		return askWikidataRelationship(ctx, entity, question)
+	}
 	return askSource{Title: entity.Label, Summary: entity.Description, URL: "https://www.wikidata.org/wiki/" + entity.ID}, true
+}
+
+type wikidataClaim struct {
+	MainSnak struct {
+		Datavalue struct {
+			Value json.RawMessage `json:"value"`
+		} `json:"datavalue"`
+	} `json:"mainsnak"`
+}
+
+type wikidataClaimsResponse struct {
+	Entities map[string]struct {
+		Claims map[string][]wikidataClaim `json:"claims"`
+	} `json:"entities"`
+}
+
+type wikidataLabelsResponse struct {
+	Entities map[string]struct {
+		Labels map[string]struct {
+			Value string `json:"value"`
+		} `json:"labels"`
+	} `json:"entities"`
+}
+
+// askWikidataRelationship uses structured claims instead of returning a
+// generic entity description for questions such as "Who created Linux?".
+// This keeps the keyless fallback useful for relationship questions while
+// avoiding the wrong-person ambiguity that a plain entity search can create.
+func askWikidataRelationship(ctx context.Context, entity wikidataEntity, question string) (askSource, bool) {
+	properties, relation := wikidataRelationshipProperties(question)
+	values := url.Values{}
+	values.Set("action", "wbgetentities")
+	values.Set("ids", entity.ID)
+	values.Set("props", "claims")
+	values.Set("format", "json")
+	endpoint := "https://www.wikidata.org/w/api.php?" + values.Encode()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return askSource{}, false
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", "GoBot/1.0 (https://github.com/variablenix/GoBot; IRC bot)")
+	res, err := askHTTPClient.Do(req)
+	if err != nil {
+		return askSource{}, false
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		return askSource{}, false
+	}
+	var payload wikidataClaimsResponse
+	if err := json.NewDecoder(io.LimitReader(res.Body, 1<<20)).Decode(&payload); err != nil {
+		return askSource{}, false
+	}
+	item, ok := payload.Entities[entity.ID]
+	if !ok {
+		return askSource{}, false
+	}
+
+	ids := make([]string, 0, 3)
+	seen := make(map[string]struct{})
+	for _, property := range properties {
+		for _, claim := range item.Claims[property] {
+			var value struct {
+				ID string `json:"id"`
+			}
+			if err := json.Unmarshal(claim.MainSnak.Datavalue.Value, &value); err != nil || !validWikidataID(value.ID) {
+				continue
+			}
+			if _, duplicate := seen[value.ID]; duplicate {
+				continue
+			}
+			seen[value.ID] = struct{}{}
+			ids = append(ids, value.ID)
+			if len(ids) == 3 {
+				break
+			}
+		}
+		if len(ids) == 3 {
+			break
+		}
+	}
+	if len(ids) == 0 {
+		return askSource{}, false
+	}
+
+	labels := wikidataEntityLabels(ctx, ids)
+	names := make([]string, 0, len(ids))
+	for _, id := range ids {
+		if label := strings.TrimSpace(labels[id]); label != "" {
+			names = append(names, label)
+		}
+	}
+	if len(names) == 0 {
+		return askSource{}, false
+	}
+	return askSource{
+		Title:   entity.Label,
+		Summary: fmt.Sprintf("%s %s %s.", entity.Label, relation, joinAskNames(names)),
+		URL:     "https://www.wikidata.org/wiki/" + entity.ID,
+	}, true
+}
+
+func wikidataEntityLabels(ctx context.Context, ids []string) map[string]string {
+	values := url.Values{}
+	values.Set("action", "wbgetentities")
+	values.Set("ids", strings.Join(ids, "|"))
+	values.Set("props", "labels")
+	values.Set("languages", "en")
+	values.Set("languagefallback", "1")
+	values.Set("format", "json")
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://www.wikidata.org/w/api.php?"+values.Encode(), nil)
+	if err != nil {
+		return nil
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", "GoBot/1.0 (https://github.com/variablenix/GoBot; IRC bot)")
+	res, err := askHTTPClient.Do(req)
+	if err != nil {
+		return nil
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		return nil
+	}
+	var payload wikidataLabelsResponse
+	if err := json.NewDecoder(io.LimitReader(res.Body, 512<<10)).Decode(&payload); err != nil {
+		return nil
+	}
+	labels := make(map[string]string, len(payload.Entities))
+	for id, entity := range payload.Entities {
+		if label, ok := entity.Labels["en"]; ok {
+			labels[id] = cleanExternalText(label.Value)
+		}
+	}
+	return labels
+}
+
+func wikidataRelationshipProperties(question string) ([]string, string) {
+	lower := strings.ToLower(question)
+	switch {
+	case strings.Contains(lower, "founded"):
+		return []string{"P112", "P170"}, "was founded by"
+	case strings.Contains(lower, "invented"):
+		return []string{"P61", "P170"}, "was invented by"
+	case strings.Contains(lower, "discovered"):
+		return []string{"P61", "P170"}, "was discovered by"
+	case strings.Contains(lower, "wrote"):
+		return []string{"P50", "P170"}, "was written by"
+	case strings.Contains(lower, "designed"):
+		return []string{"P287", "P170"}, "was designed by"
+	case strings.Contains(lower, "developed"):
+		return []string{"P178", "P170", "P287"}, "was developed by"
+	default:
+		return []string{"P178", "P170", "P287", "P112", "P61", "P50"}, "was created by"
+	}
+}
+
+func joinAskNames(names []string) string {
+	switch len(names) {
+	case 0:
+		return ""
+	case 1:
+		return names[0]
+	case 2:
+		return names[0] + " and " + names[1]
+	default:
+		return strings.Join(names[:len(names)-1], ", ") + ", and " + names[len(names)-1]
+	}
 }
 
 func bestWikidataEntity(query string, entities []wikidataEntity) (wikidataEntity, bool) {
