@@ -274,7 +274,7 @@ func askDuckDuckGo(ctx context.Context, question string) (askSource, bool) {
 		return askSource{}, false
 	}
 	defer res.Body.Close()
-	if res.StatusCode != http.StatusOK {
+	if !askHTTPSuccess(res.StatusCode) {
 		return askSource{}, false
 	}
 	var payload duckDuckGoAnswer
@@ -296,6 +296,10 @@ func askDuckDuckGo(ctx context.Context, question string) (askSource, bool) {
 
 func duckDuckGoSearchURL(query string) string {
 	return "https://duckduckgo.com/?q=" + url.QueryEscape(strings.TrimSpace(query))
+}
+
+func askHTTPSuccess(status int) bool {
+	return status >= http.StatusOK && status < http.StatusMultipleChoices
 }
 
 type wikidataSearchResponse struct {
@@ -324,7 +328,7 @@ func askWikidata(ctx context.Context, query string) (askSource, bool) {
 		return askSource{}, false
 	}
 	defer res.Body.Close()
-	if res.StatusCode != http.StatusOK {
+	if !askHTTPSuccess(res.StatusCode) {
 		return askSource{}, false
 	}
 	var payload wikidataSearchResponse
@@ -366,17 +370,25 @@ func bestWikidataEntity(query string, entities []wikidataEntity) (wikidataEntity
 		if len(queryWords) > 1 && matches < len(queryWords) {
 			continue
 		}
-		score := matches * 10
-		if label == query {
-			score += 1000
-		}
+
+		// Wikidata often returns exact matches for several unrelated meanings.
+		// Its search ranking is a better tie-breaker than preferring an exact
+		// label, which previously selected the Firefox arcade game over Mozilla
+		// Firefox. Exact match text is treated as the strongest signal; otherwise
+		// use label-word coverage and preserve the API's relevance order.
+		var score int
 		if match == query {
-			score += 500
+			score = 100000 - index
+		} else {
+			score = matches * 10
+			if label == query {
+				score += 100
+			}
+			if matches == len(queryWords) {
+				score += 100
+			}
+			score -= index
 		}
-		if matches == len(queryWords) {
-			score += 100
-		}
-		score -= index
 		if score > bestScore {
 			bestScore = score
 			best = entity
