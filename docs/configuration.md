@@ -118,27 +118,15 @@ plugins:
   # Local operator-maintained ACRONYM|expansion[|context] entries.
   acronym: {enabled: true, data_file: "data/acronyms.txt", max_length: 320}
   steam: {enabled: true, timeout_seconds: 10, max_length: 360}
-  # Wolfram|Alpha LLM is primary when BOT_WOLFRAM_LLM_APPID is set; Short
-  # Answers, DuckDuckGo, and Wikidata remain available as fallbacks.
+  # Keyless DuckDuckGo Instant Answers with a Wikidata entity fallback.
   ask:
     enabled: true
-    wolfram_enabled: true
-    wolfram_llm_enabled: true
-    wolfram_short_enabled: true
     duckduckgo_enabled: true
-    brave_enabled: true
     wikidata_fallback: true
-    ai_rewrite: true
-    provider: gemini # none, openrouter, openai, gemini, ollama
     max_length: 360
     max_response_chars: 240
-    timeout_seconds: 12
+    timeout_seconds: 8
     cooldown_seconds: 15
-    openrouter_model: google/gemma-4-31b-it:free
-    openai_model: gpt-4o-mini
-    gemini_model: gemini-3.6-flash
-    ollama_model: llama3.2
-    ollama_url: http://127.0.0.1:11434
   grab: {enabled: true, max_length: 320, max_quotes_per_user: 20}
   linux: {enabled: true, timeout_seconds: 8, max_length: 260}
   foods: {enabled: true, data_dir: "data/foods", max_length: 240}
@@ -167,20 +155,12 @@ plugins:
 ```
 
 `status`, `calc`, `foods`, `sports`, `car`, and `weapons` are local. When
-`BOT_WOLFRAM_LLM_APPID` is configured and `wolfram_enabled` is true, `ask`
-tries Wolfram|Alpha's LLM API first, then its Short Answers API, DuckDuckGo's
-public Instant Answer endpoint, Brave web search when keyed, and exact-match
-Wikidata entity search. Relationship questions use Wikidata claims when
-available instead of a generic entity description. It does not call Wikipedia;
-use `!wiki` for that.
-The tracked default uses Gemini rewriting when `BOT_GEMINI_API_KEY` is set;
-without that key it safely falls back to the source-grounded answer. Wolfram
-answers do not add a Wolfram link, preserving the one-line IRC response budget.
-Choose `none`, `openrouter`, `openai`, `gemini`, or `ollama` as the provider.
-Provider credentials belong in environment variables such as
-`BOT_OPENROUTER_API_KEY`,
-`BOT_OPENAI_API_KEY`, or `BOT_GEMINI_API_KEY`; the optional Brave fallback uses
-`BOT_BRAVE_SEARCH_API_KEY`. Never commit credentials to this file.
+`ask` uses DuckDuckGo's keyless Instant Answer endpoint first, then exact-match
+Wikidata entity search for definition-style questions. It does not call
+Wikipedia; use `!wiki` for that. DuckDuckGo's browser “Ask AI”/Duck.ai feature
+is a separate chat product and is not used by GoBot because there is no
+documented public bot endpoint for it. Responses remain source-grounded,
+sanitized, one-line, and bounded by `max_length` and `max_response_chars`.
 `define` uses the public English dictionary service, `reddit` uses Reddit's public post and
 subreddit JSON endpoints with an RSS fallback, and `horoscope` uses a public
 daily horoscope API. `foods` and `sports` use local text files only. `fun` uses
