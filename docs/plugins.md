@@ -17,7 +17,7 @@ Plugins are enabled or disabled under plugins.<name>.enabled in config.yaml.
 - weather: Open-Meteo weather, no key required
 - steam: Steam game search, genre links, and most-played lookup, no key required
 - news: NewsAPI headlines and search
-- ask: source-grounded questions with optional AI rewriting
+- ask: keyless DuckDuckGo Instant Answers with a Wikidata fallback
 - wikipedia: English Wikipedia summaries
 - horoscope: daily zodiac horoscopes
 - urban: Urban Dictionary definitions
