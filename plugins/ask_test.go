@@ -286,7 +286,7 @@ func TestAskRelationshipQuestionsDoNotUseGenericWikidataDescription(t *testing.T
 }
 
 func TestUsableWolframAnswerRejectsFailureText(t *testing.T) {
-	for _, answer := range []string{"", "Wolfram|Alpha did not understand the input", "not enough information"} {
+	for _, answer := range []string{"", "INSUFFICIENT_SOURCE", "Wolfram|Alpha did not understand the input", "not enough information"} {
 		if usableWolframAnswer(answer) {
 			t.Errorf("usableWolframAnswer(%q) = true, want false", answer)
 		}
@@ -431,6 +431,45 @@ func TestUsableAskRewriteRejectsProviderMetaText(t *testing.T) {
 	}
 	if !usableAskRewrite("Linux is a family of open-source operating systems.") {
 		t.Fatal("usableAskRewrite rejected a direct factual answer")
+	}
+	if usableAskRewrite("? Yes.") {
+		t.Fatal("usableAskRewrite accepted malformed question-shaped output")
+	}
+}
+
+func TestAskLocalAnswerHandlesSmallTalkWithoutAI(t *testing.T) {
+	for question, want := range map[string]string{
+		"hello":           "Hello!",
+		"Are you Gemini?": "I'm GoBot, not Gemini.",
+	} {
+		if got, ok := askLocalAnswer(question); !ok || got != want {
+			t.Fatalf("askLocalAnswer(%q) = %q, %v; want %q, true", question, got, ok, want)
+		}
+	}
+}
+
+func TestAskWikidataRelationshipUsesStructuredClaims(t *testing.T) {
+	old := askHTTPClient
+	t.Cleanup(func() { askHTTPClient = old })
+	askHTTPClient = &http.Client{Transport: newPluginRoundTripper(func(r *http.Request) (*http.Response, error) {
+		query := r.URL.Query()
+		switch query.Get("action") {
+		case "wbsearchentities":
+			return newPluginResponse(http.StatusOK, `{"search":[{"id":"Q388","label":"Linux","description":"family of Unix-like operating systems","match":{"text":"Linux"}}]}`), nil
+		case "wbgetentities":
+			if query.Get("props") == "claims" {
+				return newPluginResponse(http.StatusOK, `{"entities":{"Q388":{"claims":{"P178":[{"mainsnak":{"datavalue":{"value":{"id":"Q34253"}}}}]}}}}`), nil
+			}
+			return newPluginResponse(http.StatusOK, `{"entities":{"Q34253":{"labels":{"en":{"language":"en","value":"Linus Torvalds"}}}}}`), nil
+		default:
+			t.Fatalf("unexpected Wikidata action: %s", query.Get("action"))
+			return nil, nil
+		}
+	})}
+
+	source, ok := askWikidata(context.Background(), "linux", "Who created Linux?")
+	if !ok || source.Summary != "Linux was created by Linus Torvalds." {
+		t.Fatalf("askWikidata() = %#v, %v; want structured creator answer", source, ok)
 	}
 }
 
