@@ -223,6 +223,7 @@ func askFocusedTerm(query string) string {
 		"who": {}, "why": {}, "would": {}, "you": {}, "your": {}, "know": {},
 		"actor": {}, "bio": {}, "biography": {}, "career": {}, "comedy": {},
 		"comedian": {}, "details": {}, "facts": {}, "history": {},
+		"author": {}, "designer": {}, "founder": {}, "inventor": {}, "owner": {},
 		"information": {}, "language": {}, "learn": {}, "life": {}, "meaning": {},
 		"month": {}, "old": {}, "time": {}, "year": {}, "years": {},
 		"programming": {}, "profile": {}, "s": {}, "start": {}, "started": {},
@@ -250,7 +251,7 @@ func askNeedsRelationshipAnswer(question string) bool {
 			continue
 		}
 		switch word {
-		case "created", "creator", "developed", "discovered", "founded", "invented", "made", "wrote", "directed", "designed", "owns":
+		case "author", "created", "creator", "developed", "designed", "discovered", "founded", "founder", "invented", "inventor", "made", "owns", "owner", "wrote":
 			if hasWho {
 				return true
 			}
@@ -268,7 +269,7 @@ func askNeedsTemporalAnswer(question string) bool {
 	})
 	for _, word := range words {
 		switch word {
-		case "when", "year", "years", "date", "started", "start", "founded", "released", "launched", "launch", "created":
+		case "birth", "born", "created", "date", "established", "founded", "launched", "launch", "released", "start", "started", "when", "year", "years":
 			return true
 		}
 	}
@@ -277,8 +278,8 @@ func askNeedsTemporalAnswer(question string) bool {
 
 var (
 	askByNamePattern   = regexp.MustCompile(`\bby\s+([A-Z][A-Za-z.'-]*(?:\s+[A-Z][A-Za-z.'-]*){0,4})`)
-	askDatePattern     = regexp.MustCompile(`\b(?:[0-9]{1,2}\s+(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+(?:19|20)\d{2}|(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+[0-9]{1,2},?\s+(?:19|20)\d{2}|(?:19|20)\d{2})\b`)
-	askYearOnlyPattern = regexp.MustCompile(`^(?:19|20)\d{2}$`)
+	askDatePattern     = regexp.MustCompile(`\b(?:[0-9]{1,2}\s+(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+[0-9]{4}|(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+[0-9]{1,2},?\s+[0-9]{4}|[0-9]{4})\b`)
+	askYearOnlyPattern = regexp.MustCompile(`^[0-9]{4}$`)
 )
 
 func refineFocusedAskSource(question string, source askSource) (askSource, bool) {
@@ -308,9 +309,10 @@ func refineFocusedAskSource(question string, source askSource) (askSource, bool)
 		if strings.Contains(date, " ") && !askYearOnlyPattern.MatchString(date) {
 			preposition = "on"
 		}
+		phrase := askTemporalPhrase(question)
 		return askSource{
 			Title:   title,
-			Summary: fmt.Sprintf("%s was first released %s %s.", title, preposition, date),
+			Summary: fmt.Sprintf("%s %s %s %s.", title, phrase, preposition, date),
 			URL:     source.URL,
 		}, true
 	}
@@ -323,21 +325,52 @@ func askRelationshipGerund(question string) string {
 	})
 	for _, word := range words {
 		switch word {
+		case "author":
+			return "writing"
 		case "developed":
 			return "developing"
-		case "founded":
+		case "designed":
+			return "designing"
+		case "discovered":
+			return "discovering"
+		case "founded", "founder":
 			return "founding"
-		case "invented":
+		case "invented", "inventor":
 			return "inventing"
+		case "made":
+			return "making"
+		case "owns", "owner":
+			return "owning"
 		case "wrote":
 			return "writing"
 		case "directed":
 			return "directing"
-		case "designed":
-			return "designing"
 		}
 	}
 	return "creating"
+}
+
+func askTemporalPhrase(question string) string {
+	words := strings.FieldsFunc(strings.ToLower(question), func(r rune) bool {
+		return !unicode.IsLetter(r) && !unicode.IsNumber(r)
+	})
+	for _, word := range words {
+		switch word {
+		case "birth", "born":
+			return "was born"
+		case "created":
+			return "was created"
+		case "established", "founded":
+			return "was founded"
+		case "launched", "launch":
+			return "was launched"
+		case "released":
+			return "was first released"
+		case "start", "started":
+			return "started"
+		}
+	}
+	return "was first released"
 }
 
 type duckDuckGoAnswer struct {
