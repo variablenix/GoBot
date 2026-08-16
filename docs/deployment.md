@@ -9,7 +9,7 @@ systemd service, and using Docker.
 - a writable filesystem for the BoltDB database
 - network access to the IRC servers
 - optionally, Docker and Docker Compose
-- optionally, Chromium/Chrome for the rendered `!ask` Search Assist fallback
+- optionally, Chromium/Chrome for the rendered `!ask` Search Assist and public-result fallback
 
 ## Build and run directly
 
@@ -136,4 +136,6 @@ For direct systemd deployments, install Chromium or Chrome on the host. GoBot
 searches for `chromium`, `chromium-browser`, `google-chrome`, and
 `google-chrome-stable`; set `plugins.ask.browser_path` when the executable is
 installed elsewhere. If no browser is available, the existing lightweight
-Search Assist, Instant Answer, and Wikidata fallbacks continue to work.
+Search Assist, Instant Answer, and Wikidata fallbacks continue to work;
+rendered result excerpts and the Reddit public-JSON path are skipped until
+Chromium/Chrome is installed.

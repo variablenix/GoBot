@@ -123,6 +123,7 @@ plugins:
     enabled: true
     search_assist_enabled: true
     search_assist_browser_enabled: true
+    search_results_enabled: true
     browser_path: ""
     duckduckgo_enabled: true
     wikidata_fallback: true
@@ -170,9 +171,16 @@ remain the next provider, followed by Wikidata entity and structured-claim
 fallbacks for definition, relationship, origin, genre, and temporal questions.
 Relationship claims include creators, developers, founders, authors, inventors,
 and directors when Wikidata provides them. Search Assist also tries one bounded,
-intent-preserving framing variant for indirect opinion questions. If no reliable source answer exists,
-the bot returns a bounded DuckDuckGo search link instead of pretending that it
-knows the answer. Responses remain source-grounded, sanitized, one-line, and
+intent-preserving framing variant for indirect opinion questions. When the
+structured providers have no answer, rendered result cards can be used when
+`search_results_enabled` is true (and the browser fallback is enabled).
+GoBot selects the most relevant visible result, fetches a bounded public HTML
+excerpt (or Reddit's public JSON for a Reddit post), and attributes the excerpt
+to that result. This is source text, not an AI-generated synthesis; if the page
+cannot be safely or quickly fetched, its DuckDuckGo snippet is used instead.
+If no reliable source answer exists, the bot returns a bounded DuckDuckGo search
+link instead of pretending that it knows the answer. Responses remain source-grounded,
+sanitized, one-line, and
 bounded by `max_length` and `max_response_chars`. No credentials are required.
 `define` uses the public English dictionary service, `reddit` uses Reddit's public post and
 subreddit JSON endpoints with an RSS fallback, and `horoscope` uses a public

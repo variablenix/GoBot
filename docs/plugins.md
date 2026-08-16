@@ -17,7 +17,7 @@ Plugins are enabled or disabled under plugins.<name>.enabled in config.yaml.
 - weather: Open-Meteo weather, no key required
 - steam: Steam game search, genre links, and most-played lookup, no key required
 - news: NewsAPI headlines and search
-- ask: DuckDuckGo Search Assist with Instant Answer and Wikidata fallbacks
+- ask: DuckDuckGo Search Assist with bounded public-result excerpts, Instant Answer, and Wikidata fallbacks
 - wikipedia: English Wikipedia summaries
 - horoscope: daily zodiac horoscopes
 - urban: Urban Dictionary definitions
@@ -1125,8 +1125,12 @@ answer to a specific person or date question. Search Assist also tries one
 bounded, intent-preserving framing variant for indirect opinion questions.
 Relationship claims cover
 creators, developers, founders, authors, inventors, and directors. For
-open-ended questions without a reliable source answer, the plugin returns a
-bounded DuckDuckGo search link. A sender-specific cooldown prevents repeated
+open-ended questions that do not produce a structured answer, the plugin can
+inspect the rendered DuckDuckGo result cards. It selects the most relevant
+visible result, fetches a bounded public HTML excerpt (or Reddit's public JSON
+for a Reddit post), and attributes the excerpt to that result. This is source
+text rather than an AI-generated synthesis; if fetching is unavailable, the
+DuckDuckGo snippet is used. A sender-specific cooldown prevents repeated
 lookups from becoming a flood source.
 
 The plugin is configured under `plugins.ask`:
@@ -1137,6 +1141,7 @@ plugins:
     enabled: true
     search_assist_enabled: true
     search_assist_browser_enabled: true
+    search_results_enabled: true
     browser_path: ""
     duckduckgo_enabled: true
     wikidata_fallback: true
@@ -1150,7 +1155,11 @@ No credential or `.env` setting is required. The rendered fallback requires a
 Chromium/Chrome executable; Docker images include Chromium, while systemd
 deployments should install Chromium or set `browser_path`. Search Assist is a
 best-effort integration of DuckDuckGo's web request rather than a documented
-API, so it can be disabled if DuckDuckGo changes the endpoint. The response is sanitized,
+API, so it can be disabled if DuckDuckGo changes the endpoint. When
+`search_results_enabled` is true, the same browser fallback may read normal
+result cards and fetch only public HTTP(S) pages on ports 80/443, with bounded
+timeouts and response sizes. Private, local, and non-HTTP destinations are
+rejected. The response is sanitized,
 limited to one IRC line, and includes a cited source link when available. If no
 provider has a usable answer, GoBot returns a bounded DuckDuckGo search link
 instead of inventing one.
