@@ -260,6 +260,21 @@ func TestAskIntentVariants(t *testing.T) {
 	}
 }
 
+func TestAskNeedsWebResultAnswer(t *testing.T) {
+	for _, question := range []string{
+		"Why is this comedian controversial?",
+		"What makes this service unpopular?",
+		"Why do people criticize this product?",
+	} {
+		if !askNeedsWebResultAnswer(question) {
+			t.Fatalf("askNeedsWebResultAnswer(%q) = false; want web-result fallback", question)
+		}
+	}
+	if askNeedsWebResultAnswer("What is Linux?") {
+		t.Fatal("definition question was incorrectly classified as open web opinion")
+	}
+}
+
 func TestFormatWikidataDate(t *testing.T) {
 	if got := formatWikidataDate("+2002-03-11T00:00:00Z"); got != "11 March 2002" {
 		t.Fatalf("formatWikidataDate() = %q, want 11 March 2002", got)
@@ -336,6 +351,77 @@ func TestParseRenderedSearchAssist(t *testing.T) {
 	}, "https://duckduckgo.com/?q=what+genre+is+the+band+ObZen%3F")
 	if !ok || source.Summary != "ObZen is not a band; it is an album by Meshuggah." || source.URL != "https://en.wikipedia.org/wiki/ObZen" {
 		t.Fatalf("parseRenderedSearchAssist() = %#v, %v; want rendered answer and cited source", source, ok)
+	}
+}
+
+func TestSelectAskSearchResultPrefersRelevantTitle(t *testing.T) {
+	results := []askRenderedSearchResult{
+		{Title: "Unrelated news", URL: "https://example.com/news", Snippet: "A general article."},
+		{Title: "Why Ari Shaffir is controversial", URL: "https://www.reddit.com/r/Standup/comments/abc123/example/", Snippet: "A discussion of the comedian's public conduct."},
+	}
+	got, ok := selectAskSearchResult("Why is Ari Shaffir controversial?", results)
+	if !ok || got.URL != results[1].URL {
+		t.Fatalf("selectAskSearchResult() = %#v, %v; want relevant result", got, ok)
+	}
+}
+
+func TestFetchAskRedditResultUsesPublicJSON(t *testing.T) {
+	old := askWebHTTPClient
+	t.Cleanup(func() { askWebHTTPClient = old })
+	askWebHTTPClient = &http.Client{Transport: newPluginRoundTripper(func(r *http.Request) (*http.Response, error) {
+		if !strings.HasSuffix(r.URL.Path, ".json") || r.URL.Host != "www.reddit.com" {
+			t.Fatalf("unexpected Reddit request: %s", r.URL)
+		}
+		return newPluginResponse(http.StatusOK, `[
+      {"data":{"children":[{"data":{"title":"A discussion about a comedian","selftext":"The discussion focuses on controversial public conduct.","permalink":"/r/Standup/comments/abc123/example/"}}]}},
+      {"data":{"children":[]}}
+    ]`), nil
+	})}
+	source, ok := fetchAskRedditResult(context.Background(), askRenderedSearchResult{
+		Title: "A discussion about a comedian", URL: "https://www.reddit.com/r/Standup/comments/abc123/example/",
+	})
+	if !ok || !strings.Contains(source.Summary, "controversial public conduct") || source.URL == "" {
+		t.Fatalf("fetchAskRedditResult() = %#v, %v; want attributed Reddit excerpt", source, ok)
+	}
+}
+
+func TestFetchAskSearchResultUsesBoundedHTMLExcerpt(t *testing.T) {
+	old := askWebHTTPClient
+	t.Cleanup(func() { askWebHTTPClient = old })
+	askWebHTTPClient = &http.Client{Transport: newPluginRoundTripper(func(r *http.Request) (*http.Response, error) {
+		response := newPluginResponse(http.StatusOK, `<html><head><meta property="og:description" content="The source explains the public controversy." /></head><body><p>More page text.</p></body></html>`)
+		response.Header.Set("Content-Type", "text/html; charset=utf-8")
+		return response, nil
+	})}
+	source, ok := fetchAskSearchResult(context.Background(), askRenderedSearchResult{
+		Title: "Relevant article", URL: "https://example.com/article", Snippet: "Search snippet",
+	}, "why is this controversial?")
+	if !ok || !strings.Contains(source.Summary, "public controversy") || source.URL != "https://example.com/article" {
+		t.Fatalf("fetchAskSearchResult() = %#v, %v; want bounded source excerpt", source, ok)
+	}
+}
+
+func TestAskSourceURLRejectsPrivateAndUnusualDestinations(t *testing.T) {
+	for _, raw := range []string{
+		"http://127.0.0.1/secret",
+		"http://localhost/secret",
+		"https://[::1]/secret",
+		"https://example.com:8080/secret",
+		"file:///etc/passwd",
+	} {
+		if validPublicHTTPURL(raw) {
+			t.Fatalf("validPublicHTTPURL(%q) = true; want rejected", raw)
+		}
+	}
+	if !validPublicHTTPURL("https://example.com/path") {
+		t.Fatal("validPublicHTTPURL rejected a normal HTTPS URL")
+	}
+}
+
+func TestExtractAskHTMLExcerptPrefersMetadata(t *testing.T) {
+	body := []byte(`<html><head><meta name="description" content="A concise source description."></head><body><p>Long page text.</p></body></html>`)
+	if got := extractAskHTMLExcerpt(body, "", "Example", []string{"example"}); got != "A concise source description." {
+		t.Fatalf("extractAskHTMLExcerpt() = %q, want metadata description", got)
 	}
 }
 
