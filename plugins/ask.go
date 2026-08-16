@@ -123,7 +123,7 @@ func (p *Ask) Handle(b *bot.Bot, m bot.Message) bool {
 
 	source, found := p.findSource(ctx, question, cfg)
 	if !found {
-		b.Send(target, "I couldn't find a reliable answer for that question.")
+		b.Send(target, formatAskNoAnswer(question, cfg.Int("max_length", 360)))
 		return true
 	}
 	b.Send(target, formatAskResponse(m.Nick, source.Summary, source.URL, cfg.Int("max_length", 360), cfg.Int("max_response_chars", 240)))
@@ -179,25 +179,36 @@ func (p *Ask) findSource(ctx context.Context, question string, cfg bot.PluginCon
 			if refined, ok := refineFocusedAskSource(question, source); ok {
 				return refined, true
 			}
-			return source, true
+			if !askNeedsRelationshipAnswer(question) && !askNeedsTemporalAnswer(question) {
+				return source, true
+			}
 		}
 		if focused != "" && !strings.EqualFold(focused, strings.TrimSpace(question)) {
 			if source, ok := askDuckDuckGo(ctx, focused); ok {
 				if source, ok = refineFocusedAskSource(question, source); ok {
 					return source, true
 				}
+				if !askNeedsRelationshipAnswer(question) && !askNeedsTemporalAnswer(question) {
+					return source, true
+				}
 			}
 		}
 	}
-	if cfg.Bool("wikidata_fallback", true) && focused != "" && !askNeedsRelationshipAnswer(question) {
-		if askNeedsTemporalAnswer(question) {
+	if cfg.Bool("wikidata_fallback", true) && focused != "" {
+		switch {
+		case askNeedsRelationshipAnswer(question):
+			if source, ok := askWikidataRelationship(ctx, focused, question); ok {
+				return source, true
+			}
+		case askNeedsTemporalAnswer(question):
 			if source, ok := askWikidataTemporal(ctx, focused, question); ok {
 				return source, true
 			}
 			return askSource{}, false
-		}
-		if source, ok := askWikidata(ctx, focused); ok {
-			return source, true
+		default:
+			if source, ok := askWikidata(ctx, focused); ok {
+				return source, true
+			}
 		}
 	}
 	return askSource{}, false
@@ -511,6 +522,7 @@ type wikidataClaim struct {
 		DataValue struct {
 			Value struct {
 				Time string `json:"time"`
+				ID   string `json:"id"`
 			} `json:"value"`
 		} `json:"datavalue"`
 	} `json:"mainsnak"`
@@ -531,6 +543,172 @@ func askWikidata(ctx context.Context, query string) (askSource, bool) {
 		return askSource{}, false
 	}
 	return askSource{Title: entity.Label, Summary: entity.Description, URL: "https://www.wikidata.org/wiki/" + entity.ID}, true
+}
+
+type wikidataLabelsResponse struct {
+	Entities map[string]struct {
+		Labels map[string]struct {
+			Value string `json:"value"`
+		} `json:"labels"`
+	} `json:"entities"`
+}
+
+func askWikidataRelationship(ctx context.Context, query, question string) (askSource, bool) {
+	entity, ok := searchWikidataEntity(ctx, query)
+	if !ok {
+		return askSource{}, false
+	}
+	claims, ok := fetchWikidataClaims(ctx, entity.ID)
+	if !ok {
+		return askSource{}, false
+	}
+	for _, property := range askRelationshipClaimProperties(question) {
+		ids := make([]string, 0, 4)
+		seen := make(map[string]struct{})
+		for _, claim := range claims[property] {
+			if claim.MainSnak.SnakType != "value" {
+				continue
+			}
+			id := strings.TrimSpace(claim.MainSnak.DataValue.Value.ID)
+			if !validWikidataID(id) {
+				continue
+			}
+			if _, exists := seen[id]; exists {
+				continue
+			}
+			seen[id] = struct{}{}
+			ids = append(ids, id)
+			if len(ids) == 4 {
+				break
+			}
+		}
+		if len(ids) == 0 {
+			continue
+		}
+		labels, ok := fetchWikidataLabels(ctx, ids)
+		if !ok {
+			continue
+		}
+		names := make([]string, 0, len(ids))
+		for _, id := range ids {
+			if label := cleanExternalText(labels[id]); label != "" {
+				names = append(names, label)
+			}
+		}
+		if len(names) == 0 {
+			continue
+		}
+		return askSource{
+			Title:   entity.Label,
+			Summary: formatAskRelationshipSummary(entity.Label, question, property, names, len(ids)-len(names)),
+			URL:     "https://www.wikidata.org/wiki/" + entity.ID,
+		}, true
+	}
+	return askSource{}, false
+}
+
+func askRelationshipClaimProperties(question string) []string {
+	lowerQuestion := strings.ToLower(question)
+	switch {
+	case strings.Contains(lowerQuestion, "invent"):
+		return []string{"P61", "P170", "P178"}
+	case strings.Contains(lowerQuestion, "author") || strings.Contains(lowerQuestion, "wrote") || strings.Contains(lowerQuestion, "written"):
+		return []string{"P50", "P170", "P178"}
+	case strings.Contains(lowerQuestion, "direct"):
+		return []string{"P57", "P170"}
+	case strings.Contains(lowerQuestion, "develop"):
+		return []string{"P178", "P170", "P112"}
+	case strings.Contains(lowerQuestion, "found"):
+		return []string{"P112", "P170", "P178"}
+	default:
+		return []string{"P170", "P178", "P112", "P61", "P50", "P57"}
+	}
+}
+
+func formatAskRelationshipSummary(title, question, property string, names []string, omitted int) string {
+	if len(names) == 1 && omitted == 0 {
+		return fmt.Sprintf("%s is credited with %s %s.", names[0], askRelationshipGerundForProperty(question, property), title)
+	}
+	if omitted > 0 {
+		names = append(names, fmt.Sprintf("+ %d more", omitted))
+	}
+	return fmt.Sprintf("%s was %s by %s.", title, askRelationshipPastPredicate(question, property), strings.Join(names, ", "))
+}
+
+func askRelationshipGerundForProperty(question, property string) string {
+	switch property {
+	case "P50":
+		return "writing"
+	case "P57":
+		return "directing"
+	case "P61":
+		return "inventing"
+	case "P112":
+		return "founding"
+	case "P170":
+		return "creating"
+	case "P178":
+		return "developing"
+	default:
+		return askRelationshipGerund(question)
+	}
+}
+
+func askRelationshipPastPredicate(question, property string) string {
+	switch property {
+	case "P50":
+		return "authored"
+	case "P57":
+		return "directed"
+	case "P61":
+		return "invented"
+	case "P112":
+		return "founded"
+	case "P170":
+		return "created"
+	case "P178":
+		return "developed"
+	default:
+		return askRelationshipGerund(question)
+	}
+}
+
+func fetchWikidataLabels(ctx context.Context, ids []string) (map[string]string, bool) {
+	if len(ids) == 0 {
+		return nil, false
+	}
+	params := url.Values{}
+	params.Set("action", "wbgetentities")
+	params.Set("ids", strings.Join(ids, "|"))
+	params.Set("props", "labels")
+	params.Set("languages", "en")
+	params.Set("format", "json")
+	endpoint := "https://www.wikidata.org/w/api.php?" + params.Encode()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return nil, false
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", "GoBot/1.0 (https://github.com/variablenix/GoBot; IRC bot)")
+	res, err := askHTTPClient.Do(req)
+	if err != nil {
+		return nil, false
+	}
+	defer res.Body.Close()
+	if !askHTTPSuccess(res.StatusCode) {
+		return nil, false
+	}
+	var payload wikidataLabelsResponse
+	if err := json.NewDecoder(io.LimitReader(res.Body, 512<<10)).Decode(&payload); err != nil {
+		return nil, false
+	}
+	labels := make(map[string]string, len(payload.Entities))
+	for id, entity := range payload.Entities {
+		if label, ok := entity.Labels["en"]; ok {
+			labels[id] = label.Value
+		}
+	}
+	return labels, true
 }
 
 func searchWikidataEntity(ctx context.Context, query string) (wikidataEntity, bool) {
@@ -754,6 +932,11 @@ func formatAskResponse(nick, answer, sourceURL string, maxLength, maxResponseCha
 		result = truncateAskBytes(result, 450)
 	}
 	return result
+}
+
+func formatAskNoAnswer(question string, maxLength int) string {
+	maxLength = clampAskLength(maxLength, 120, 450, 360)
+	return truncateAskBytes("I couldn't find a reliable answer — search: "+duckDuckGoSearchURL(question), maxLength)
 }
 
 func clampAskLength(value, min, max, fallback int) int {
