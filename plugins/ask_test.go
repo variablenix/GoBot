@@ -3,6 +3,7 @@ package plugins
 import (
 	"context"
 	"net/http"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -25,6 +26,18 @@ func TestAskHelpDescribesSimpleFallbacks(t *testing.T) {
 	help := (&Ask{}).Help()
 	if !strings.Contains(help, "DuckDuckGo") || !strings.Contains(help, "Wikidata") {
 		t.Fatalf("Help() = %q, want simple source description", help)
+	}
+}
+
+func TestAskSearchAssistQueryVariants(t *testing.T) {
+	if got := askSearchAssistQueryVariants("Why should users not use Cloudflare?"); !reflect.DeepEqual(got, []string{
+		"Why should users not use Cloudflare?",
+		"what are the disadvantages of Cloudflare?",
+	}) {
+		t.Fatalf("askSearchAssistQueryVariants() = %#v, want an intent-preserving variant", got)
+	}
+	if got := askSearchAssistQueryVariants("What is Cloudflare?"); !reflect.DeepEqual(got, []string{"What is Cloudflare?"}) {
+		t.Fatalf("askSearchAssistQueryVariants() = %#v, want only the original query", got)
 	}
 }
 

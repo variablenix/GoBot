@@ -163,7 +163,8 @@ may be disabled if DuckDuckGo changes that page. DuckDuckGo Instant Answers
 remain the next provider, followed by Wikidata entity and structured-claim
 fallbacks for definition, relationship, origin, and temporal questions.
 Relationship claims include creators, developers, founders, authors, inventors,
-and directors when Wikidata provides them. If no reliable source answer exists,
+and directors when Wikidata provides them. Search Assist also tries one bounded,
+intent-preserving framing variant for indirect opinion questions. If no reliable source answer exists,
 the bot returns a bounded DuckDuckGo search link instead of pretending that it
 knows the answer. Responses remain source-grounded, sanitized, one-line, and
 bounded by `max_length` and `max_response_chars`. No credentials are required.

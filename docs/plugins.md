@@ -1120,7 +1120,9 @@ when one is provided. Query framing is normalized across common definition,
 relationship, origin, release, publication, debut, launch, and date phrases.
 Relationship and temporal questions use intent checks and structured Wikidata
 claims where available, so a generic entity description is not reused as the
-answer to a specific person or date question. Relationship claims cover
+answer to a specific person or date question. Search Assist also tries one
+bounded, intent-preserving framing variant for indirect opinion questions.
+Relationship claims cover
 creators, developers, founders, authors, inventors, and directors. For
 open-ended questions without a reliable source answer, the plugin returns a
 bounded DuckDuckGo search link. A sender-specific cooldown prevents repeated
