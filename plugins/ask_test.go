@@ -123,6 +123,45 @@ func TestAskWikidataUsesExactEntityDescription(t *testing.T) {
 	}
 }
 
+func TestAskWikidataRelationshipUsesDeveloperClaims(t *testing.T) {
+	old := askHTTPClient
+	t.Cleanup(func() { askHTTPClient = old })
+	askHTTPClient = &http.Client{Transport: newPluginRoundTripper(func(r *http.Request) (*http.Response, error) {
+		if r.URL.Query().Get("action") == "wbsearchentities" {
+			return newPluginResponse(http.StatusOK, `{"search":[{"id":"Q185576","label":"Arch Linux","description":"Linux distribution","match":{"text":"Arch Linux"}}]}`), nil
+		}
+		if r.URL.Query().Get("props") == "claims" {
+			return newPluginResponse(http.StatusOK, `{"entities":{"Q185576":{"claims":{"P178":[{"mainsnak":{"snaktype":"value","datavalue":{"value":{"id":"Q1"}}}},{"mainsnak":{"snaktype":"value","datavalue":{"value":{"id":"Q2"}}}}]}}}}`), nil
+		}
+		return newPluginResponse(http.StatusOK, `{"entities":{"Q1":{"labels":{"en":{"language":"en","value":"Arch Linux Developers"}}},"Q2":{"labels":{"en":{"language":"en","value":"Judd Vinet"}}}}}`), nil
+	})}
+	source, ok := askWikidataRelationship(context.Background(), "arch linux", "Who created Arch Linux?")
+	if !ok || source.Summary != "Arch Linux was developed by Arch Linux Developers, Judd Vinet." || source.URL != "https://www.wikidata.org/wiki/Q185576" {
+		t.Fatalf("askWikidataRelationship() = %#v, %v; want developer-claim answer", source, ok)
+	}
+}
+
+func TestAskFindSourceFallsBackToWikidataRelationshipClaims(t *testing.T) {
+	old := askHTTPClient
+	t.Cleanup(func() { askHTTPClient = old })
+	askHTTPClient = &http.Client{Transport: newPluginRoundTripper(func(r *http.Request) (*http.Response, error) {
+		if r.URL.Host == "api.duckduckgo.com" {
+			return newPluginResponse(http.StatusOK, `{"Heading":"Arch Linux","AbstractText":"Arch Linux is an open source Linux distribution."}`), nil
+		}
+		if r.URL.Query().Get("action") == "wbsearchentities" {
+			return newPluginResponse(http.StatusOK, `{"search":[{"id":"Q185576","label":"Arch Linux","description":"Linux distribution","match":{"text":"Arch Linux"}}]}`), nil
+		}
+		if r.URL.Query().Get("props") == "claims" {
+			return newPluginResponse(http.StatusOK, `{"entities":{"Q185576":{"claims":{"P178":[{"mainsnak":{"snaktype":"value","datavalue":{"value":{"id":"Q1"}}}}]}}}}`), nil
+		}
+		return newPluginResponse(http.StatusOK, `{"entities":{"Q1":{"labels":{"en":{"language":"en","value":"Arch Linux Developers"}}}}}`), nil
+	})}
+	source, ok := (&Ask{}).findSource(context.Background(), "Who created Arch Linux?", bot.PluginConfig{"duckduckgo_enabled": true, "wikidata_fallback": true})
+	if !ok || source.Summary != "Arch Linux Developers is credited with developing Arch Linux." {
+		t.Fatalf("findSource() = %#v, %v; want structured relationship fallback", source, ok)
+	}
+}
+
 func TestAskRelationshipQuestionsSkipGenericWikidata(t *testing.T) {
 	if !askNeedsRelationshipAnswer("Who created Linux?") {
 		t.Fatal("relationship question was not detected")
@@ -275,6 +314,16 @@ func TestAskResponseDropsInvalidSourceURL(t *testing.T) {
 	got := formatAskResponse("Echo", "A short answer", "javascript:alert(1)", 360, 240)
 	if strings.Contains(got, "javascript:") {
 		t.Fatalf("unsafe URL was included: %q", got)
+	}
+}
+
+func TestAskNoAnswerProvidesSearchFallback(t *testing.T) {
+	got := formatAskNoAnswer("Is the Earth flat?", 180)
+	if !strings.Contains(got, "I couldn't find a reliable answer") || !strings.Contains(got, "https://duckduckgo.com/?q=Is+the+Earth+flat%3F") {
+		t.Fatalf("formatAskNoAnswer() = %q, want bounded search fallback", got)
+	}
+	if strings.ContainsAny(got, "\r\n") || len([]byte(got)) > 180 {
+		t.Fatalf("formatAskNoAnswer() is not one bounded line: %q", got)
 	}
 }
 
