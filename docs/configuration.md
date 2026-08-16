@@ -180,8 +180,9 @@ excerpt (or Reddit's public JSON for a Reddit post), and attributes the excerpt
 to that result. This is source text, not an AI-generated synthesis; if the page
 cannot be safely or quickly fetched, its DuckDuckGo snippet is used instead.
 If DuckDuckGo's rendered page is unavailable or presents an anti-automation
-challenge, a bounded Bing public-search result lookup is attempted before the
-final search-link response.
+challenge, a bounded Bing public-search result lookup is attempted for
+open-ended, procedural, opinion, comparison, and controversy questions before
+the final search-link response.
 If no reliable source answer exists, the bot returns a bounded DuckDuckGo search
 link instead of pretending that it knows the answer. Responses remain
 source-grounded, sanitized, one-line, and bounded by `max_length` and

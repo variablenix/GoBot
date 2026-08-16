@@ -1164,8 +1164,9 @@ timeouts and response sizes. Private, local, and non-HTTP destinations are
 rejected. The response is sanitized,
 limited to one IRC line, and includes a cited source link when available.
 If DuckDuckGo's rendered page is unavailable or presents an anti-automation
-challenge, GoBot makes one bounded Bing public-search result lookup and applies
-the same relevance, URL-safety, and excerpt rules.
+challenge, GoBot makes one bounded Bing public-search result lookup for
+open-ended, procedural, opinion, comparison, and controversy questions, then
+applies the same relevance, URL-safety, and excerpt rules.
 Each provider has a bounded sub-timeout so a slow Search Assist request cannot
 consume the entire lookup window; transient DuckDuckGo Instant Answer failures
 are retried within the same invocation. Successful answers are cached in memory
