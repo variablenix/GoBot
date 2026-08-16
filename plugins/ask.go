@@ -33,7 +33,7 @@ type Ask struct {
 func (p *Ask) Name() string       { return "ask" }
 func (p *Ask) Commands() []string { return []string{"ask", "question", "q"} }
 func (p *Ask) Help() string {
-	return "!ask <question> — DuckDuckGo Instant Answer with Wikidata fallback (aliases: !question, !q)"
+	return "!ask <question> — DuckDuckGo Search Assist with Instant Answer/Wikidata fallbacks (aliases: !question, !q)"
 }
 
 func (p *Ask) Init(c bot.PluginConfig, _ *storage.DB) error {
