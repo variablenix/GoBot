@@ -104,6 +104,23 @@ func TestAskDuckDuckGoParsesAnswersIncludingWikipediaBackedSummaries(t *testing.
 	}
 }
 
+func TestAskDuckDuckGoRetriesTransientEmptyResponse(t *testing.T) {
+	old := askHTTPClient
+	t.Cleanup(func() { askHTTPClient = old })
+	requests := 0
+	askHTTPClient = &http.Client{Transport: newPluginRoundTripper(func(*http.Request) (*http.Response, error) {
+		requests++
+		if requests == 1 {
+			return newPluginResponse(http.StatusOK, `{}`), nil
+		}
+		return newPluginResponse(http.StatusOK, `{"Heading":"Debian","AbstractText":"Debian is a Unix-like operating system."}`), nil
+	})}
+	source, ok := askDuckDuckGoWithRetry(context.Background(), "What is Debian?")
+	if !ok || source.Summary != "Debian is a Unix-like operating system." || requests != 2 {
+		t.Fatalf("askDuckDuckGoWithRetry() = %#v, %v after %d requests; want second-attempt answer", source, ok, requests)
+	}
+}
+
 func TestAskWikidataPrefersExactLabel(t *testing.T) {
 	entities := []wikidataEntity{
 		{ID: "Q999", Label: "Mark", Description: "an unrelated person"},
@@ -331,8 +348,8 @@ func TestAskFindSourceRefinesFocusedDuckDuckGoAnswer(t *testing.T) {
 	if !ok || source.Summary != "Linus Torvalds is credited with creating Linux." {
 		t.Fatalf("findSource() = %#v, %v; want refined relationship answer", source, ok)
 	}
-	if len(queries) != 2 || queries[1] != "linux" {
-		t.Fatalf("DuckDuckGo queries = %#v; want full question followed by focused term", queries)
+	if len(queries) != 3 || queries[0] != "Who created Linux?" || queries[1] != "Who created Linux?" || queries[2] != "linux" {
+		t.Fatalf("DuckDuckGo queries = %#v; want a bounded retry followed by focused term", queries)
 	}
 }
 
@@ -467,5 +484,18 @@ func TestAskReloadPreservesCooldownState(t *testing.T) {
 	}
 	if _, ok := p.last["account:test"]; !ok {
 		t.Fatal("reload discarded cooldown state")
+	}
+}
+
+func TestAskCacheNormalizesRepeatedQuestions(t *testing.T) {
+	p := &Ask{}
+	if err := p.Init(bot.PluginConfig{"cache_seconds": 300}, nil); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	want := askSource{Title: "Debian", Summary: "Debian is a Unix-like operating system.", URL: "https://example.com/debian"}
+	p.cacheSource("What is Debian?", want, 300)
+	got, ok := p.cached("  what   is debian! ", 300)
+	if !ok || got != want {
+		t.Fatalf("cached() = %#v, %v; want normalized cached source", got, ok)
 	}
 }

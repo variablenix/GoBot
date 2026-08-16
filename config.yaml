@@ -102,6 +102,7 @@ plugins:
     max_response_chars: 240
     timeout_seconds: 8
     cooldown_seconds: 15
+    cache_seconds: 300
   wikipedia: {enabled: true, max_summary_length: 300}
   # Longer paragraphs remain one IRC message; truncated replies include a readable source link.
   horoscope: {enabled: true, max_summary_length: 360}
