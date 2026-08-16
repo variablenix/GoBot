@@ -122,6 +122,8 @@ plugins:
   ask:
     enabled: true
     search_assist_enabled: true
+    search_assist_browser_enabled: true
+    browser_path: ""
     duckduckgo_enabled: true
     wikidata_fallback: true
     max_length: 360
@@ -157,9 +159,13 @@ plugins:
 
 `status`, `calc`, `foods`, `sports`, `car`, and `weapons` are local. When
 `ask` uses DuckDuckGo Search Assist first when `search_assist_enabled` is true.
-This is a best-effort web integration that follows the Search Assist script
-request used by DuckDuckGo's search page; it is not a documented public API and
-may be disabled if DuckDuckGo changes that page. DuckDuckGo Instant Answers
+This is a best-effort web integration that first uses the lightweight Search
+Assist request and then, when enabled, a local Chromium/Chrome browser to read
+the rendered Search Assist card. The browser path can be set with
+`browser_path`; an empty value searches for `chromium`, `chromium-browser`,
+`google-chrome`, and `google-chrome-stable`. This follows DuckDuckGo's web UI
+rather than a documented public API and may be disabled if DuckDuckGo changes
+that page. DuckDuckGo Instant Answers
 remain the next provider, followed by Wikidata entity and structured-claim
 fallbacks for definition, relationship, origin, genre, and temporal questions.
 Relationship claims include creators, developers, founders, authors, inventors,
