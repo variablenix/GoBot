@@ -1117,7 +1117,7 @@ then uses DuckDuckGo's keyless Instant Answer endpoint and Wikidata as a
 fallback. Search Assist and DuckDuckGo summaries may be backed by encyclopedia
 sources; GoBot presents them as bounded answers and links to a cited source
 when one is provided. Query framing is normalized across common definition,
-relationship, origin, release, publication, debut, launch, and date phrases.
+relationship, origin, release, publication, debut, launch, genre, and date phrases.
 Relationship and temporal questions use intent checks and structured Wikidata
 claims where available, so a generic entity description is not reused as the
 answer to a specific person or date question. Search Assist also tries one
