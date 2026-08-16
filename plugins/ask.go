@@ -1,12 +1,15 @@
 package plugins
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"html"
 	"io"
+	"net"
 	"net/http"
+	"net/netip"
 	"net/url"
 	osexec "os/exec"
 	"regexp"
@@ -20,6 +23,7 @@ import (
 	"github.com/chromedp/chromedp"
 	"github.com/variablenix/GoBot/bot"
 	"github.com/variablenix/GoBot/storage"
+	xhtml "golang.org/x/net/html"
 )
 
 // Ask provides a small, source-grounded question lookup. DuckDuckGo Search
@@ -36,7 +40,7 @@ type Ask struct {
 func (p *Ask) Name() string       { return "ask" }
 func (p *Ask) Commands() []string { return []string{"ask", "question", "q"} }
 func (p *Ask) Help() string {
-	return "!ask <question> — DuckDuckGo Search Assist with Instant Answer/Wikidata fallbacks (aliases: !question, !q)"
+	return "!ask <question> — DuckDuckGo Search Assist with sourced result excerpts and Instant Answer/Wikidata fallbacks (aliases: !question, !q)"
 }
 
 func (p *Ask) Init(c bot.PluginConfig, _ *storage.DB) error {
@@ -183,7 +187,7 @@ func (p *Ask) findSource(ctx context.Context, question string, cfg bot.PluginCon
 			return source, true
 		}
 		if cfg.Bool("search_assist_browser_enabled", true) {
-			if source, ok := askDuckDuckGoRenderedSearchAssist(ctx, question, cfg.String("browser_path", "")); ok {
+			if source, ok := askDuckDuckGoRenderedSearchAssist(ctx, question, cfg.String("browser_path", ""), false); ok {
 				return source, true
 			}
 		}
@@ -208,6 +212,16 @@ func (p *Ask) findSource(ctx context.Context, question string, cfg bot.PluginCon
 			}
 		}
 	}
+	// Open-ended opinion and explanation questions are poorly served by
+	// entity descriptions. Prefer a bounded, attributed web-result excerpt
+	// before falling back to Wikidata for those queries.
+	webResultTried := false
+	if cfg.Bool("search_results_enabled", true) && askNeedsWebResultAnswer(question) && cfg.Bool("search_assist_browser_enabled", true) {
+		webResultTried = true
+		if source, ok := askDuckDuckGoRenderedSearchAssist(ctx, question, cfg.String("browser_path", ""), true); ok {
+			return source, true
+		}
+	}
 	if cfg.Bool("wikidata_fallback", true) && focused != "" {
 		switch {
 		case askNeedsRelationshipAnswer(question):
@@ -218,11 +232,15 @@ func (p *Ask) findSource(ctx context.Context, question string, cfg bot.PluginCon
 			if source, ok := askWikidataTemporal(ctx, focused, question); ok {
 				return source, true
 			}
-			return askSource{}, false
 		default:
 			if source, ok := askWikidata(ctx, focused); ok {
 				return source, true
 			}
+		}
+	}
+	if cfg.Bool("search_results_enabled", true) && !webResultTried && cfg.Bool("search_assist_browser_enabled", true) {
+		if source, ok := askDuckDuckGoRenderedSearchAssist(ctx, question, cfg.String("browser_path", ""), true); ok {
+			return source, true
 		}
 	}
 	return askSource{}, false
@@ -328,6 +346,23 @@ func askNeedsTemporalAnswer(question string) bool {
 	for _, word := range words {
 		switch word {
 		case "birth", "born", "created", "creation", "date", "debut", "debuted", "established", "founded", "formed", "launched", "launch", "originated", "premiere", "premiered", "published", "publication", "released", "release", "start", "started", "begin", "began", "unveiled", "when", "year", "years":
+			return true
+		}
+	}
+	return false
+}
+
+func askNeedsWebResultAnswer(question string) bool {
+	lower := strings.ToLower(strings.TrimSpace(question))
+	for _, phrase := range []string{
+		"why ", "why is ", "why are ", "why was ", "why were ",
+		"how does ", "how do ", "how can ", "how should ",
+		"what makes ", "what do people think", "why do people ", "why do some ",
+		"what are the disadvantages", "what are the benefits", "what are the alternatives",
+		"is it true", "is it worth", "is it safe", "should i ", "should we ",
+		"considered", "controversial", "opinion", "review", "experience",
+	} {
+		if strings.Contains(lower, phrase) {
 			return true
 		}
 	}
@@ -477,6 +512,12 @@ type duckDuckGoAnswer struct {
 
 var askHTTPClient = &http.Client{Timeout: 15 * time.Second}
 
+// askWebHTTPClient fetches only public web pages selected from DuckDuckGo
+// results. Its resolver rejects loopback, private, link-local, multicast, and
+// unspecified addresses so a search result cannot turn !ask into an SSRF
+// primitive. Redirects are validated again before following them.
+var askWebHTTPClient = newAskWebHTTPClient()
+
 // DuckDuckGo only includes its Search Assist preload on browser-shaped HTML
 // responses. Search Assist is a web feature rather than a documented API, so
 // keep this request isolated from the transparent user agent used by the
@@ -507,6 +548,12 @@ type askRenderedSearchAssistData struct {
 	Links []string `json:"links"`
 }
 
+type askRenderedSearchResult struct {
+	Title   string `json:"title"`
+	URL     string `json:"url"`
+	Snippet string `json:"snippet"`
+}
+
 const askRenderedSearchAssistScript = `() => {
   const textOf = (element) => (element.innerText || element.textContent || "").trim();
   const headers = Array.from(document.querySelectorAll("body *")).filter((element) => {
@@ -522,6 +569,48 @@ const askRenderedSearchAssistScript = `() => {
   const clone = card.cloneNode(true);
   clone.querySelectorAll("a, button, [role=button]").forEach((element) => element.remove());
   return {text: textOf(clone), links};
+}`
+
+// DuckDuckGo changes its result-card markup periodically. The selector list
+// intentionally covers the current data-testid markup and the older HTML
+// result classes, while requiring a title link and an absolute HTTP(S) URL.
+const askRenderedSearchResultsScript = `() => {
+  const textOf = (element) => (element.innerText || element.textContent || "").trim();
+  const unwrap = (href) => {
+    try {
+      const parsed = new URL(href, location.href);
+      const isDuckDuckGo = parsed.hostname === "duckduckgo.com" || parsed.hostname.endsWith(".duckduckgo.com");
+      if (isDuckDuckGo && parsed.pathname.startsWith("/l/")) {
+        const target = parsed.searchParams.get("uddg");
+        if (target) return decodeURIComponent(target);
+      }
+      return parsed.href;
+    } catch (_) { return ""; }
+  };
+  const selectors = [
+    '[data-testid="result"]',
+    'article[data-testid="result"]',
+    '.result',
+    'article.result'
+  ];
+  const cards = [];
+  const seen = new Set();
+  selectors.forEach((selector) => document.querySelectorAll(selector).forEach((card) => {
+    if (!seen.has(card)) { seen.add(card); cards.push(card); }
+  }));
+  const results = [];
+  cards.forEach((card) => {
+    const link = card.querySelector('a[data-testid="result-title-a"], a.result__a, h2 a');
+    if (!link) return;
+    const url = unwrap(link.href);
+    if (!/^https?:\/\//i.test(url)) return;
+    const title = textOf(link);
+    const snippetNode = card.querySelector('[data-testid="result-snippet"], [data-result="snippet"], .result__snippet');
+    const snippet = snippetNode ? textOf(snippetNode) : "";
+    if (!title && !snippet) return;
+    results.push({title, url, snippet});
+  });
+  return results.slice(0, 8);
 }`
 
 func askDuckDuckGoSearchAssist(ctx context.Context, question string) (askSource, bool) {
@@ -617,7 +706,7 @@ func askDuckDuckGoSearchAssistOnce(ctx context.Context, question, fallbackURL st
 	return parseDuckDuckGoSearchAssist(string(assistBody), fallbackURL)
 }
 
-func askDuckDuckGoRenderedSearchAssist(ctx context.Context, question, browserPath string) (askSource, bool) {
+func askDuckDuckGoRenderedSearchAssist(ctx context.Context, question, browserPath string, fetchResults bool) (askSource, bool) {
 	executable := strings.TrimSpace(browserPath)
 	if executable != "" {
 		if _, err := osexec.LookPath(executable); err != nil {
@@ -641,7 +730,7 @@ func askDuckDuckGoRenderedSearchAssist(ctx context.Context, question, browserPat
 		if index < len(queries) {
 			query = queries[index]
 		}
-		if source, ok := askDuckDuckGoRenderedSearchAssistOnce(ctx, query, duckDuckGoSearchURL(question), executable); ok {
+		if source, ok := askDuckDuckGoRenderedSearchAssistOnce(ctx, query, duckDuckGoSearchURL(question), executable, fetchResults); ok {
 			return source, true
 		}
 		if err := ctx.Err(); err != nil {
@@ -651,7 +740,7 @@ func askDuckDuckGoRenderedSearchAssist(ctx context.Context, question, browserPat
 	return askSource{}, false
 }
 
-func askDuckDuckGoRenderedSearchAssistOnce(ctx context.Context, question, fallbackURL, executable string) (askSource, bool) {
+func askDuckDuckGoRenderedSearchAssistOnce(ctx context.Context, question, fallbackURL, executable string, fetchResults bool) (askSource, bool) {
 	browserTimeout := 4 * time.Second
 	if deadline, ok := ctx.Deadline(); ok {
 		remaining := time.Until(deadline)
@@ -679,16 +768,235 @@ func askDuckDuckGoRenderedSearchAssistOnce(ctx context.Context, question, fallba
 	defer browserCancel()
 
 	var result askRenderedSearchAssistData
-	err := chromedp.Run(browserCtx,
-		chromedp.Navigate(duckDuckGoSearchURL(question)),
-		chromedp.PollFunction(askRenderedSearchAssistScript, &result,
-			chromedp.WithPollingInterval(100*time.Millisecond),
-			chromedp.WithPollingTimeout(browserTimeout)),
-	)
+	if err := chromedp.Run(browserCtx, chromedp.Navigate(duckDuckGoSearchURL(question))); err != nil {
+		return askSource{}, false
+	}
+	assistTimeout := 2 * time.Second
+	if browserTimeout < assistTimeout {
+		assistTimeout = browserTimeout
+	}
+	if err := chromedp.Run(browserCtx, chromedp.PollFunction(askRenderedSearchAssistScript, &result,
+		chromedp.WithPollingInterval(100*time.Millisecond),
+		chromedp.WithPollingTimeout(assistTimeout))); err == nil {
+		if source, ok := parseRenderedSearchAssist(result, fallbackURL); ok {
+			return source, true
+		}
+	}
+
+	// Search Assist is not guaranteed to render for every query. The normal
+	// result cards are still useful: select the most relevant public result,
+	// then fetch a bounded excerpt from that source (with a Reddit JSON path
+	// where available). If fetching fails, the DuckDuckGo snippet remains a
+	// useful attributed fallback.
+	if !fetchResults {
+		return askSource{}, false
+	}
+	var results []askRenderedSearchResult
+	if err := chromedp.Run(browserCtx, chromedp.Evaluate(askRenderedSearchResultsScript, &results)); err != nil {
+		return askSource{}, false
+	}
+	selected, ok := selectAskSearchResult(question, results)
+	if !ok {
+		return askSource{}, false
+	}
+	return fetchAskSearchResult(runCtx, selected, question)
+}
+
+func selectAskSearchResult(question string, results []askRenderedSearchResult) (askRenderedSearchResult, bool) {
+	terms := strings.Fields(askFocusedTerm(question))
+	if len(terms) == 0 {
+		terms = strings.Fields(strings.ToLower(question))
+	}
+	bestScore := -1
+	var best askRenderedSearchResult
+	for index, result := range results {
+		result.Title = cleanExternalText(result.Title)
+		result.Snippet = cleanExternalText(result.Snippet)
+		result.URL = strings.TrimSpace(result.URL)
+		if result.Title == "" || !validPublicHTTPURL(result.URL) {
+			continue
+		}
+		parsedURL, _ := url.Parse(result.URL)
+		if parsedURL == nil || isDuckDuckGoHost(parsedURL.Hostname()) {
+			continue
+		}
+		lowerTitle := strings.ToLower(result.Title)
+		lowerSnippet := strings.ToLower(result.Snippet)
+		score := 100 - index
+		for _, term := range terms {
+			if strings.Contains(lowerTitle, term) {
+				score += 5
+			}
+			if strings.Contains(lowerSnippet, term) {
+				score++
+			}
+		}
+		if score > bestScore {
+			bestScore = score
+			best = result
+		}
+	}
+	return best, bestScore >= 0
+}
+
+func fetchAskSearchResult(ctx context.Context, result askRenderedSearchResult, question string) (askSource, bool) {
+	if !validPublicHTTPURL(result.URL) {
+		return askSource{}, false
+	}
+	parsedResultURL, _ := url.Parse(result.URL)
+	if parsedResultURL != nil && isRedditHost(parsedResultURL.Hostname()) {
+		if source, ok := fetchAskRedditResult(ctx, result); ok {
+			return source, true
+		}
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, result.URL, nil)
 	if err != nil {
 		return askSource{}, false
 	}
-	return parseRenderedSearchAssist(result, fallbackURL)
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,text/plain;q=0.8")
+	req.Header.Set("User-Agent", "GoBot/1.0 (IRC bot; source excerpt lookup)")
+	res, err := askWebHTTPClient.Do(req)
+	if err == nil {
+		defer res.Body.Close()
+		if askHTTPSuccess(res.StatusCode) && askHTMLContentType(res.Header.Get("Content-Type")) {
+			body, readErr := io.ReadAll(io.LimitReader(res.Body, 512<<10))
+			if readErr == nil {
+				if excerpt := extractAskHTMLExcerpt(body, result.Snippet, result.Title, strings.Fields(askFocusedTerm(question))); excerpt != "" {
+					return askSource{Title: result.Title, Summary: formatAskSearchResultSummary(result.Title, excerpt), URL: result.URL}, true
+				}
+			}
+		}
+	}
+	if result.Snippet != "" {
+		return askSource{Title: result.Title, Summary: formatAskSearchResultSummary(result.Title, result.Snippet), URL: result.URL}, true
+	}
+	return askSource{}, false
+}
+
+func formatAskSearchResultSummary(title, excerpt string) string {
+	title = cleanExternalText(title)
+	excerpt = cleanExternalText(excerpt)
+	if title == "" {
+		return excerpt
+	}
+	if excerpt == "" || strings.Contains(strings.ToLower(excerpt), strings.ToLower(title)) {
+		return title + ": " + excerpt
+	}
+	return title + " — " + excerpt
+}
+
+func askHTMLContentType(contentType string) bool {
+	contentType = strings.ToLower(strings.TrimSpace(contentType))
+	return contentType == "" || strings.Contains(contentType, "text/html") || strings.Contains(contentType, "application/xhtml+xml") || strings.Contains(contentType, "text/plain")
+}
+
+func extractAskHTMLExcerpt(body []byte, fallback, title string, terms []string) string {
+	metaDescription := ""
+	paragraphs := make([]string, 0, 16)
+	var titleText, paragraph strings.Builder
+	inTitle, inParagraph := false, false
+	skipDepth := 0
+	z := xhtml.NewTokenizer(bytes.NewReader(body))
+	for {
+		tokenType := z.Next()
+		if tokenType == xhtml.ErrorToken {
+			break
+		}
+		switch tokenType {
+		case xhtml.StartTagToken, xhtml.SelfClosingTagToken:
+			nameBytes, hasAttr := z.TagName()
+			name := strings.ToLower(string(nameBytes))
+			if name == "script" || name == "style" || name == "noscript" || name == "svg" {
+				if tokenType == xhtml.StartTagToken {
+					skipDepth++
+				}
+				continue
+			}
+			if skipDepth > 0 {
+				continue
+			}
+			attrs := map[string]string{}
+			if hasAttr {
+				for {
+					key, value, more := z.TagAttr()
+					attrs[strings.ToLower(string(key))] = string(value)
+					if !more {
+						break
+					}
+				}
+			}
+			if name == "meta" {
+				property := strings.ToLower(attrs["property"])
+				if property == "" {
+					property = strings.ToLower(attrs["name"])
+				}
+				if (property == "description" || property == "og:description" || property == "twitter:description") && metaDescription == "" {
+					metaDescription = cleanExternalText(html.UnescapeString(attrs["content"]))
+				}
+			}
+			if name == "title" {
+				inTitle = true
+			}
+			if (name == "p" || name == "li") && !inParagraph {
+				inParagraph = true
+				paragraph.Reset()
+			}
+		case xhtml.TextToken:
+			if skipDepth > 0 {
+				continue
+			}
+			text := string(z.Text())
+			if inTitle {
+				titleText.WriteString(text)
+			}
+			if inParagraph {
+				paragraph.WriteByte(' ')
+				paragraph.WriteString(text)
+			}
+		case xhtml.EndTagToken:
+			nameBytes, _ := z.TagName()
+			name := strings.ToLower(string(nameBytes))
+			if skipDepth > 0 {
+				if name == "script" || name == "style" || name == "noscript" || name == "svg" {
+					skipDepth--
+				}
+				continue
+			}
+			if name == "title" {
+				inTitle = false
+			}
+			if (name == "p" || name == "li") && inParagraph {
+				if text := cleanExternalText(paragraph.String()); text != "" {
+					paragraphs = append(paragraphs, text)
+				}
+				inParagraph = false
+			}
+		}
+	}
+	if metaDescription != "" {
+		return metaDescription
+	}
+	if fallback != "" {
+		return cleanExternalText(fallback)
+	}
+	best, bestScore := "", -1
+	for index, candidate := range paragraphs {
+		score := 1 - index
+		lower := strings.ToLower(candidate)
+		for _, term := range terms {
+			if term != "" && strings.Contains(lower, term) {
+				score++
+			}
+		}
+		if score > bestScore {
+			best, bestScore = candidate, score
+		}
+	}
+	if best != "" {
+		return best
+	}
+	return cleanExternalText(titleText.String())
 }
 
 func parseRenderedSearchAssist(result askRenderedSearchAssistData, fallbackURL string) (askSource, bool) {
@@ -1184,6 +1492,139 @@ func validWikidataID(id string) bool {
 func validHTTPURL(raw string) bool {
 	parsed, err := url.Parse(strings.TrimSpace(raw))
 	return err == nil && (parsed.Scheme == "http" || parsed.Scheme == "https") && parsed.Host != ""
+}
+
+func validPublicHTTPURL(raw string) bool {
+	parsed, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || !validHTTPURL(raw) || parsed.User != nil || parsed.Hostname() == "" {
+		return false
+	}
+	host := strings.ToLower(strings.TrimSuffix(parsed.Hostname(), "."))
+	if host == "localhost" || strings.HasSuffix(host, ".localhost") || strings.HasSuffix(host, ".local") || strings.HasSuffix(host, ".internal") {
+		return false
+	}
+	if port := parsed.Port(); port != "" && port != "80" && port != "443" {
+		return false
+	}
+	if address, err := netip.ParseAddr(host); err == nil {
+		return isPublicIP(address)
+	}
+	return true
+}
+
+func isDuckDuckGoHost(host string) bool {
+	host = strings.ToLower(strings.TrimSuffix(host, "."))
+	return host == "duckduckgo.com" || strings.HasSuffix(host, ".duckduckgo.com")
+}
+
+func isPublicIP(address netip.Addr) bool {
+	return address.IsGlobalUnicast() && !address.IsPrivate() && !address.IsLoopback() && !address.IsLinkLocalUnicast() && !address.IsLinkLocalMulticast() && !address.IsMulticast() && !address.IsUnspecified()
+}
+
+func newAskWebHTTPClient() *http.Client {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.DialContext = askPublicDialContext
+	return &http.Client{
+		Timeout:   6 * time.Second,
+		Transport: transport,
+		CheckRedirect: func(req *http.Request, _ []*http.Request) error {
+			if !validPublicHTTPURL(req.URL.String()) {
+				return fmt.Errorf("refusing non-public redirect")
+			}
+			return nil
+		},
+	}
+}
+
+func askPublicDialContext(ctx context.Context, network, address string) (net.Conn, error) {
+	host, port, err := net.SplitHostPort(address)
+	if err != nil {
+		return nil, err
+	}
+	if parsed, parseErr := netip.ParseAddr(host); parseErr == nil {
+		if !isPublicIP(parsed) {
+			return nil, fmt.Errorf("refusing non-public address")
+		}
+		return (&net.Dialer{Timeout: 3 * time.Second}).DialContext(ctx, network, address)
+	}
+	ips, err := net.DefaultResolver.LookupIP(ctx, "ip", host)
+	if err != nil {
+		return nil, err
+	}
+	dialer := &net.Dialer{Timeout: 3 * time.Second}
+	for _, ip := range ips {
+		parsed, parseErr := netip.ParseAddr(ip.String())
+		if parseErr != nil || !isPublicIP(parsed) {
+			continue
+		}
+		conn, dialErr := dialer.DialContext(ctx, network, net.JoinHostPort(parsed.String(), port))
+		if dialErr == nil {
+			return conn, nil
+		}
+	}
+	return nil, fmt.Errorf("no public address available for %s", host)
+}
+
+type askRedditListing struct {
+	Data struct {
+		Children []struct {
+			Data struct {
+				Title     string `json:"title"`
+				Selftext  string `json:"selftext"`
+				Body      string `json:"body"`
+				Permalink string `json:"permalink"`
+			} `json:"data"`
+		} `json:"children"`
+	} `json:"data"`
+}
+
+func fetchAskRedditResult(ctx context.Context, result askRenderedSearchResult) (askSource, bool) {
+	parsed, err := url.Parse(result.URL)
+	if err != nil || !isRedditHost(parsed.Hostname()) || !strings.Contains(strings.ToLower(parsed.Path), "/comments/") {
+		return askSource{}, false
+	}
+	jsonURL := *parsed
+	jsonURL.Path = strings.TrimRight(jsonURL.Path, "/") + ".json"
+	jsonURL.RawQuery = "raw_json=1"
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, jsonURL.String(), nil)
+	if err != nil {
+		return askSource{}, false
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", "GoBot/1.0 (IRC bot; public Reddit source excerpt)")
+	res, err := askWebHTTPClient.Do(req)
+	if err != nil {
+		return askSource{}, false
+	}
+	defer res.Body.Close()
+	if !askHTTPSuccess(res.StatusCode) {
+		return askSource{}, false
+	}
+	var listings []askRedditListing
+	if err := json.NewDecoder(io.LimitReader(res.Body, 2<<20)).Decode(&listings); err != nil || len(listings) == 0 || len(listings[0].Data.Children) == 0 {
+		return askSource{}, false
+	}
+	post := listings[0].Data.Children[0].Data
+	title := cleanExternalText(post.Title)
+	body := cleanExternalText(post.Selftext)
+	if body == "" && len(listings) > 1 {
+		for _, child := range listings[1].Data.Children {
+			if comment := cleanExternalText(child.Data.Body); comment != "" {
+				body = comment
+				break
+			}
+		}
+	}
+	if title == "" {
+		title = result.Title
+	}
+	if body == "" {
+		body = cleanExternalText(result.Snippet)
+	}
+	if title == "" || body == "" {
+		return askSource{}, false
+	}
+	return askSource{Title: title, Summary: formatAskSearchResultSummary(title, body), URL: result.URL}, true
 }
 
 func formatAskResponse(nick, answer, sourceURL string, maxLength, maxResponseChars int) string {
