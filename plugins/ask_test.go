@@ -282,8 +282,8 @@ func TestAskNeedsWebResultAnswer(t *testing.T) {
 		"Why is this comedian controversial?",
 		"What makes this service unpopular?",
 		"Why do people criticize this product?",
-		"why is ari shaffir considered a faggot?",
-		"why is ari shaffir not liked much?",
+		"Why is this actor unpopular?",
+		"Why do some people dislike this comedian?",
 		"how do i install FreeBSD in Proxmox?",
 		"how do I install OpenBSD?",
 	} {
@@ -378,9 +378,9 @@ func TestParseRenderedSearchAssist(t *testing.T) {
 func TestSelectAskSearchResultPrefersRelevantTitle(t *testing.T) {
 	results := []askRenderedSearchResult{
 		{Title: "Unrelated news", URL: "https://example.com/news", Snippet: "A general article."},
-		{Title: "Why Ari Shaffir is controversial", URL: "https://www.reddit.com/r/Standup/comments/abc123/example/", Snippet: "A discussion of the comedian's public conduct."},
+		{Title: "Why this comedian is controversial", URL: "https://www.reddit.com/r/Standup/comments/abc123/example/", Snippet: "A discussion of the comedian's public conduct."},
 	}
-	got, ok := selectAskSearchResult("Why is Ari Shaffir controversial?", results)
+	got, ok := selectAskSearchResult("Why is this comedian controversial?", results)
 	if !ok || got.URL != results[1].URL {
 		t.Fatalf("selectAskSearchResult() = %#v, %v; want relevant result", got, ok)
 	}
