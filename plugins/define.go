@@ -50,7 +50,7 @@ func (p *Define) Handle(b *bot.Bot, m bot.Message) bool {
 	if part != "" {
 		part = " (" + part + ")"
 	}
-	b.Send(m.ReplyTarget(), fmt.Sprintf("%s%s: %s", cleanExternalText(entry.Word), part, definition))
+	b.Send(m.ReplyTarget(), fmt.Sprintf("📖 %s%s: %s", cleanExternalText(entry.Word), part, definition))
 	return true
 }
 

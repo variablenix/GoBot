@@ -37,7 +37,7 @@ func (p *Seen) Handle(b *bot.Bot, m bot.Message) bool {
 	}
 	var x record
 	json.Unmarshal(v, &x)
-	b.Send(m.ReplyTarget(), fmt.Sprintf("%s was last seen in %s %s ago saying: %q", x.Nick, x.Channel, formatSeenAge(x.At, time.Now()), x.Text))
+	b.Send(m.ReplyTarget(), fmt.Sprintf("👁️ %s was last seen in %s %s ago saying: %q", x.Nick, x.Channel, formatSeenAge(x.At, time.Now()), x.Text))
 	return true
 }
 

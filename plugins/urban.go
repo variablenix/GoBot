@@ -64,7 +64,7 @@ func (p *Urban) Handle(b *bot.Bot, m bot.Message) bool {
 	if definition == "" {
 		definition = "(empty definition)"
 	}
-	b.Send(m.ReplyTarget(), fmt.Sprintf("%s [%d/%d]: %s — %s", cleanExternalText(entry.Word), index, len(data.List), definition, cleanExternalText(entry.Permalink)))
+	b.Send(m.ReplyTarget(), fmt.Sprintf("🗣️ %s [%d/%d]: %s — %s", cleanExternalText(entry.Word), index, len(data.List), definition, cleanExternalText(entry.Permalink)))
 	return true
 }
 
