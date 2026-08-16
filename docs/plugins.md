@@ -1116,8 +1116,11 @@ DuckDuckGo search page. Query framing is normalized across common definition,
 relationship, origin, release, publication, debut, launch, and date phrases.
 Relationship and temporal questions use intent checks and structured Wikidata
 claims where available, so a generic entity description is not reused as the
-answer to a specific person or date question. A sender-specific cooldown
-prevents repeated lookups from becoming a flood source.
+answer to a specific person or date question. Relationship claims cover
+creators, developers, founders, authors, inventors, and directors. For
+open-ended questions without a reliable source answer, the plugin returns a
+bounded DuckDuckGo search link. A sender-specific cooldown prevents repeated
+lookups from becoming a flood source.
 
 The plugin is configured under `plugins.ask`:
 

@@ -157,10 +157,13 @@ plugins:
 `status`, `calc`, `foods`, `sports`, `car`, and `weapons` are local. When
 `ask` uses DuckDuckGo's keyless Instant Answer endpoint first, then Wikidata
 entity and structured-claim fallbacks for definition, relationship, origin, and
-temporal questions. Query framing covers common synonyms for release,
-publication, debut, launch, and date questions. Responses remain
-source-grounded, sanitized, one-line, and bounded by `max_length` and
-`max_response_chars`. No credentials are required.
+temporal questions. Relationship claims include creators, developers,
+founders, authors, inventors, and directors when Wikidata provides them. Query
+framing covers common synonyms for release, publication, debut, launch, and
+date questions. If no reliable source answer exists, the bot returns a
+bounded DuckDuckGo search link instead of pretending that it knows the answer.
+Responses remain source-grounded, sanitized, one-line, and bounded by
+`max_length` and `max_response_chars`. No credentials are required.
 `define` uses the public English dictionary service, `reddit` uses Reddit's public post and
 subreddit JSON endpoints with an RSS fallback, and `horoscope` uses a public
 daily horoscope API. `foods` and `sports` use local text files only. `fun` uses
