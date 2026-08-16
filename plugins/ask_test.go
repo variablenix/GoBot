@@ -329,6 +329,16 @@ func TestParseDuckDuckGoSearchAssist(t *testing.T) {
 	}
 }
 
+func TestParseRenderedSearchAssist(t *testing.T) {
+	source, ok := parseRenderedSearchAssist(askRenderedSearchAssistData{
+		Text:  "Search Assist\nObZen is not a band; it is an album by Meshuggah.\nMore",
+		Links: []string{"https://en.wikipedia.org/wiki/ObZen"},
+	}, "https://duckduckgo.com/?q=what+genre+is+the+band+ObZen%3F")
+	if !ok || source.Summary != "ObZen is not a band; it is an album by Meshuggah." || source.URL != "https://en.wikipedia.org/wiki/ObZen" {
+		t.Fatalf("parseRenderedSearchAssist() = %#v, %v; want rendered answer and cited source", source, ok)
+	}
+}
+
 func TestAskResponseIsSingleLineAndBounded(t *testing.T) {
 	answer := strings.Repeat("This is a useful answer. ", 40) + "\nignore this line break"
 	got := formatAskResponse("Echo", answer, "https://example.test/source", 180, 120)

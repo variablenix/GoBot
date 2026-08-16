@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	osexec "os/exec"
 	"regexp"
 	"strconv"
 	"strings"
@@ -16,12 +17,14 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/chromedp/chromedp"
 	"github.com/variablenix/GoBot/bot"
 	"github.com/variablenix/GoBot/storage"
 )
 
-// Ask provides a small, source-grounded question lookup. DuckDuckGo Instant
-// Answers are primary and exact Wikidata entities are the fallback.
+// Ask provides a small, source-grounded question lookup. DuckDuckGo Search
+// Assist is primary, with the rendered browser path, Instant Answers, and
+// exact Wikidata entities as fallbacks.
 type Ask struct {
 	cfg         bot.PluginConfig
 	cfgMu       sync.RWMutex
@@ -178,6 +181,11 @@ func (p *Ask) findSource(ctx context.Context, question string, cfg bot.PluginCon
 	if cfg.Bool("search_assist_enabled", true) {
 		if source, ok := askDuckDuckGoSearchAssist(ctx, question); ok {
 			return source, true
+		}
+		if cfg.Bool("search_assist_browser_enabled", true) {
+			if source, ok := askDuckDuckGoRenderedSearchAssist(ctx, question, cfg.String("browser_path", "")); ok {
+				return source, true
+			}
 		}
 	}
 	if cfg.Bool("duckduckgo_enabled", true) {
@@ -494,6 +502,28 @@ var askSearchAssistScriptPattern = regexp.MustCompile(`(?s)<script[^>]*id=["']de
 var askSearchAssistOpinionPattern = regexp.MustCompile(`(?i)^why\s+should\s+(?:someone|somebody|people|users?|we|you|they)\s+not\s+use\s+(.+?)\s*[?!.]*$`)
 var askSearchAssistGenrePattern = regexp.MustCompile(`(?i)^what\s+(?:(?:music|musical)\s+)?genre\s+is\s+(?:the\s+)?(?:band|artist|group)\s+(.+?)\s*[?!.]*$`)
 
+type askRenderedSearchAssistData struct {
+	Text  string   `json:"text"`
+	Links []string `json:"links"`
+}
+
+const askRenderedSearchAssistScript = `() => {
+  const textOf = (element) => (element.innerText || element.textContent || "").trim();
+  const headers = Array.from(document.querySelectorAll("body *")).filter((element) => {
+    const text = textOf(element);
+    return text === "Search Assist" || text.startsWith("Search Assist\n");
+  });
+  if (!headers.length) return null;
+  let card = headers.sort((a, b) => textOf(a).length - textOf(b).length)[0];
+  while (card.parentElement && textOf(card.parentElement).length < 3500) card = card.parentElement;
+  const links = Array.from(card.querySelectorAll("a[href]"))
+    .map((anchor) => anchor.href)
+    .filter((href) => /^https?:\/\//i.test(href));
+  const clone = card.cloneNode(true);
+  clone.querySelectorAll("a, button, [role=button]").forEach((element) => element.remove());
+  return {text: textOf(clone), links};
+}`
+
 func askDuckDuckGoSearchAssist(ctx context.Context, question string) (askSource, bool) {
 	// Search Assist can return its web container before the generated answer is
 	// available. Try one intent-preserving framing variant when the wording is
@@ -585,6 +615,104 @@ func askDuckDuckGoSearchAssistOnce(ctx context.Context, question, fallbackURL st
 		return askSource{}, false
 	}
 	return parseDuckDuckGoSearchAssist(string(assistBody), fallbackURL)
+}
+
+func askDuckDuckGoRenderedSearchAssist(ctx context.Context, question, browserPath string) (askSource, bool) {
+	executable := strings.TrimSpace(browserPath)
+	if executable != "" {
+		if _, err := osexec.LookPath(executable); err != nil {
+			return askSource{}, false
+		}
+	} else {
+		for _, candidate := range []string{"chromium", "chromium-browser", "google-chrome", "google-chrome-stable"} {
+			if path, err := osexec.LookPath(candidate); err == nil {
+				executable = path
+				break
+			}
+		}
+		if executable == "" {
+			return askSource{}, false
+		}
+	}
+
+	queries := askSearchAssistQueryVariants(question)
+	for index := 0; index < 2; index++ {
+		query := queries[0]
+		if index < len(queries) {
+			query = queries[index]
+		}
+		if source, ok := askDuckDuckGoRenderedSearchAssistOnce(ctx, query, duckDuckGoSearchURL(question), executable); ok {
+			return source, true
+		}
+		if err := ctx.Err(); err != nil {
+			break
+		}
+	}
+	return askSource{}, false
+}
+
+func askDuckDuckGoRenderedSearchAssistOnce(ctx context.Context, question, fallbackURL, executable string) (askSource, bool) {
+	browserTimeout := 4 * time.Second
+	if deadline, ok := ctx.Deadline(); ok {
+		remaining := time.Until(deadline)
+		if remaining <= 0 {
+			return askSource{}, false
+		}
+		if remaining < browserTimeout {
+			browserTimeout = remaining
+		}
+	}
+	runCtx, cancel := context.WithTimeout(ctx, browserTimeout)
+	defer cancel()
+
+	opts := append([]chromedp.ExecAllocatorOption{}, chromedp.DefaultExecAllocatorOptions[:]...)
+	opts = append(opts,
+		chromedp.ExecPath(executable),
+		chromedp.Flag("headless", "new"),
+		chromedp.Flag("disable-dev-shm-usage", true),
+		chromedp.Flag("disable-gpu", true),
+		chromedp.WindowSize(1280, 900),
+	)
+	allocatorCtx, allocatorCancel := chromedp.NewExecAllocator(runCtx, opts...)
+	defer allocatorCancel()
+	browserCtx, browserCancel := chromedp.NewContext(allocatorCtx)
+	defer browserCancel()
+
+	var result askRenderedSearchAssistData
+	err := chromedp.Run(browserCtx,
+		chromedp.Navigate(duckDuckGoSearchURL(question)),
+		chromedp.PollFunction(askRenderedSearchAssistScript, &result,
+			chromedp.WithPollingInterval(100*time.Millisecond),
+			chromedp.WithPollingTimeout(browserTimeout)),
+	)
+	if err != nil {
+		return askSource{}, false
+	}
+	return parseRenderedSearchAssist(result, fallbackURL)
+}
+
+func parseRenderedSearchAssist(result askRenderedSearchAssistData, fallbackURL string) (askSource, bool) {
+	lines := strings.Split(strings.ReplaceAll(result.Text, "\r\n", "\n"), "\n")
+	answerLines := make([]string, 0, len(lines))
+	for _, line := range lines {
+		line = strings.TrimSpace(cleanExternalText(line))
+		if line == "" || strings.EqualFold(line, "Search Assist") || strings.EqualFold(line, "More") || strings.HasPrefix(strings.ToLower(line), "auto-generated based on") || strings.HasPrefix(strings.ToLower(line), "was this helpful") {
+			continue
+		}
+		answerLines = append(answerLines, line)
+	}
+	answer := cleanExternalText(strings.Join(answerLines, " "))
+	if answer == "" {
+		return askSource{}, false
+	}
+	sourceURL := fallbackURL
+	for _, link := range result.Links {
+		if validHTTPURL(link) {
+			sourceURL = link
+			break
+		}
+	}
+	return askSource{Title: "DuckDuckGo Search Assist", Summary: answer, URL: sourceURL}, true
 }
 
 func parseDuckDuckGoSearchAssist(body, fallbackURL string) (askSource, bool) {

@@ -89,6 +89,10 @@ plugins:
   ask:
     enabled: true
     search_assist_enabled: true
+    # Uses an installed Chromium/Chrome browser when the lightweight request
+    # has no answer.
+    search_assist_browser_enabled: true
+    browser_path: ""
     duckduckgo_enabled: true
     wikidata_fallback: true
     max_length: 360

@@ -1113,8 +1113,9 @@ The `!ask` plugin uses DuckDuckGo Search Assist first when
 `search_assist_enabled` is enabled. This is a best-effort integration of the
 Search Assist request used by DuckDuckGo's web results, not a documented public
 API; it may be disabled if DuckDuckGo changes the page or endpoint. The plugin
-then uses DuckDuckGo's keyless Instant Answer endpoint and Wikidata as a
-fallback. Search Assist and DuckDuckGo summaries may be backed by encyclopedia
+then uses a local Chromium/Chrome browser to read the rendered Search Assist
+card when the lightweight request has no answer, followed by DuckDuckGo's
+keyless Instant Answer endpoint and Wikidata as fallbacks. Search Assist and DuckDuckGo summaries may be backed by encyclopedia
 sources; GoBot presents them as bounded answers and links to a cited source
 when one is provided. Query framing is normalized across common definition,
 relationship, origin, release, publication, debut, launch, genre, and date phrases.
@@ -1135,6 +1136,8 @@ plugins:
   ask:
     enabled: true
     search_assist_enabled: true
+    search_assist_browser_enabled: true
+    browser_path: ""
     duckduckgo_enabled: true
     wikidata_fallback: true
     max_length: 360
@@ -1143,9 +1146,11 @@ plugins:
     cooldown_seconds: 15
 ~~~
 
-No credential or `.env` setting is required. Search Assist is a best-effort
-integration of DuckDuckGo's web request rather than a documented API, so it can
-be disabled if DuckDuckGo changes the endpoint. The response is sanitized,
+No credential or `.env` setting is required. The rendered fallback requires a
+Chromium/Chrome executable; Docker images include Chromium, while systemd
+deployments should install Chromium or set `browser_path`. Search Assist is a
+best-effort integration of DuckDuckGo's web request rather than a documented
+API, so it can be disabled if DuckDuckGo changes the endpoint. The response is sanitized,
 limited to one IRC line, and includes a cited source link when available. If no
 provider has a usable answer, GoBot returns a bounded DuckDuckGo search link
 instead of inventing one.
