@@ -10,6 +10,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
     CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o /irc-bot ./cmd/irc-bot
 FROM alpine:latest
+RUN apk add --no-cache chromium nss freetype harfbuzz ttf-freefont
 RUN addgroup -S gobot && adduser -S -G gobot gobot
 WORKDIR /app
 COPY --from=builder /irc-bot /irc-bot

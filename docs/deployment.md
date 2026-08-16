@@ -9,6 +9,7 @@ systemd service, and using Docker.
 - a writable filesystem for the BoltDB database
 - network access to the IRC servers
 - optionally, Docker and Docker Compose
+- optionally, Chromium/Chrome for the rendered `!ask` Search Assist fallback
 
 ## Build and run directly
 
@@ -98,7 +99,8 @@ If the repository moves, rerun the installer so the unit paths are regenerated.
 
 ## Docker
 
-The repository includes a multi-stage `Dockerfile` and a Compose file.
+The repository includes a multi-stage `Dockerfile` and a Compose file. The
+image includes Chromium for the rendered `!ask` Search Assist fallback.
 
 Build and run manually:
 
@@ -129,3 +131,9 @@ docker compose down
 
 `docker compose down -v` also removes the named volume and deletes stored bot
 data. Use it only when that data is no longer needed.
+
+For direct systemd deployments, install Chromium or Chrome on the host. GoBot
+searches for `chromium`, `chromium-browser`, `google-chrome`, and
+`google-chrome-stable`; set `plugins.ask.browser_path` when the executable is
+installed elsewhere. If no browser is available, the existing lightweight
+Search Assist, Instant Answer, and Wikidata fallbacks continue to work.
