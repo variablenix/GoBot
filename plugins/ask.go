@@ -493,12 +493,28 @@ type duckDuckGoSearchAssistPayload struct {
 var askSearchAssistScriptPattern = regexp.MustCompile(`(?s)<script[^>]*id=["']deep_preload_script["'][^>]*src=["']([^"']+)["']`)
 
 func askDuckDuckGoSearchAssist(ctx context.Context, question string) (askSource, bool) {
+	// Search Assist can return its web container before the generated answer is
+	// available. Give the provider one bounded retry before using the normal
+	// fallbacks, while keeping the sender cooldown and request context limits.
+	for attempt := 0; attempt < 2; attempt++ {
+		if source, ok := askDuckDuckGoSearchAssistOnce(ctx, question); ok {
+			return source, true
+		}
+		if err := ctx.Err(); err != nil {
+			break
+		}
+	}
+	return askSource{}, false
+}
+
+func askDuckDuckGoSearchAssistOnce(ctx context.Context, question string) (askSource, bool) {
 	pageURL := duckDuckGoSearchURL(question)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, pageURL, nil)
 	if err != nil {
 		return askSource{}, false
 	}
 	req.Header.Set("Accept", "text/html,application/xhtml+xml")
+	req.Header.Set("Cache-Control", "no-cache")
 	req.Header.Set("User-Agent", askSearchAssistUserAgent)
 	res, err := askHTTPClient.Do(req)
 	if err != nil {
@@ -525,6 +541,7 @@ func askDuckDuckGoSearchAssist(ctx context.Context, question string) (askSource,
 		return askSource{}, false
 	}
 	assistReq.Header.Set("Accept", "application/javascript, application/json")
+	assistReq.Header.Set("Cache-Control", "no-cache")
 	assistReq.Header.Set("Referer", pageURL)
 	assistReq.Header.Set("User-Agent", askSearchAssistUserAgent)
 	assistRes, err := askHTTPClient.Do(assistReq)
