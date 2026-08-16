@@ -282,6 +282,10 @@ func TestAskNeedsWebResultAnswer(t *testing.T) {
 		"Why is this comedian controversial?",
 		"What makes this service unpopular?",
 		"Why do people criticize this product?",
+		"why is ari shaffir considered a faggot?",
+		"why is ari shaffir not liked much?",
+		"how do i install FreeBSD in Proxmox?",
+		"how do I install OpenBSD?",
 	} {
 		if !askNeedsWebResultAnswer(question) {
 			t.Fatalf("askNeedsWebResultAnswer(%q) = false; want web-result fallback", question)
