@@ -492,6 +492,7 @@ type duckDuckGoSearchAssistPayload struct {
 
 var askSearchAssistScriptPattern = regexp.MustCompile(`(?s)<script[^>]*id=["']deep_preload_script["'][^>]*src=["']([^"']+)["']`)
 var askSearchAssistOpinionPattern = regexp.MustCompile(`(?i)^why\s+should\s+(?:someone|somebody|people|users?|we|you|they)\s+not\s+use\s+(.+?)\s*[?!.]*$`)
+var askSearchAssistGenrePattern = regexp.MustCompile(`(?i)^what\s+genre\s+is\s+(?:the\s+)?(?:band|artist|group)\s+(.+?)\s*[?!.]*$`)
 
 func askDuckDuckGoSearchAssist(ctx context.Context, question string) (askSource, bool) {
 	// Search Assist can return its web container before the generated answer is
@@ -522,6 +523,13 @@ func askSearchAssistQueryVariants(question string) []string {
 		subject := strings.TrimSpace(match[1])
 		if subject != "" {
 			queries = append(queries, "what are the disadvantages of "+subject+"?")
+		}
+	}
+	match = askSearchAssistGenrePattern.FindStringSubmatch(original)
+	if len(match) == 2 {
+		subject := strings.Trim(strings.TrimSpace(match[1]), `"'`)
+		if subject != "" {
+			queries = append(queries, "what genres does "+subject+" have?")
 		}
 	}
 	return queries
