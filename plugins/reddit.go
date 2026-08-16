@@ -57,7 +57,7 @@ func (p *Reddit) Handle(b *bot.Bot, m bot.Message) bool {
 		maxLength = 120
 	}
 	result := formatRedditResultWithSort(post, postURL, sort)
-	b.Send(m.ReplyTarget(), truncateRunes(result, maxLength))
+	b.Send(m.ReplyTarget(), "🔗 "+truncateRunes(result, maxLength))
 	return true
 }
 
