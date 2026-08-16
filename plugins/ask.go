@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"html"
 	"io"
 	"net/http"
 	"net/url"
@@ -174,6 +175,11 @@ type askSource struct {
 
 func (p *Ask) findSource(ctx context.Context, question string, cfg bot.PluginConfig) (askSource, bool) {
 	focused := askFocusedTerm(question)
+	if cfg.Bool("search_assist_enabled", true) {
+		if source, ok := askDuckDuckGoSearchAssist(ctx, question); ok {
+			return source, true
+		}
+	}
 	if cfg.Bool("duckduckgo_enabled", true) {
 		if source, ok := askDuckDuckGo(ctx, question); ok {
 			if refined, ok := refineFocusedAskSource(question, source); ok {
@@ -462,6 +468,106 @@ type duckDuckGoAnswer struct {
 }
 
 var askHTTPClient = &http.Client{Timeout: 15 * time.Second}
+
+type duckDuckGoSearchAssistPayload struct {
+	InstantAnswers []struct {
+		Data struct {
+			Answer  string `json:"answer"`
+			Sources []struct {
+				Article struct {
+					Link string `json:"link"`
+					Site string `json:"site"`
+					Text string `json:"text"`
+				} `json:"article"`
+			} `json:"sources"`
+		} `json:"data"`
+	} `json:"instantAnswers"`
+}
+
+var askSearchAssistScriptPattern = regexp.MustCompile(`(?s)<script[^>]*id=["']deep_preload_script["'][^>]*src=["']([^"']+)["']`)
+
+func askDuckDuckGoSearchAssist(ctx context.Context, question string) (askSource, bool) {
+	pageURL := duckDuckGoSearchURL(question)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, pageURL, nil)
+	if err != nil {
+		return askSource{}, false
+	}
+	req.Header.Set("Accept", "text/html,application/xhtml+xml")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; GoBot/1.0; IRC bot)")
+	res, err := askHTTPClient.Do(req)
+	if err != nil {
+		return askSource{}, false
+	}
+	defer res.Body.Close()
+	if !askHTTPSuccess(res.StatusCode) {
+		return askSource{}, false
+	}
+	page, err := io.ReadAll(io.LimitReader(res.Body, 2<<20))
+	if err != nil {
+		return askSource{}, false
+	}
+	matches := askSearchAssistScriptPattern.FindSubmatch(page)
+	if len(matches) < 2 {
+		return askSource{}, false
+	}
+	assistURL := html.UnescapeString(string(matches[1]))
+	if !validHTTPURL(assistURL) {
+		return askSource{}, false
+	}
+	assistReq, err := http.NewRequestWithContext(ctx, http.MethodGet, assistURL, nil)
+	if err != nil {
+		return askSource{}, false
+	}
+	assistReq.Header.Set("Accept", "application/javascript, application/json")
+	assistReq.Header.Set("Referer", pageURL)
+	assistReq.Header.Set("User-Agent", "Mozilla/5.0 (compatible; GoBot/1.0; IRC bot)")
+	assistRes, err := askHTTPClient.Do(assistReq)
+	if err != nil {
+		return askSource{}, false
+	}
+	defer assistRes.Body.Close()
+	if !askHTTPSuccess(assistRes.StatusCode) {
+		return askSource{}, false
+	}
+	assistBody, err := io.ReadAll(io.LimitReader(assistRes.Body, 2<<20))
+	if err != nil {
+		return askSource{}, false
+	}
+	return parseDuckDuckGoSearchAssist(string(assistBody), pageURL)
+}
+
+func parseDuckDuckGoSearchAssist(body, fallbackURL string) (askSource, bool) {
+	const prefix = "DDG.deep.deepPayload = "
+	const suffix = ";DDG.deep.bn="
+	start := strings.Index(body, prefix)
+	if start < 0 {
+		return askSource{}, false
+	}
+	start += len(prefix)
+	end := strings.Index(body[start:], suffix)
+	if end < 0 {
+		return askSource{}, false
+	}
+	var payload duckDuckGoSearchAssistPayload
+	if err := json.Unmarshal([]byte(body[start:start+end]), &payload); err != nil {
+		return askSource{}, false
+	}
+	for _, instantAnswer := range payload.InstantAnswers {
+		answer := strings.ReplaceAll(cleanExternalText(instantAnswer.Data.Answer), "**", "")
+		if answer == "" {
+			continue
+		}
+		sourceURL := fallbackURL
+		for _, source := range instantAnswer.Data.Sources {
+			if validHTTPURL(source.Article.Link) {
+				sourceURL = source.Article.Link
+				break
+			}
+		}
+		return askSource{Title: "DuckDuckGo Search Assist", Summary: answer, URL: sourceURL}, true
+	}
+	return askSource{}, false
+}
 
 func askDuckDuckGo(ctx context.Context, question string) (askSource, bool) {
 	endpoint := "https://api.duckduckgo.com/?q=" + url.QueryEscape(question) + "&format=json&no_html=1&skip_disambig=1"

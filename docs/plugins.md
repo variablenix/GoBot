@@ -17,7 +17,7 @@ Plugins are enabled or disabled under plugins.<name>.enabled in config.yaml.
 - weather: Open-Meteo weather, no key required
 - steam: Steam game search, genre links, and most-played lookup, no key required
 - news: NewsAPI headlines and search
-- ask: keyless DuckDuckGo Instant Answers with a Wikidata fallback
+- ask: DuckDuckGo Search Assist with Instant Answer and Wikidata fallbacks
 - wikipedia: English Wikipedia summaries
 - horoscope: daily zodiac horoscopes
 - urban: Urban Dictionary definitions
@@ -1109,10 +1109,14 @@ Ask GoBot a general question with any of these aliases:
 !q what does TLS protect?
 ~~~
 
-The `!ask` plugin uses DuckDuckGo's keyless Instant Answer endpoint first and
-Wikidata as a fallback. DuckDuckGo summaries may be backed by encyclopedia
-sources; GoBot presents them as bounded answers and links to the corresponding
-DuckDuckGo search page. Query framing is normalized across common definition,
+The `!ask` plugin uses DuckDuckGo Search Assist first when
+`search_assist_enabled` is enabled. This is a best-effort integration of the
+Search Assist request used by DuckDuckGo's web results, not a documented public
+API; it may be disabled if DuckDuckGo changes the page or endpoint. The plugin
+then uses DuckDuckGo's keyless Instant Answer endpoint and Wikidata as a
+fallback. Search Assist and DuckDuckGo summaries may be backed by encyclopedia
+sources; GoBot presents them as bounded answers and links to a cited source
+when one is provided. Query framing is normalized across common definition,
 relationship, origin, release, publication, debut, launch, and date phrases.
 Relationship and temporal questions use intent checks and structured Wikidata
 claims where available, so a generic entity description is not reused as the
@@ -1128,6 +1132,7 @@ The plugin is configured under `plugins.ask`:
 plugins:
   ask:
     enabled: true
+    search_assist_enabled: true
     duckduckgo_enabled: true
     wikidata_fallback: true
     max_length: 360
@@ -1136,9 +1141,11 @@ plugins:
     cooldown_seconds: 15
 ~~~
 
-No credential or `.env` setting is required. The response is sanitized, limited
-to one IRC line, and includes a source link when the upstream response provides
-a safe HTTP URL. If neither source has a usable answer, GoBot says so clearly
+No credential or `.env` setting is required. Search Assist is a best-effort
+integration of DuckDuckGo's web request rather than a documented API, so it can
+be disabled if DuckDuckGo changes the endpoint. The response is sanitized,
+limited to one IRC line, and includes a cited source link when available. If no
+provider has a usable answer, GoBot returns a bounded DuckDuckGo search link
 instead of inventing one.
 
 ## Daily bonus

@@ -118,9 +118,10 @@ plugins:
   # Local operator-maintained ACRONYM|expansion[|context] entries.
   acronym: {enabled: true, data_file: "data/acronyms.txt", max_length: 320}
   steam: {enabled: true, timeout_seconds: 10, max_length: 360}
-  # Keyless DuckDuckGo Instant Answers with a Wikidata entity fallback.
+  # Search Assist web integration with Instant Answers/Wikidata fallbacks.
   ask:
     enabled: true
+    search_assist_enabled: true
     duckduckgo_enabled: true
     wikidata_fallback: true
     max_length: 360
@@ -155,15 +156,17 @@ plugins:
 ```
 
 `status`, `calc`, `foods`, `sports`, `car`, and `weapons` are local. When
-`ask` uses DuckDuckGo's keyless Instant Answer endpoint first, then Wikidata
-entity and structured-claim fallbacks for definition, relationship, origin, and
-temporal questions. Relationship claims include creators, developers,
-founders, authors, inventors, and directors when Wikidata provides them. Query
-framing covers common synonyms for release, publication, debut, launch, and
-date questions. If no reliable source answer exists, the bot returns a
-bounded DuckDuckGo search link instead of pretending that it knows the answer.
-Responses remain source-grounded, sanitized, one-line, and bounded by
-`max_length` and `max_response_chars`. No credentials are required.
+`ask` uses DuckDuckGo Search Assist first when `search_assist_enabled` is true.
+This is a best-effort web integration that follows the Search Assist script
+request used by DuckDuckGo's search page; it is not a documented public API and
+may be disabled if DuckDuckGo changes that page. DuckDuckGo Instant Answers
+remain the next provider, followed by Wikidata entity and structured-claim
+fallbacks for definition, relationship, origin, and temporal questions.
+Relationship claims include creators, developers, founders, authors, inventors,
+and directors when Wikidata provides them. If no reliable source answer exists,
+the bot returns a bounded DuckDuckGo search link instead of pretending that it
+knows the answer. Responses remain source-grounded, sanitized, one-line, and
+bounded by `max_length` and `max_response_chars`. No credentials are required.
 `define` uses the public English dictionary service, `reddit` uses Reddit's public post and
 subreddit JSON endpoints with an RSS fallback, and `horoscope` uses a public
 daily horoscope API. `foods` and `sports` use local text files only. `fun` uses
