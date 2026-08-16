@@ -1115,8 +1115,9 @@ Search Assist request used by DuckDuckGo's web results, not a documented public
 API; it may be disabled if DuckDuckGo changes the page or endpoint. The plugin
 then uses a local Chromium/Chrome browser to read the rendered Search Assist
 card when the lightweight request has no answer, followed by DuckDuckGo's
-keyless Instant Answer endpoint and Wikidata as fallbacks. Search Assist and DuckDuckGo summaries may be backed by encyclopedia
-sources; GoBot presents them as bounded answers and links to a cited source
+keyless Instant Answer endpoint and Wikidata as fallbacks. Search Assist and
+DuckDuckGo summaries may be backed by encyclopedia sources; GoBot presents
+them as bounded answers and links to a cited source
 when one is provided. Query framing is normalized across common definition,
 relationship, origin, release, publication, debut, launch, genre, and date phrases.
 Relationship and temporal questions use intent checks and structured Wikidata
@@ -1149,6 +1150,7 @@ plugins:
     max_response_chars: 240
     timeout_seconds: 8
     cooldown_seconds: 15
+    cache_seconds: 300
 ~~~
 
 No credential or `.env` setting is required. The rendered fallback requires a
@@ -1160,8 +1162,12 @@ API, so it can be disabled if DuckDuckGo changes the endpoint. When
 result cards and fetch only public HTTP(S) pages on ports 80/443, with bounded
 timeouts and response sizes. Private, local, and non-HTTP destinations are
 rejected. The response is sanitized,
-limited to one IRC line, and includes a cited source link when available. If no
-provider has a usable answer, GoBot returns a bounded DuckDuckGo search link
+limited to one IRC line, and includes a cited source link when available.
+Each provider has a bounded sub-timeout so a slow Search Assist request cannot
+consume the entire lookup window; transient DuckDuckGo Instant Answer failures
+are retried within the same invocation. Successful answers are cached in memory
+for `cache_seconds` (default five minutes), keyed by normalized question text.
+If no provider has a usable answer, GoBot returns a bounded DuckDuckGo search link
 instead of inventing one.
 
 ## Daily bonus

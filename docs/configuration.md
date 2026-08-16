@@ -131,6 +131,7 @@ plugins:
     max_response_chars: 240
     timeout_seconds: 8
     cooldown_seconds: 15
+    cache_seconds: 300
   grab: {enabled: true, max_length: 320, max_quotes_per_user: 20}
   linux: {enabled: true, timeout_seconds: 8, max_length: 260}
   foods: {enabled: true, data_dir: "data/foods", max_length: 240}
@@ -158,8 +159,8 @@ plugins:
   docker: {enabled: true, timeout_seconds: 8, max_length: 300}
 ```
 
-`status`, `calc`, `foods`, `sports`, `car`, and `weapons` are local. When
-`ask` uses DuckDuckGo Search Assist first when `search_assist_enabled` is true.
+`status`, `calc`, `foods`, `sports`, `car`, and `weapons` are local. The
+`ask` plugin uses DuckDuckGo Search Assist first when `search_assist_enabled` is true.
 This is a best-effort web integration that first uses the lightweight Search
 Assist request and then, when enabled, a local Chromium/Chrome browser to read
 the rendered Search Assist card. The browser path can be set with
@@ -179,9 +180,12 @@ excerpt (or Reddit's public JSON for a Reddit post), and attributes the excerpt
 to that result. This is source text, not an AI-generated synthesis; if the page
 cannot be safely or quickly fetched, its DuckDuckGo snippet is used instead.
 If no reliable source answer exists, the bot returns a bounded DuckDuckGo search
-link instead of pretending that it knows the answer. Responses remain source-grounded,
-sanitized, one-line, and
-bounded by `max_length` and `max_response_chars`. No credentials are required.
+link instead of pretending that it knows the answer. Responses remain
+source-grounded, sanitized, one-line, and bounded by `max_length` and
+`max_response_chars`. Successful answers are cached
+in memory for `cache_seconds` (default five minutes), keyed by normalized
+question text, so repeated questions do not depend on a second provider race.
+The cache is in memory and is cleared when GoBot restarts. No credentials are required.
 `define` uses the public English dictionary service, `reddit` uses Reddit's public post and
 subreddit JSON endpoints with an RSS fallback, and `horoscope` uses a public
 daily horoscope API. `foods` and `sports` use local text files only. `fun` uses
