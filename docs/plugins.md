@@ -55,6 +55,11 @@ Plugins are enabled or disabled under plugins.<name>.enabled in config.yaml.
 - channelstats: persistent per-channel statistics
 - help and alias: command discovery
 - blackjack, pool, poll, remind, and duckhunt: games and activities
+- bday: persistent birthdays with optional daily announcements
+- coinflip, rps, and slots: secure-random casual games
+- dadjoke: dad jokes with a bundled offline fallback
+- trivia: timed channel trivia with persistent scores
+- wordle: deterministic daily channel Wordle puzzles
 
 Most command responses are rate-limited. See
 [Configuration](configuration.md#rate-limits-and-join-warmup).
@@ -62,6 +67,121 @@ Most command responses are rate-limited. See
 Every command in the six plugins below emits exactly one bounded IRC line per
 invocation. Third-party text is sanitized, and summaries use truncation or a
 `+ N more` suffix rather than sending additional lines.
+
+## Birthday tracker
+
+~~~text
+!bday set 04-23
+!bday
+!bday Alice
+!bday list
+!bday next
+!bday delete
+!birthday
+~~~
+
+Birthdays are stored by authenticated IRC account when available, falling back
+to the network and nickname. Dates are month/day only and strictly validated.
+The optional daily announcement runs at the configured UTC hour and remembers
+announced nicknames in memory until the process restarts.
+
+~~~yaml
+plugins:
+  bday:
+    enabled: true
+    announce: true
+    announce_hour: 9
+~~~
+
+## Coin flip, RPS, and slots
+
+~~~text
+!coinflip [nick]
+!rps rock
+!rps stats
+!rps leaderboard
+!slots
+~~~
+
+Coin flips, RPS throws, and slot reels use the operating system cryptographic
+random source. RPS records are scoped to network/channel/account in BoltDB;
+slots have weighted reels but no currency or wagering. The plugins keep their
+own channel or user cooldowns in addition to GoBot's global command limit.
+
+~~~yaml
+plugins:
+  coinflip: {enabled: true, cooldown_seconds: 3}
+  rps: {enabled: true, cooldown_seconds: 5, max_length: 300}
+  slots: {enabled: true, cooldown_seconds: 8, max_length: 300}
+~~~
+
+## Dad jokes
+
+`!dadjoke`, `!dad`, and `!punchline` fetch a short JSON dad joke over HTTPS.
+Transient failures use a bundled fallback bank, so the command still returns a
+single bounded response when the service is unavailable.
+
+~~~yaml
+plugins:
+  dadjoke:
+    enabled: true
+    timeout_seconds: 8
+    cooldown_seconds: 10
+    max_length: 360
+~~~
+
+## Trivia
+
+~~~text
+!trivia
+A
+!trivia score
+!trivia leaderboard
+!trivia stop
+~~~
+
+Trivia accepts bare A/B/C/D answers or `!answer A`, allows one active question
+per channel, and stores correct-answer totals by channel and account. Questions
+come from Open Trivia Database when available; an offline ten-question fallback
+keeps the command usable during network failures. `!t` and `!tq` are short
+aliases; GoBot keeps the existing `!q` and `!question` ask commands unchanged.
+Stopping an active question requires an authenticated account listed in
+`owner_accounts`.
+
+~~~yaml
+plugins:
+  trivia:
+    enabled: true
+    answer_seconds: 30
+    cooldown_seconds: 5
+    timeout_seconds: 10
+    max_length: 400
+    fallback_questions_file: ""
+~~~
+
+## Wordle
+
+~~~text
+!wordle
+!guess crane
+!wordle hint
+!wordle give up
+!wordle stats
+~~~
+
+Wordle selects one stable answer per UTC date and channel by hashing the date
+and channel name with SHA-256. Guesses, hints, and all-time wins/losses survive
+restarts in BoltDB. The checked-in `data/wordle/words.txt` catalog contains
+common five-letter words and is used for both answers and guess validation.
+
+~~~yaml
+plugins:
+  wordle:
+    enabled: true
+    words_file: "data/wordle/words.txt"
+    max_guesses: 6
+    max_length: 400
+~~~
 
 ## Paste
 

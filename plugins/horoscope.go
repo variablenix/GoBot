@@ -96,7 +96,7 @@ func (p *Horoscope) Handle(b *bot.Bot, m bot.Message) bool {
 	if maxSummaryLength == 0 {
 		maxSummaryLength = defaultHoroscopeSummaryLength
 	}
-	b.Send(m.ReplyTarget(), formatHoroscopeReply(canonical, sign, text, maxSummaryLength))
+	b.Send(m.ReplyTarget(), zodiacEmoji(sign)+" "+formatHoroscopeReply(canonical, sign, text, maxSummaryLength))
 	return true
 }
 
@@ -152,6 +152,37 @@ func truncateBytes(text string, max int) string {
 // helper is called, but escaping keeps the URL safe if it is reused later.
 func horoscopeSourceURL(sign string) string {
 	return "https://astrology.com.au/horoscopes/daily-horoscopes/" + url.PathEscape(strings.ToLower(sign))
+}
+
+func zodiacEmoji(sign string) string {
+	switch strings.ToLower(sign) {
+	case "aries":
+		return "♈"
+	case "taurus":
+		return "♉"
+	case "gemini":
+		return "♊"
+	case "cancer":
+		return "♋"
+	case "leo":
+		return "♌"
+	case "virgo":
+		return "♍"
+	case "libra":
+		return "♎"
+	case "scorpio":
+		return "♏"
+	case "sagittarius":
+		return "♐"
+	case "capricorn":
+		return "♑"
+	case "aquarius":
+		return "♒"
+	case "pisces":
+		return "♓"
+	default:
+		return ""
+	}
 }
 
 func (p *Horoscope) savedSign(nick string) string {

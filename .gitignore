@@ -13,6 +13,8 @@ data/*
 !data/scramble.txt
 !data/puzzles/
 !data/puzzles/*.txt
+!data/wordle/
+!data/wordle/*.txt
 .env
 .env.bak
 .act-runner/

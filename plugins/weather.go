@@ -68,7 +68,7 @@ func (p *Weather) Handle(b *bot.Bot, m bot.Message) bool {
 			b.Send(m.ReplyTarget(), ircColor(ircRed, "couldn't clear your weather default"))
 			return true
 		}
-		b.Send(m.ReplyTarget(), ircColor(ircGreen, "weather default cleared"))
+		b.Send(m.ReplyTarget(), "🌤️ "+ircColor(ircGreen, "weather default cleared"))
 		return true
 	}
 
@@ -93,10 +93,10 @@ func (p *Weather) Handle(b *bot.Bot, m bot.Message) bool {
 				b.Send(m.ReplyTarget(), ircColor(ircRed, "couldn't save your weather default"))
 				return true
 			}
-			b.Send(m.ReplyTarget(), weatherDefaultSaved(v.location))
+			b.Send(m.ReplyTarget(), "🌤️ "+weatherDefaultSaved(v.location))
 			return true
 		}
-		b.Send(m.ReplyTarget(), v.body)
+		b.Send(m.ReplyTarget(), "🌤️ "+v.body)
 		return true
 	}
 	p.mu.Unlock()
@@ -161,10 +161,10 @@ func (p *Weather) Handle(b *bot.Bot, m bot.Message) bool {
 			b.Send(m.ReplyTarget(), ircColor(ircRed, "couldn't save your weather default"))
 			return true
 		}
-		b.Send(m.ReplyTarget(), weatherDefaultSaved(placeLabel))
+		b.Send(m.ReplyTarget(), "🌤️ "+weatherDefaultSaved(placeLabel))
 		return true
 	}
-	b.Send(m.ReplyTarget(), body)
+	b.Send(m.ReplyTarget(), "🌤️ "+body)
 	return true
 }
 

@@ -46,7 +46,7 @@ func (p *Wikipedia) Handle(b *bot.Bot, m bot.Message) bool {
 	if len(r) > max {
 		summary = string(r[:max]) + "…"
 	}
-	b.Send(m.ReplyTarget(), summary+" "+x.ContentURLs.Desktop.Page)
+	b.Send(m.ReplyTarget(), "📚 "+summary+" "+x.ContentURLs.Desktop.Page)
 	return true
 }
 

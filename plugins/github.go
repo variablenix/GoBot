@@ -63,7 +63,7 @@ func (p *GitHub) Handle(b *bot.Bot, m bot.Message) bool {
 	if maxLength < 120 || maxLength > 500 {
 		maxLength = 360
 	}
-	b.Send(m.ReplyTarget(), truncateRunes(result, maxLength))
+	b.Send(m.ReplyTarget(), "🐙 "+truncateRunes(result, maxLength))
 	return true
 }
 

@@ -64,7 +64,7 @@ func (p *Linux) Handle(b *bot.Bot, m bot.Message) bool {
 	if maxLength < 100 || maxLength > 400 {
 		maxLength = 260
 	}
-	b.Send(m.ReplyTarget(), ircColor(ircCyan, truncateRunes(result, maxLength)))
+	b.Send(m.ReplyTarget(), "🐧 "+ircColor(ircCyan, truncateRunes(result, maxLength)))
 	return true
 }
 
