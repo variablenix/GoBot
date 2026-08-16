@@ -382,6 +382,21 @@ func TestSelectAskSearchResultPrefersRelevantTitle(t *testing.T) {
 	}
 }
 
+func TestParseBingSearchResultsParsesResultCards(t *testing.T) {
+	body := []byte(`<html><body><li class="b_algo"><h2><a href="https://example.com/article">Relevant article</a></h2><div class="b_caption"><p>A useful source excerpt.</p></div></li></body></html>`)
+	results := parseBingSearchResults(body)
+	if len(results) != 1 || results[0].URL != "https://example.com/article" || results[0].Snippet != "A useful source excerpt." {
+		t.Fatalf("parseBingSearchResults() = %#v; want one parsed result", results)
+	}
+}
+
+func TestUnwrapBingResultURL(t *testing.T) {
+	raw := "https://www.bing.com/ck/a?u=a1aHR0cHM6Ly9leGFtcGxlLmNvbS9hcnRpY2xl"
+	if got := unwrapBingResultURL(raw); got != "https://example.com/article" {
+		t.Fatalf("unwrapBingResultURL() = %q; want direct public URL", got)
+	}
+}
+
 func TestFetchAskRedditResultUsesPublicJSON(t *testing.T) {
 	old := askWebHTTPClient
 	t.Cleanup(func() { askWebHTTPClient = old })
