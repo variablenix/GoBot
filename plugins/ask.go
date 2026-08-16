@@ -35,6 +35,12 @@ type Ask struct {
 	mu          sync.Mutex
 	last        map[string]time.Time
 	lastWarning map[string]time.Time
+	cache       map[string]askCachedSource
+}
+
+type askCachedSource struct {
+	source  askSource
+	expires time.Time
 }
 
 func (p *Ask) Name() string       { return "ask" }
@@ -47,6 +53,7 @@ func (p *Ask) Init(c bot.PluginConfig, _ *storage.DB) error {
 	p.setConfig(c)
 	p.last = make(map[string]time.Time)
 	p.lastWarning = make(map[string]time.Time)
+	p.cache = make(map[string]askCachedSource)
 	return nil
 }
 
@@ -59,6 +66,9 @@ func (p *Ask) Reload(c bot.PluginConfig) error {
 	}
 	if p.lastWarning == nil {
 		p.lastWarning = make(map[string]time.Time)
+	}
+	if p.cache == nil {
+		p.cache = make(map[string]askCachedSource)
 	}
 	p.mu.Unlock()
 	return nil
@@ -114,6 +124,12 @@ func (p *Ask) Handle(b *bot.Bot, m bot.Message) bool {
 		return true
 	}
 
+	cacheSeconds := cfg.Int("cache_seconds", 300)
+	if source, ok := p.cached(question, cacheSeconds); ok {
+		b.Send(target, formatAskResponse(m.Nick, source.Summary, source.URL, cfg.Int("max_length", 360), cfg.Int("max_response_chars", 240)))
+		return true
+	}
+
 	if localAnswer, ok := askLocalAnswer(question); ok {
 		b.Send(target, formatAskResponse(m.Nick, localAnswer, "", cfg.Int("max_length", 360), cfg.Int("max_response_chars", 240)))
 		return true
@@ -134,6 +150,7 @@ func (p *Ask) Handle(b *bot.Bot, m bot.Message) bool {
 		b.Send(target, formatAskNoAnswer(question, cfg.Int("max_length", 360)))
 		return true
 	}
+	p.cacheSource(question, source, cacheSeconds)
 	b.Send(target, formatAskResponse(m.Nick, source.Summary, source.URL, cfg.Int("max_length", 360), cfg.Int("max_response_chars", 240)))
 	return true
 }
@@ -174,76 +191,157 @@ func (p *Ask) allowWarning(key string) bool {
 	return true
 }
 
+func normalizeAskCacheKey(question string) string {
+	question = cleanExternalText(question)
+	question = strings.Trim(question, " \t\r\n?!.,;:")
+	return strings.ToLower(strings.Join(strings.Fields(question), " "))
+}
+
+func (p *Ask) cached(question string, cacheSeconds int) (askSource, bool) {
+	if cacheSeconds <= 0 {
+		return askSource{}, false
+	}
+	if cacheSeconds > 3600 {
+		cacheSeconds = 3600
+	}
+	key := normalizeAskCacheKey(question)
+	now := time.Now()
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	entry, ok := p.cache[key]
+	if !ok || now.After(entry.expires) {
+		if ok {
+			delete(p.cache, key)
+		}
+		return askSource{}, false
+	}
+	return entry.source, true
+}
+
+func (p *Ask) cacheSource(question string, source askSource, cacheSeconds int) {
+	if cacheSeconds <= 0 {
+		return
+	}
+	if cacheSeconds > 3600 {
+		cacheSeconds = 3600
+	}
+	key := normalizeAskCacheKey(question)
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.cache == nil {
+		p.cache = make(map[string]askCachedSource)
+	}
+	p.cache[key] = askCachedSource{source: source, expires: time.Now().Add(time.Duration(cacheSeconds) * time.Second)}
+}
+
 type askSource struct {
-	Title   string
-	Summary string
-	URL     string
+	Title    string
+	Summary  string
+	URL      string
+	Provider string
 }
 
 func (p *Ask) findSource(ctx context.Context, question string, cfg bot.PluginConfig) (askSource, bool) {
 	focused := askFocusedTerm(question)
+	webResultTried := false
+	var deferredWebResult askSource
+	deferredWebResultFound := false
 	if cfg.Bool("search_assist_enabled", true) {
-		if source, ok := askDuckDuckGoSearchAssist(ctx, question); ok {
+		stepCtx, cancel := askStepContext(ctx, 1500*time.Millisecond)
+		if source, ok := askDuckDuckGoSearchAssist(stepCtx, question); ok {
+			cancel()
 			return source, true
 		}
+		cancel()
 		if cfg.Bool("search_assist_browser_enabled", true) {
-			if source, ok := askDuckDuckGoRenderedSearchAssist(ctx, question, cfg.String("browser_path", ""), false); ok {
-				return source, true
+			fetchResults := cfg.Bool("search_results_enabled", true)
+			webResultTried = fetchResults
+			stepCtx, cancel = askStepContext(ctx, 3200*time.Millisecond)
+			if source, ok := askDuckDuckGoRenderedSearchAssist(stepCtx, question, cfg.String("browser_path", ""), fetchResults); ok {
+				cancel()
+				if source.Provider == "search_result" {
+					deferredWebResult = source
+					deferredWebResultFound = true
+				} else {
+					return source, true
+				}
+			} else {
+				cancel()
 			}
 		}
 	}
 	if cfg.Bool("duckduckgo_enabled", true) {
-		if source, ok := askDuckDuckGo(ctx, question); ok {
+		stepCtx, cancel := askStepContext(ctx, 1600*time.Millisecond)
+		if source, ok := askDuckDuckGoWithRetry(stepCtx, question); ok {
 			if refined, ok := refineFocusedAskSource(question, source); ok {
+				cancel()
 				return refined, true
 			}
 			if !askNeedsRelationshipAnswer(question) && !askNeedsTemporalAnswer(question) {
+				cancel()
 				return source, true
 			}
 		}
 		if focused != "" && !strings.EqualFold(focused, strings.TrimSpace(question)) {
-			if source, ok := askDuckDuckGo(ctx, focused); ok {
+			if source, ok := askDuckDuckGoWithRetry(stepCtx, focused); ok {
 				if source, ok = refineFocusedAskSource(question, source); ok {
+					cancel()
 					return source, true
 				}
 				if !askNeedsRelationshipAnswer(question) && !askNeedsTemporalAnswer(question) {
+					cancel()
 					return source, true
 				}
 			}
 		}
+		cancel()
 	}
 	// Open-ended opinion and explanation questions are poorly served by
 	// entity descriptions. Prefer a bounded, attributed web-result excerpt
 	// before falling back to Wikidata for those queries.
-	webResultTried := false
-	if cfg.Bool("search_results_enabled", true) && askNeedsWebResultAnswer(question) && cfg.Bool("search_assist_browser_enabled", true) {
-		webResultTried = true
-		if source, ok := askDuckDuckGoRenderedSearchAssist(ctx, question, cfg.String("browser_path", ""), true); ok {
-			return source, true
-		}
+	if deferredWebResultFound && askNeedsWebResultAnswer(question) {
+		return deferredWebResult, true
 	}
 	if cfg.Bool("wikidata_fallback", true) && focused != "" {
+		stepCtx, cancel := askStepContext(ctx, 2500*time.Millisecond)
 		switch {
 		case askNeedsRelationshipAnswer(question):
-			if source, ok := askWikidataRelationship(ctx, focused, question); ok {
+			if source, ok := askWikidataRelationship(stepCtx, focused, question); ok {
+				cancel()
 				return source, true
 			}
 		case askNeedsTemporalAnswer(question):
-			if source, ok := askWikidataTemporal(ctx, focused, question); ok {
+			if source, ok := askWikidataTemporal(stepCtx, focused, question); ok {
+				cancel()
 				return source, true
 			}
 		default:
-			if source, ok := askWikidata(ctx, focused); ok {
+			if source, ok := askWikidata(stepCtx, focused); ok {
+				cancel()
 				return source, true
 			}
 		}
+		cancel()
+	}
+	if deferredWebResultFound {
+		return deferredWebResult, true
 	}
 	if cfg.Bool("search_results_enabled", true) && !webResultTried && cfg.Bool("search_assist_browser_enabled", true) {
-		if source, ok := askDuckDuckGoRenderedSearchAssist(ctx, question, cfg.String("browser_path", ""), true); ok {
+		stepCtx, cancel := askStepContext(ctx, 2800*time.Millisecond)
+		if source, ok := askDuckDuckGoRenderedSearchAssist(stepCtx, question, cfg.String("browser_path", ""), true); ok {
+			cancel()
 			return source, true
 		}
+		cancel()
 	}
 	return askSource{}, false
+}
+
+func askStepContext(parent context.Context, max time.Duration) (context.Context, context.CancelFunc) {
+	if max <= 0 {
+		return context.WithCancel(parent)
+	}
+	return context.WithTimeout(parent, max)
 }
 
 func askLocalAnswer(question string) (string, bool) {
@@ -610,7 +708,7 @@ const askRenderedSearchResultsScript = `() => {
     if (!title && !snippet) return;
     results.push({title, url, snippet});
   });
-  return results.slice(0, 8);
+  return results.length ? results.slice(0, 8) : null;
 }`
 
 func askDuckDuckGoSearchAssist(ctx context.Context, question string) (askSource, bool) {
@@ -772,6 +870,9 @@ func askDuckDuckGoRenderedSearchAssistOnce(ctx context.Context, question, fallba
 		return askSource{}, false
 	}
 	assistTimeout := 2 * time.Second
+	if fetchResults {
+		assistTimeout = 1500 * time.Millisecond
+	}
 	if browserTimeout < assistTimeout {
 		assistTimeout = browserTimeout
 	}
@@ -792,7 +893,13 @@ func askDuckDuckGoRenderedSearchAssistOnce(ctx context.Context, question, fallba
 		return askSource{}, false
 	}
 	var results []askRenderedSearchResult
-	if err := chromedp.Run(browserCtx, chromedp.Evaluate(askRenderedSearchResultsScript, &results)); err != nil {
+	resultTimeout := browserTimeout - assistTimeout
+	if resultTimeout <= 0 {
+		return askSource{}, false
+	}
+	if err := chromedp.Run(browserCtx, chromedp.PollFunction(askRenderedSearchResultsScript, &results,
+		chromedp.WithPollingInterval(100*time.Millisecond),
+		chromedp.WithPollingTimeout(resultTimeout))); err != nil {
 		return askSource{}, false
 	}
 	selected, ok := selectAskSearchResult(question, results)
@@ -863,13 +970,13 @@ func fetchAskSearchResult(ctx context.Context, result askRenderedSearchResult, q
 			body, readErr := io.ReadAll(io.LimitReader(res.Body, 512<<10))
 			if readErr == nil {
 				if excerpt := extractAskHTMLExcerpt(body, result.Snippet, result.Title, strings.Fields(askFocusedTerm(question))); excerpt != "" {
-					return askSource{Title: result.Title, Summary: formatAskSearchResultSummary(result.Title, excerpt), URL: result.URL}, true
+					return askSource{Title: result.Title, Summary: formatAskSearchResultSummary(result.Title, excerpt), URL: result.URL, Provider: "search_result"}, true
 				}
 			}
 		}
 	}
 	if result.Snippet != "" {
-		return askSource{Title: result.Title, Summary: formatAskSearchResultSummary(result.Title, result.Snippet), URL: result.URL}, true
+		return askSource{Title: result.Title, Summary: formatAskSearchResultSummary(result.Title, result.Snippet), URL: result.URL, Provider: "search_result"}, true
 	}
 	return askSource{}, false
 }
@@ -1020,7 +1127,7 @@ func parseRenderedSearchAssist(result askRenderedSearchAssistData, fallbackURL s
 			break
 		}
 	}
-	return askSource{Title: "DuckDuckGo Search Assist", Summary: answer, URL: sourceURL}, true
+	return askSource{Title: "DuckDuckGo Search Assist", Summary: answer, URL: sourceURL, Provider: "search_assist"}, true
 }
 
 func parseDuckDuckGoSearchAssist(body, fallbackURL string) (askSource, bool) {
@@ -1051,7 +1158,7 @@ func parseDuckDuckGoSearchAssist(body, fallbackURL string) (askSource, bool) {
 				break
 			}
 		}
-		return askSource{Title: "DuckDuckGo Search Assist", Summary: answer, URL: sourceURL}, true
+		return askSource{Title: "DuckDuckGo Search Assist", Summary: answer, URL: sourceURL, Provider: "search_assist"}, true
 	}
 	return askSource{}, false
 }
@@ -1085,6 +1192,18 @@ func askDuckDuckGo(ctx context.Context, question string) (askSource, bool) {
 	}
 	if summary := cleanExternalText(payload.AbstractText); summary != "" {
 		return askSource{Title: cleanExternalText(payload.Heading), Summary: summary, URL: searchURL}, true
+	}
+	return askSource{}, false
+}
+
+func askDuckDuckGoWithRetry(ctx context.Context, question string) (askSource, bool) {
+	for attempt := 0; attempt < 2; attempt++ {
+		if source, ok := askDuckDuckGo(ctx, question); ok {
+			return source, true
+		}
+		if ctx.Err() != nil {
+			break
+		}
 	}
 	return askSource{}, false
 }
@@ -1624,7 +1743,7 @@ func fetchAskRedditResult(ctx context.Context, result askRenderedSearchResult) (
 	if title == "" || body == "" {
 		return askSource{}, false
 	}
-	return askSource{Title: title, Summary: formatAskSearchResultSummary(title, body), URL: result.URL}, true
+	return askSource{Title: title, Summary: formatAskSearchResultSummary(title, body), URL: result.URL, Provider: "search_result"}, true
 }
 
 func formatAskResponse(nick, answer, sourceURL string, maxLength, maxResponseChars int) string {
