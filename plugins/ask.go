@@ -469,6 +469,12 @@ type duckDuckGoAnswer struct {
 
 var askHTTPClient = &http.Client{Timeout: 15 * time.Second}
 
+// DuckDuckGo only includes its Search Assist preload on browser-shaped HTML
+// responses. Search Assist is a web feature rather than a documented API, so
+// keep this request isolated from the transparent user agent used by the
+// public Instant Answer endpoint below.
+const askSearchAssistUserAgent = "Mozilla/5.0"
+
 type duckDuckGoSearchAssistPayload struct {
 	InstantAnswers []struct {
 		Data struct {
@@ -493,7 +499,7 @@ func askDuckDuckGoSearchAssist(ctx context.Context, question string) (askSource,
 		return askSource{}, false
 	}
 	req.Header.Set("Accept", "text/html,application/xhtml+xml")
-	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; GoBot/1.0; IRC bot)")
+	req.Header.Set("User-Agent", askSearchAssistUserAgent)
 	res, err := askHTTPClient.Do(req)
 	if err != nil {
 		return askSource{}, false
@@ -520,7 +526,7 @@ func askDuckDuckGoSearchAssist(ctx context.Context, question string) (askSource,
 	}
 	assistReq.Header.Set("Accept", "application/javascript, application/json")
 	assistReq.Header.Set("Referer", pageURL)
-	assistReq.Header.Set("User-Agent", "Mozilla/5.0 (compatible; GoBot/1.0; IRC bot)")
+	assistReq.Header.Set("User-Agent", askSearchAssistUserAgent)
 	assistRes, err := askHTTPClient.Do(assistReq)
 	if err != nil {
 		return askSource{}, false
