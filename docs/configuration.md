@@ -161,7 +161,7 @@ This is a best-effort web integration that follows the Search Assist script
 request used by DuckDuckGo's search page; it is not a documented public API and
 may be disabled if DuckDuckGo changes that page. DuckDuckGo Instant Answers
 remain the next provider, followed by Wikidata entity and structured-claim
-fallbacks for definition, relationship, origin, and temporal questions.
+fallbacks for definition, relationship, origin, genre, and temporal questions.
 Relationship claims include creators, developers, founders, authors, inventors,
 and directors when Wikidata provides them. Search Assist also tries one bounded,
 intent-preserving framing variant for indirect opinion questions. If no reliable source answer exists,
