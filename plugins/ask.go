@@ -492,7 +492,7 @@ type duckDuckGoSearchAssistPayload struct {
 
 var askSearchAssistScriptPattern = regexp.MustCompile(`(?s)<script[^>]*id=["']deep_preload_script["'][^>]*src=["']([^"']+)["']`)
 var askSearchAssistOpinionPattern = regexp.MustCompile(`(?i)^why\s+should\s+(?:someone|somebody|people|users?|we|you|they)\s+not\s+use\s+(.+?)\s*[?!.]*$`)
-var askSearchAssistGenrePattern = regexp.MustCompile(`(?i)^what\s+genre\s+is\s+(?:the\s+)?(?:band|artist|group)\s+(.+?)\s*[?!.]*$`)
+var askSearchAssistGenrePattern = regexp.MustCompile(`(?i)^what\s+(?:(?:music|musical)\s+)?genre\s+is\s+(?:the\s+)?(?:band|artist|group)\s+(.+?)\s*[?!.]*$`)
 
 func askDuckDuckGoSearchAssist(ctx context.Context, question string) (askSource, bool) {
 	// Search Assist can return its web container before the generated answer is
