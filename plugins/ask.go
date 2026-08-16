@@ -3,6 +3,7 @@ package plugins
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"html"
@@ -301,6 +302,14 @@ func (p *Ask) findSource(ctx context.Context, question string, cfg bot.PluginCon
 	// before falling back to Wikidata for those queries.
 	if deferredWebResultFound && askNeedsWebResultAnswer(question) {
 		return deferredWebResult, true
+	}
+	if cfg.Bool("search_results_enabled", true) && askNeedsWebResultAnswer(question) {
+		stepCtx, cancel := askStepContext(ctx, 1800*time.Millisecond)
+		if source, ok := askBingSearch(stepCtx, question); ok {
+			cancel()
+			return source, true
+		}
+		cancel()
 	}
 	if cfg.Bool("wikidata_fallback", true) && focused != "" {
 		stepCtx, cancel := askStepContext(ctx, 2500*time.Millisecond)
@@ -944,6 +953,160 @@ func selectAskSearchResult(question string, results []askRenderedSearchResult) (
 		}
 	}
 	return best, bestScore >= 0
+}
+
+func askBingSearch(ctx context.Context, question string) (askSource, bool) {
+	searchURL := "https://www.bing.com/search?q=" + url.QueryEscape(strings.TrimSpace(question)) + "&count=8&setlang=en-US"
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, searchURL, nil)
+	if err != nil {
+		return askSource{}, false
+	}
+	req.Header.Set("Accept", "text/html,application/xhtml+xml")
+	req.Header.Set("User-Agent", askSearchAssistUserAgent)
+	res, err := askWebHTTPClient.Do(req)
+	if err != nil {
+		return askSource{}, false
+	}
+	defer res.Body.Close()
+	if !askHTTPSuccess(res.StatusCode) {
+		return askSource{}, false
+	}
+	body, err := io.ReadAll(io.LimitReader(res.Body, 2<<20))
+	if err != nil {
+		return askSource{}, false
+	}
+	results := parseBingSearchResults(body)
+	selected, ok := selectAskSearchResult(question, results)
+	if !ok {
+		return askSource{}, false
+	}
+	return fetchAskSearchResult(ctx, selected, question)
+}
+
+func parseBingSearchResults(body []byte) []askRenderedSearchResult {
+	document, err := xhtml.Parse(bytes.NewReader(body))
+	if err != nil {
+		return nil
+	}
+	results := make([]askRenderedSearchResult, 0, 8)
+	var walk func(*xhtml.Node)
+	walk = func(node *xhtml.Node) {
+		if len(results) >= 8 {
+			return
+		}
+		if node.Type == xhtml.ElementNode && node.Data == "li" && hasAskHTMLClass(node, "b_algo") {
+			if titleNode := findAskHTMLDescendant(node, "h2"); titleNode != nil {
+				link := findAskHTMLDescendant(titleNode, "a")
+				if link != nil {
+					result := askRenderedSearchResult{
+						Title: askHTMLText(link),
+						URL:   unwrapBingResultURL(askHTMLAttribute(link, "href")),
+					}
+					if caption := findAskHTMLClassDescendant(node, "b_caption"); caption != nil {
+						result.Snippet = askHTMLText(caption)
+					}
+					if result.Title != "" && result.URL != "" {
+						results = append(results, result)
+					}
+				}
+			}
+			return
+		}
+		for child := node.FirstChild; child != nil; child = child.NextSibling {
+			walk(child)
+		}
+	}
+	walk(document)
+	return results
+}
+
+func hasAskHTMLClass(node *xhtml.Node, class string) bool {
+	for _, attr := range node.Attr {
+		if attr.Key != "class" {
+			continue
+		}
+		for _, value := range strings.Fields(attr.Val) {
+			if value == class {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func findAskHTMLClassDescendant(node *xhtml.Node, class string) *xhtml.Node {
+	if node == nil {
+		return nil
+	}
+	if node.Type == xhtml.ElementNode && hasAskHTMLClass(node, class) {
+		return node
+	}
+	for child := node.FirstChild; child != nil; child = child.NextSibling {
+		if found := findAskHTMLClassDescendant(child, class); found != nil {
+			return found
+		}
+	}
+	return nil
+}
+
+func findAskHTMLDescendant(node *xhtml.Node, element string) *xhtml.Node {
+	if node == nil {
+		return nil
+	}
+	if node.Type == xhtml.ElementNode && node.Data == element {
+		return node
+	}
+	for child := node.FirstChild; child != nil; child = child.NextSibling {
+		if found := findAskHTMLDescendant(child, element); found != nil {
+			return found
+		}
+	}
+	return nil
+}
+
+func askHTMLAttribute(node *xhtml.Node, key string) string {
+	for _, attr := range node.Attr {
+		if attr.Key == key {
+			return strings.TrimSpace(attr.Val)
+		}
+	}
+	return ""
+}
+
+func askHTMLText(node *xhtml.Node) string {
+	if node == nil {
+		return ""
+	}
+	if node.Type == xhtml.TextNode {
+		return node.Data
+	}
+	parts := make([]string, 0, 4)
+	for child := node.FirstChild; child != nil; child = child.NextSibling {
+		if text := askHTMLText(child); text != "" {
+			parts = append(parts, text)
+		}
+	}
+	return cleanExternalText(strings.Join(parts, " "))
+}
+
+func unwrapBingResultURL(raw string) string {
+	raw = strings.TrimSpace(raw)
+	parsed, err := url.Parse(raw)
+	if err != nil || !strings.EqualFold(parsed.Hostname(), "www.bing.com") || !strings.HasPrefix(parsed.Path, "/ck/a") {
+		return raw
+	}
+	encoded := parsed.Query().Get("u")
+	if !strings.HasPrefix(encoded, "a1") {
+		return raw
+	}
+	decoded, err := base64.RawStdEncoding.DecodeString(encoded[2:])
+	if err != nil {
+		decoded, err = base64.StdEncoding.DecodeString(encoded[2:])
+	}
+	if err != nil || !validPublicHTTPURL(string(decoded)) {
+		return raw
+	}
+	return string(decoded)
 }
 
 func fetchAskSearchResult(ctx context.Context, result askRenderedSearchResult, question string) (askSource, bool) {
