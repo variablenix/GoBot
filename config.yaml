@@ -84,10 +84,11 @@ plugins:
   weather: {enabled: true, default_units: imperial}
   steam: {enabled: true, timeout_seconds: 10, max_length: 360}
   news: {enabled: true, api_key: "", max_results: 3, max_length: 360}
-  # Keyless DuckDuckGo Instant Answers with Wikidata entity/date/relationship fallbacks.
+  # Search Assist is a best-effort web integration; Instant Answers/Wikidata remain fallbacks.
   # No credentials are required.
   ask:
     enabled: true
+    search_assist_enabled: true
     duckduckgo_enabled: true
     wikidata_fallback: true
     max_length: 360
