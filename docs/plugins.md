@@ -1132,7 +1132,10 @@ visible result, fetches a bounded public HTML excerpt (or Reddit's public JSON
 for a Reddit post), and attributes the excerpt to that result. This is source
 text rather than an AI-generated synthesis; if fetching is unavailable, the
 DuckDuckGo snippet is used. A sender-specific cooldown prevents repeated
-lookups from becoming a flood source.
+lookups from becoming a flood source. If DuckDuckGo's rendered page is
+unavailable or presents an anti-automation challenge, open-ended, procedural,
+opinion, comparison, and controversy questions also use the bounded Bing
+public-search fallback described below.
 
 The plugin is configured under `plugins.ask`:
 
