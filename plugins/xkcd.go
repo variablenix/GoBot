@@ -57,6 +57,6 @@ func (p *XKCD) Handle(b *bot.Bot, m bot.Message) bool {
 		b.Send(m.ReplyTarget(), "XKCD data could not be parsed")
 		return true
 	}
-	b.Send(m.ReplyTarget(), fmt.Sprintf("xkcd #%d: %s (%s-%s-%s) — https://xkcd.com/%d/", comic.Num, cleanExternalText(comic.Title), cleanExternalText(comic.Year), cleanExternalText(comic.Month), cleanExternalText(comic.Day), comic.Num))
+	b.Send(m.ReplyTarget(), fmt.Sprintf("🎨 xkcd #%d: %s (%s-%s-%s) — https://xkcd.com/%d/", comic.Num, cleanExternalText(comic.Title), cleanExternalText(comic.Year), cleanExternalText(comic.Month), cleanExternalText(comic.Day), comic.Num))
 	return true
 }

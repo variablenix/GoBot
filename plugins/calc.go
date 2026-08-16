@@ -36,7 +36,7 @@ func (p *Calculator) Handle(b *bot.Bot, m bot.Message) bool {
 		b.Send(m.ReplyTarget(), ircColor(ircYellow, "usage: !calc 2*(3+4) or !convert 10 km to mi"))
 		return true
 	}
-	b.Send(m.ReplyTarget(), response)
+	b.Send(m.ReplyTarget(), "🧮 "+response)
 	return true
 }
 

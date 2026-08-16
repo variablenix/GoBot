@@ -97,7 +97,7 @@ func (p *LastFM) Handle(b *bot.Bot, m bot.Message) bool {
 	if track.URL != "" {
 		text += " — " + cleanExternalText(track.URL)
 	}
-	b.Send(m.ReplyTarget(), truncateRunes(text, 380))
+	b.Send(m.ReplyTarget(), "🎵 "+truncateRunes(text, 380))
 	return true
 }
 

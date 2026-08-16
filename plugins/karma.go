@@ -130,11 +130,11 @@ func formatKarmaUpdates(updates []karmaUpdate) string {
 	}
 	message := ""
 	if positive {
-		message = ircColor(ircGreen, "🆙 Karma boost! "+strings.Join(details, ", ")+" ✨ 🌟 💫")
+		message = "⬆️ " + ircColor(ircGreen, "Karma boost! "+strings.Join(details, ", ")+" ✨ 🌟 💫")
 	} else if negative {
-		message = ircColor(ircRed, "Karma dip! "+strings.Join(details, ", ")+" 📉 🌀 💥 😬")
+		message = "⬇️ " + ircColor(ircRed, "Karma dip! "+strings.Join(details, ", ")+" 📉 🌀 💥 😬")
 	} else {
-		message = ircColor(ircCyan, "Karma update! "+strings.Join(details, ", ")+" ✨ 📊 🔄 🌟")
+		message = "⬆️ " + ircColor(ircCyan, "Karma update! "+strings.Join(details, ", ")+" ✨ 📊 🔄 🌟")
 	}
 	scopes := make([]string, 0)
 	for _, update := range updates {

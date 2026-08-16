@@ -56,6 +56,6 @@ func (p *Cats) Handle(b *bot.Bot, m bot.Message) bool {
 		return true
 	}
 	fact := truncateRunes(cleanExternalText(data.Fact), 220)
-	b.Send(m.ReplyTarget(), fmt.Sprintf("%s: %s", ircColor(ircCyan, "Cat fact"), fact))
+	b.Send(m.ReplyTarget(), fmt.Sprintf("🐱 %s: %s", ircColor(ircCyan, "Cat fact"), fact))
 	return true
 }

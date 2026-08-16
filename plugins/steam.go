@@ -246,7 +246,7 @@ func (p *Steam) handleGenre(b *bot.Bot, m bot.Message, genre string) {
 		return
 	}
 	link := steamGenreURL(label)
-	b.Send(m.ReplyTarget(), fmt.Sprintf("%s Steam games: %s", ircColor(ircCyan, label), link))
+	b.Send(m.ReplyTarget(), fmt.Sprintf("🎮 %s Steam games: %s", ircColor(ircCyan, label), link))
 }
 
 func (p *Steam) handleTop(b *bot.Bot, m bot.Message) {
@@ -268,22 +268,22 @@ func (p *Steam) handleTop(b *bot.Bot, m bot.Message) {
 		peak = fmt.Sprintf(" | recent peak %s players", formatSteamNumber(top.PeakInGame))
 	}
 	message := fmt.Sprintf("#1 most-played on Steam: %s%s — %s | full charts: %s", game.Name, peak, steamStoreURL(game.SteamAppID), steamChartsPageURL)
-	b.Send(m.ReplyTarget(), message)
+	b.Send(m.ReplyTarget(), "🎮 "+message)
 }
 
 func (p *Steam) sendGameInfo(b *bot.Bot, m bot.Message, summary, detail string) {
 	if len([]byte(summary)) <= p.maxLength {
-		b.Send(m.ReplyTarget(), summary)
+		b.Send(m.ReplyTarget(), "🎮 "+summary)
 		return
 	}
 	if !steamNeedsPrivateMessage(m, summary, p.maxLength) {
 		for _, part := range splitIRCText(detail, p.maxLength) {
-			b.Send(m.ReplyTarget(), part)
+			b.Send(m.ReplyTarget(), "🎮 "+part)
 		}
 		return
 	}
 	for _, part := range splitIRCText(detail, p.maxLength) {
-		b.Send(m.Nick, part)
+		b.Send(m.Nick, "🎮 "+part)
 	}
 	b.Send(m.ReplyTarget(), fmt.Sprintf("I'm messaging you the game info, %s.", m.Nick))
 }
