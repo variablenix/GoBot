@@ -491,13 +491,20 @@ type duckDuckGoSearchAssistPayload struct {
 }
 
 var askSearchAssistScriptPattern = regexp.MustCompile(`(?s)<script[^>]*id=["']deep_preload_script["'][^>]*src=["']([^"']+)["']`)
+var askSearchAssistOpinionPattern = regexp.MustCompile(`(?i)^why\s+should\s+(?:someone|somebody|people|users?|we|you|they)\s+not\s+use\s+(.+?)\s*[?!.]*$`)
 
 func askDuckDuckGoSearchAssist(ctx context.Context, question string) (askSource, bool) {
 	// Search Assist can return its web container before the generated answer is
-	// available. Give the provider one bounded retry before using the normal
-	// fallbacks, while keeping the sender cooldown and request context limits.
+	// available. Try one intent-preserving framing variant when the wording is
+	// indirect, then use the normal fallbacks while keeping the sender cooldown
+	// and request context limits.
+	queries := askSearchAssistQueryVariants(question)
 	for attempt := 0; attempt < 2; attempt++ {
-		if source, ok := askDuckDuckGoSearchAssistOnce(ctx, question); ok {
+		query := queries[0]
+		if attempt < len(queries) {
+			query = queries[attempt]
+		}
+		if source, ok := askDuckDuckGoSearchAssistOnce(ctx, query, duckDuckGoSearchURL(question)); ok {
 			return source, true
 		}
 		if err := ctx.Err(); err != nil {
@@ -507,7 +514,20 @@ func askDuckDuckGoSearchAssist(ctx context.Context, question string) (askSource,
 	return askSource{}, false
 }
 
-func askDuckDuckGoSearchAssistOnce(ctx context.Context, question string) (askSource, bool) {
+func askSearchAssistQueryVariants(question string) []string {
+	original := strings.TrimSpace(question)
+	queries := []string{original}
+	match := askSearchAssistOpinionPattern.FindStringSubmatch(strings.TrimRight(original, " \t\r\n"))
+	if len(match) == 2 {
+		subject := strings.TrimSpace(match[1])
+		if subject != "" {
+			queries = append(queries, "what are the disadvantages of "+subject+"?")
+		}
+	}
+	return queries
+}
+
+func askDuckDuckGoSearchAssistOnce(ctx context.Context, question, fallbackURL string) (askSource, bool) {
 	pageURL := duckDuckGoSearchURL(question)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, pageURL, nil)
 	if err != nil {
@@ -556,7 +576,7 @@ func askDuckDuckGoSearchAssistOnce(ctx context.Context, question string) (askSou
 	if err != nil {
 		return askSource{}, false
 	}
-	return parseDuckDuckGoSearchAssist(string(assistBody), pageURL)
+	return parseDuckDuckGoSearchAssist(string(assistBody), fallbackURL)
 }
 
 func parseDuckDuckGoSearchAssist(body, fallbackURL string) (askSource, bool) {
