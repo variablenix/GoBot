@@ -45,6 +45,12 @@ func TestAskSearchAssistQueryVariants(t *testing.T) {
 	}) {
 		t.Fatalf("askSearchAssistQueryVariants() = %#v, want an entity-focused genre variant", got)
 	}
+	if got := askSearchAssistQueryVariants(`What music genre is the band "ObZen"?`); !reflect.DeepEqual(got, []string{
+		`What music genre is the band "ObZen"?`,
+		"what genres does ObZen have?",
+	}) {
+		t.Fatalf("askSearchAssistQueryVariants() = %#v, want a music-genre variant", got)
+	}
 }
 
 func TestAskFocusedTermDisambiguatesNamedPeople(t *testing.T) {
