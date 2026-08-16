@@ -156,7 +156,7 @@ func TestAskFindSourceFallsBackToWikidataRelationshipClaims(t *testing.T) {
 		}
 		return newPluginResponse(http.StatusOK, `{"entities":{"Q1":{"labels":{"en":{"language":"en","value":"Arch Linux Developers"}}}}}`), nil
 	})}
-	source, ok := (&Ask{}).findSource(context.Background(), "Who created Arch Linux?", bot.PluginConfig{"duckduckgo_enabled": true, "wikidata_fallback": true})
+	source, ok := (&Ask{}).findSource(context.Background(), "Who created Arch Linux?", bot.PluginConfig{"search_assist_enabled": false, "duckduckgo_enabled": true, "wikidata_fallback": true})
 	if !ok || source.Summary != "Arch Linux Developers is credited with developing Arch Linux." {
 		t.Fatalf("findSource() = %#v, %v; want structured relationship fallback", source, ok)
 	}
@@ -287,12 +287,20 @@ func TestAskFindSourceRefinesFocusedDuckDuckGoAnswer(t *testing.T) {
 		}
 		return newPluginResponse(http.StatusAccepted, `{"Heading":"Linux","AbstractText":"Linux is based on the Linux kernel, which was first released on 17 September 1991 by Linus Torvalds."}`), nil
 	})}
-	source, ok := (&Ask{}).findSource(context.Background(), "Who created Linux?", bot.PluginConfig{"duckduckgo_enabled": true, "wikidata_fallback": false})
+	source, ok := (&Ask{}).findSource(context.Background(), "Who created Linux?", bot.PluginConfig{"search_assist_enabled": false, "duckduckgo_enabled": true, "wikidata_fallback": false})
 	if !ok || source.Summary != "Linus Torvalds is credited with creating Linux." {
 		t.Fatalf("findSource() = %#v, %v; want refined relationship answer", source, ok)
 	}
 	if len(queries) != 2 || queries[1] != "linux" {
 		t.Fatalf("DuckDuckGo queries = %#v; want full question followed by focused term", queries)
+	}
+}
+
+func TestParseDuckDuckGoSearchAssist(t *testing.T) {
+	body := `window.execDeep = function() {DDG.deep.deepPayload = {"instantAnswers":[{"data":{"answer":"Arch Linux was **created by Judd Vinet** in March 2002.","sources":[{"article":{"link":"https://en.wikipedia.org/wiki/Arch_Linux","site":"Wikipedia","text":"Arch Linux"}}]}}]};DDG.deep.bn={};}`
+	source, ok := parseDuckDuckGoSearchAssist(body, "https://duckduckgo.com/?q=who+created+Arch+Linux%3F")
+	if !ok || source.Summary != "Arch Linux was created by Judd Vinet in March 2002." || source.URL != "https://en.wikipedia.org/wiki/Arch_Linux" {
+		t.Fatalf("parseDuckDuckGoSearchAssist() = %#v, %v; want sanitized answer and cited source", source, ok)
 	}
 }
 
