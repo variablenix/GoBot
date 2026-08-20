@@ -78,7 +78,7 @@ func TestDuckHuntGoldenAchievementColorsOnlyGoldenDuck(t *testing.T) {
 		}
 	}
 	message := formatDuckAchievement("GoBot", golden)
-	if !strings.Contains(message, "Killed a "+ircColor(ircYellow, "GOLDEN DUCK")) {
+	if !strings.Contains(message, "Killed a "+ircColor(ircGold, goldenDuckLabel)) {
 		t.Fatalf("achievement message = %q, want only GOLDEN DUCK highlighted", message)
 	}
 	if strings.Contains(message, ircYellow+"Killed a") || strings.Contains(message, ircYellow+"a ") {
@@ -390,12 +390,28 @@ func TestDuckHuntAnnouncementKeepsDuckASCIICompact(t *testing.T) {
 
 func TestDuckHuntGoldenDuckColorStartsAtLabel(t *testing.T) {
 	got := duckName(&duckHuntState{golden: true})
-	want := "the " + ircColor(ircYellow, "GOLDEN DUCK")
+	want := "the " + ircColor(ircGold, goldenDuckLabel)
 	if got != want {
 		t.Fatalf("golden duck name = %q, want %q", got, want)
 	}
 	if strings.HasPrefix(got, ircYellow) {
 		t.Fatal("the article must not be yellow")
+	}
+}
+
+func TestDuckHuntGoldenDuckUsesGoldInEveryOutputPath(t *testing.T) {
+	gold := ircColor(ircGold, goldenDuckLabel)
+	outputs := []string{
+		duckName(&duckHuntState{golden: true}),
+		formatDuckAchievement("GoBot", duckAchievementDefinition{Description: "Found a GOLDEN DUCK"}),
+	}
+	for i := 0; i < 100; i++ {
+		outputs = append(outputs, randomDuckEscapeForState(&duckHuntState{golden: true}))
+	}
+	for _, output := range outputs {
+		if strings.Contains(output, goldenDuckLabel) && !strings.Contains(output, gold) {
+			t.Fatalf("golden duck output is not gold-highlighted: %q", output)
+		}
 	}
 }
 
@@ -835,7 +851,7 @@ func TestDuckHuntEscapeIncludesColorAndMotion(t *testing.T) {
 	}
 
 	goldenEscape := randomDuckEscapeForState(&duckHuntState{golden: true})
-	if !strings.Contains(goldenEscape, "the "+ircColor(ircYellow, "GOLDEN DUCK")) {
+	if !strings.Contains(goldenEscape, "the "+ircColor(ircGold, goldenDuckLabel)) {
 		t.Fatalf("golden escape = %q, want colored GOLDEN DUCK label", goldenEscape)
 	}
 }
