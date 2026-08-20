@@ -115,6 +115,8 @@ type duckAchievementEvent struct {
 	BoughtGoldenWeapon bool
 }
 
+const goldenDuckLabel = "GOLDEN DUCK"
+
 var duckAchievementCatalog = []duckAchievementDefinition{
 	{Key: "first_shot", Name: "First Shot", Description: "Landed your first hit"},
 	{Key: "first_quackdown", Name: "First Quackdown", Description: "Killed your first duck"},
@@ -1127,8 +1129,8 @@ func duckAchievementCondition(key string, player duckPlayer, kills, friends uint
 
 func formatDuckAchievement(nick string, achievement duckAchievementDefinition) string {
 	description := achievement.Description
-	if strings.Contains(description, "GOLDEN DUCK") {
-		description = strings.Replace(description, "GOLDEN DUCK", ircColor(ircYellow, "GOLDEN DUCK"), 1)
+	if strings.Contains(description, goldenDuckLabel) {
+		description = strings.Replace(description, goldenDuckLabel, ircColor(ircGold, goldenDuckLabel), 1)
 	}
 	return fmt.Sprintf("%s %s unlocked: %s - %s", ircColor(ircGreen, "[Achievement]"), ircColor(ircCyan, nick), ircColor(ircYellow, achievement.Name), description)
 }
@@ -1898,7 +1900,7 @@ func xpToNextLevel(xp int64) int64 {
 
 func duckName(state *duckHuntState) string {
 	if state != nil && state.golden {
-		return "the " + ircColor(ircYellow, "GOLDEN DUCK")
+		return "the " + ircColor(ircGold, goldenDuckLabel)
 	}
 	if state != nil && state.flockRemaining > 1 {
 		return ircColor(ircCyan, "a duck in the flock")
