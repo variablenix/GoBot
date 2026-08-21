@@ -17,6 +17,10 @@ import (
 
 type Urban struct{}
 
+// Keep the Urban Dictionary marker to the base code point so terminal clients
+// do not have to interpret the optional emoji presentation selector U+FE0F.
+const urbanPrefix = "🗣"
+
 func (p *Urban) Name() string       { return "urban" }
 func (p *Urban) Commands() []string { return []string{"urban", "u", "ud"} }
 func (p *Urban) Help() string {
@@ -64,7 +68,7 @@ func (p *Urban) Handle(b *bot.Bot, m bot.Message) bool {
 	if definition == "" {
 		definition = "(empty definition)"
 	}
-	b.Send(m.ReplyTarget(), fmt.Sprintf("🗣️ %s [%d/%d]: %s — %s", cleanExternalText(entry.Word), index, len(data.List), definition, cleanExternalText(entry.Permalink)))
+	b.Send(m.ReplyTarget(), fmt.Sprintf("%s %s [%d/%d]: %s — %s", urbanPrefix, cleanExternalText(entry.Word), index, len(data.List), definition, cleanExternalText(entry.Permalink)))
 	return true
 }
 
