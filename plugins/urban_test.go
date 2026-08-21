@@ -13,6 +13,12 @@ func TestUrbanArgs(t *testing.T) {
 	}
 }
 
+func TestUrbanPrefixHasNoEmojiVariationSelector(t *testing.T) {
+	if urbanPrefix != "\U0001F5E3" {
+		t.Fatalf("urbanPrefix = %q, want only U+1F5E3 without U+FE0F", urbanPrefix)
+	}
+}
+
 func TestCleanExternalText(t *testing.T) {
 	got := cleanExternalText("hello\x02 world\r\nagain")
 	if got != "hello worldagain" {
