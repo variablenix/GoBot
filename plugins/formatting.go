@@ -15,7 +15,8 @@ const (
 	ircRed        = "\x0304"
 	ircTan        = "\x0307" // mIRC orange, a practical tan approximation
 	ircCyan       = "\x0311"
-	ircYellow     = "\x0308"
+	ircGold       = "\x0308" // mIRC yellow, rendered as gold by common IRC clients
+	ircYellow     = ircGold  // keep the existing name for non-golden UI accents
 )
 
 func ircColor(color, text string) string {

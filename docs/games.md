@@ -274,9 +274,10 @@ username hit a duck in the flock for 1 damage! It has 0 HP left. +10 XP
 
 The active-duck announcement stays compact for terminal clients: `\_o< QUACK!`.
 When IRC colors are supported, the duck uses a soft tan approximation, green
-head, and yellow bill. The `GOLDEN DUCK` label is reserved for hit, befriending, and
-escape messages, where it is shown in yellow; it is not inserted into the duck
-ASCII itself.
+head, and yellow bill. The exact `GOLDEN DUCK` label is reserved for hit,
+befriending, escape, and achievement messages, where it is shown with IRC's
+gold/yellow color code; it is not inserted into the duck ASCII itself. Clients
+without color support still receive the same readable label.
 
 Before the duck appears, GoBot may send one randomly timed, colorized teaser
 such as a flight trail, quack, or flap. There is at most one teaser per hunt
@@ -402,7 +403,7 @@ achievements include Golden Slayer, Golden Companion, Flock Buster, Deadeye
 Duck, Pond Patroller, Quackstorm, Willow Whisperer, Marsh Marksman, and Golden
 Arsenal. Long-term achievements include Wing Commander, Legendary Slayer, Pond
 Peacemaker, Friend of All Feathers, XP Voyager, and Point Hoarder. Golden Duck
-phrases in achievement messages are highlighted in yellow. Use
+phrases in achievement messages are highlighted in gold. Use
 `!achievements [nickname]` to view unlocked achievements; `!duckstats` also
 shows the unlocked/total count. Existing players begin with zero achievements
 and can earn them without losing any existing progress.
