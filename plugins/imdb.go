@@ -10,6 +10,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/variablenix/GoBot/bot"
 	"github.com/variablenix/GoBot/storage"
@@ -23,6 +25,7 @@ const imdbPrefix = "🎥"
 const (
 	defaultIMDbMaxLength = 320
 	defaultIMDbResults   = 3
+	imdbIRCMaxLineBytes  = 512
 )
 
 type IMDb struct {
@@ -64,13 +67,13 @@ func (p *IMDb) Handle(b *bot.Bot, m bot.Message) bool {
 
 	query := strings.TrimSpace(arg)
 	if !validIMDbQuery(query) {
-		b.Send(m.ReplyTarget(), "usage: !imdb <movie or film>")
+		p.send(b, m.ReplyTarget(), "usage: !imdb <movie or film>")
 		return true
 	}
 
 	key := scopedKey(b.Config.NetworkName, m.ReplyTarget(), pluginIdentity(m))
 	if !p.cooldown.allow(key) {
-		b.Send(m.ReplyTarget(), "IMDb search is cooling down — please wait a moment")
+		p.send(b, m.ReplyTarget(), "IMDb search is cooling down — please wait a moment")
 		return true
 	}
 
@@ -79,22 +82,34 @@ func (p *IMDb) Handle(b *bot.Bot, m bot.Message) bool {
 	titles, err := lookupIMDbTitles(ctx, query)
 	if err != nil {
 		if err == errIMDbNotFound {
-			b.Send(m.ReplyTarget(), fmt.Sprintf("%s IMDb: no movie or film found for %q", imdbPrefix, cleanExternalText(query)))
+			p.send(b, m.ReplyTarget(), fmt.Sprintf("%s IMDb: no movie or film found for %q", imdbPrefix, query))
 		} else {
-			b.Send(m.ReplyTarget(), "IMDb search is temporarily unavailable")
+			p.send(b, m.ReplyTarget(), "IMDb search is temporarily unavailable")
 		}
 		return true
 	}
 
 	result := formatIMDbResults(titles, imdbMaxResults(p.cfg))
-	b.Send(m.ReplyTarget(), truncateRunes(result, imdbMaxLength(p.cfg)))
+	p.send(b, m.ReplyTarget(), result)
 	return true
+}
+
+func (p *IMDb) send(b *bot.Bot, target, text string) {
+	b.Send(target, boundIMDbReply(target, text, imdbMaxLength(p.cfg)))
 }
 
 var errIMDbNotFound = errors.New("IMDb title not found")
 
 func validIMDbQuery(query string) bool {
-	return query != "" && len([]rune(query)) <= 120 && !strings.ContainsAny(query, "\r\n\t")
+	if query == "" || len([]rune(query)) > 120 {
+		return false
+	}
+	for _, r := range query {
+		if unsafeIMDbRune(r) {
+			return false
+		}
+	}
+	return true
 }
 
 func imdbTimeout(c bot.PluginConfig) time.Duration {
@@ -119,6 +134,58 @@ func imdbMaxResults(c bot.PluginConfig) int {
 		max = defaultIMDbResults
 	}
 	return max
+}
+
+func boundIMDbReply(target, text string, configuredMax int) string {
+	text = cleanIMDbText(text)
+	// gopkg.in/irc.v3 writes messages as-is. Reserve the exact bytes used by
+	// "PRIVMSG <target> :" and CRLF so the complete wire line stays at or
+	// below IRC's 512-byte limit.
+	wireLimit := imdbIRCMaxLineBytes - len("PRIVMSG ") - len([]byte(target)) - len(" :") - len("\r\n")
+	if wireLimit < 1 {
+		wireLimit = 1
+	}
+	if configuredMax < 1 || configuredMax > wireLimit {
+		configuredMax = wireLimit
+	}
+	return truncateUTF8Bytes(text, configuredMax)
+}
+
+func truncateUTF8Bytes(text string, maxBytes int) string {
+	if maxBytes <= 0 {
+		return ""
+	}
+	if len(text) <= maxBytes {
+		return text
+	}
+	const suffix = "…"
+	if maxBytes < len(suffix) {
+		return strings.Repeat(".", maxBytes)
+	}
+	cut := maxBytes - len(suffix)
+	for cut > 0 && !utf8.RuneStart(text[cut]) {
+		cut--
+	}
+	return text[:cut] + suffix
+}
+
+func cleanIMDbText(text string) string {
+	text = cleanExternalText(text)
+	var cleaned strings.Builder
+	cleaned.Grow(len(text))
+	for _, r := range text {
+		if unsafeIMDbRune(r) {
+			continue
+		}
+		cleaned.WriteRune(r)
+	}
+	return strings.Join(strings.Fields(cleaned.String()), " ")
+}
+
+func unsafeIMDbRune(r rune) bool {
+	return unicode.IsControl(r) || unicode.Is(unicode.Cf, r) ||
+		(r >= 0xFE00 && r <= 0xFE0F) ||
+		(r >= 0xE0100 && r <= 0xE01EF)
 }
 
 func lookupIMDbTitles(ctx context.Context, query string) ([]imdbTitle, error) {
@@ -192,7 +259,7 @@ func formatIMDbResults(titles []imdbTitle, maxResults int) string {
 	}
 	items := make([]string, 0, maxResults)
 	for _, title := range titles[:maxResults] {
-		label := cleanExternalText(title.Label)
+		label := cleanIMDbText(title.Label)
 		details := make([]string, 0, 3)
 		if year := imdbYear(title); year != "" {
 			details = append(details, year)
@@ -200,13 +267,13 @@ func formatIMDbResults(titles []imdbTitle, maxResults int) string {
 		if kind := imdbKind(title); kind != "" {
 			details = append(details, kind)
 		}
-		if stars := cleanExternalText(title.Stars); stars != "" {
+		if stars := cleanIMDbText(title.Stars); stars != "" {
 			details = append(details, stars)
 		}
 		if len(details) > 0 {
 			label += " (" + strings.Join(details, "; ") + ")"
 		}
-		id := cleanExternalText(title.ID)
+		id := strings.TrimSpace(title.ID)
 		items = append(items, label+" | https://www.imdb.com/title/"+id+"/")
 	}
 	result := imdbPrefix + " IMDb: " + strings.Join(items, " ; ")
@@ -220,7 +287,7 @@ func imdbYear(title imdbTitle) string {
 	if title.Year > 0 {
 		return fmt.Sprintf("%d", title.Year)
 	}
-	return cleanExternalText(title.YearRaw)
+	return cleanIMDbText(title.YearRaw)
 }
 
 func imdbKind(title imdbTitle) string {
@@ -242,6 +309,6 @@ func imdbKind(title imdbTitle) string {
 	case "videogame":
 		return "game"
 	default:
-		return cleanExternalText(title.Kind)
+		return cleanIMDbText(title.Kind)
 	}
 }
