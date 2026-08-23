@@ -105,6 +105,7 @@ plugins:
   attack: {enabled: true}
   weapons: {enabled: true, data_file: "data/weapons.txt", max_length: 240}
   github: {enabled: true, timeout_seconds: 8, max_length: 360, token: ""}
+  imdb: {enabled: true, timeout_seconds: 8, max_length: 320, max_results: 3, cooldown_seconds: 5}
   reddit: {enabled: true, timeout_seconds: 8, max_length: 360}
   daily: {enabled: true, bonus_xp: 25}
   scramble: {enabled: true, data_file: "data/scramble.txt", timeout_minutes: 5, max_length: 240}

@@ -83,6 +83,7 @@ plugins:
   acronym: {enabled: true, data_file: "data/acronyms.txt", max_length: 320}
   weather: {enabled: true, default_units: imperial}
   steam: {enabled: true, timeout_seconds: 10, max_length: 360}
+  imdb: {enabled: true, timeout_seconds: 8, max_length: 320, max_results: 3, cooldown_seconds: 5}
   news: {enabled: true, api_key: "", max_results: 3, max_length: 360}
   # Search Assist and bounded public-result excerpts; Instant Answers/Wikidata remain fallbacks.
   # No credentials are required.

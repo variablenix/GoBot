@@ -14,6 +14,7 @@ func All() []bot.Plugin {
 		&Acronym{},
 		&Weather{},
 		&Steam{},
+		&IMDb{},
 		&News{},
 		&Ask{},
 		&Wikipedia{},

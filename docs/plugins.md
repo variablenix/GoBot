@@ -16,6 +16,7 @@ Plugins are enabled or disabled under plugins.<name>.enabled in config.yaml.
 - acronym: local operator-maintained acronym expansion
 - weather: Open-Meteo weather, no key required
 - steam: Steam game search, genre links, and most-played lookup, no key required
+- imdb: keyless IMDb movie and film title search
 - news: NewsAPI headlines and search
 - ask: DuckDuckGo Search Assist with bounded public-result excerpts, Instant Answer, and Wikidata fallbacks
 - wikipedia: English Wikipedia summaries
@@ -657,6 +658,43 @@ requested details response exceeds the configured IRC message limit, GoBot
 sends the full response by private message and tells the channel that it is
 messaging the requester. Configure `plugins.steam.timeout_seconds` and
 `plugins.steam.max_length` as needed.
+
+## IMDb title search
+
+Search IMDb movie, film, series, episode, and other title suggestions without
+an API key:
+
+~~~text
+!imdb inception
+!imdb the matrix
+!imdb spirited away
+~~~
+
+GoBot uses IMDb's keyless JSON suggestion endpoint to return up to
+`plugins.imdb.max_results` matches with the title, year, type, principal cast
+when available, and a direct IMDb link. Results are kept to one IRC line and
+bounded by `plugins.imdb.max_length`. The `🎥` marker is deliberately a single
+Unicode code point without a U+FE0F variation selector, which avoids an
+avoidable source of width differences in some terminal clients, including
+older Mosh terminal combinations.
+
+This is not HTML scraping and it is not IMDb's official GraphQL API. IMDb's
+official non-commercial datasets are bulk downloads, while the official API
+is a separate subscription product that requires credentials and an API key.
+The keyless suggestion endpoint is undocumented and may change; if it is
+unavailable, GoBot returns a single-line temporary-unavailable response.
+
+Optional settings:
+
+~~~yaml
+plugins:
+  imdb:
+    enabled: true
+    timeout_seconds: 8
+    max_length: 320
+    max_results: 3
+    cooldown_seconds: 5
+~~~
 
 ## Horoscope
 
