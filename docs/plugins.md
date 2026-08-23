@@ -673,10 +673,13 @@ an API key:
 GoBot uses IMDb's keyless JSON suggestion endpoint to return up to
 `plugins.imdb.max_results` matches with the title, year, type, principal cast
 when available, and a direct IMDb link. Results are kept to one IRC line and
-bounded by `plugins.imdb.max_length`. The `🎥` marker is deliberately a single
-Unicode code point without a U+FE0F variation selector, which avoids an
-avoidable source of width differences in some terminal clients, including
-older Mosh terminal combinations.
+bounded by `plugins.imdb.max_length` UTF-8 bytes and the IRC protocol's
+512-byte wire-line limit, whichever is smaller. All response paths use the
+same byte-aware limit. The `🎥` marker is deliberately a single Unicode code
+point without a U+FE0F variation selector. Variation selectors, invisible
+format controls, IRC controls, and line breaks are removed from returned IMDb
+metadata to avoid formatting injection and an avoidable source of width
+differences in terminal clients, including older Mosh terminal combinations.
 
 This is not HTML scraping and it is not IMDb's official GraphQL API. IMDb's
 official non-commercial datasets are bulk downloads, while the official API
