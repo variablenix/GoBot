@@ -17,6 +17,7 @@ Plugins are enabled or disabled under plugins.<name>.enabled in config.yaml.
 - weather: Open-Meteo weather, no key required
 - steam: Steam game search, genre links, and most-played lookup, no key required
 - imdb: keyless IMDb movie and film title search
+- lyrics: Genius song and lyrics-page search
 - news: NewsAPI headlines and search
 - ask: DuckDuckGo Search Assist with bounded public-result excerpts, Instant Answer, and Wikidata fallbacks
 - wikipedia: English Wikipedia summaries
@@ -696,6 +697,44 @@ plugins:
     timeout_seconds: 8
     max_length: 320
     max_results: 3
+    cooldown_seconds: 5
+~~~
+
+## Lyrics search
+
+Find a song on Genius and return its canonical lyrics page as one bounded IRC
+line:
+
+~~~text
+!lyrics Paranoid Android
+!lyric artist - song title
+!genius song title
+~~~
+
+The command searches Genius's public API, selects a song result, validates the
+returned host, and provides one `https://genius.com/...` link. GoBot does not
+download or reproduce lyric text. The Genius API requires a client access
+token; keep it in `.env` or the service environment rather than
+`config.yaml`:
+
+~~~text
+BOT_GENIUS_ACCESS_TOKEN=your-genius-client-access-token
+~~~
+
+Missing credentials, authentication failures, empty results, upstream errors,
+invalid URLs, and malformed third-party text each produce a clear single-line
+response. Queries and returned metadata reject control characters, invisible
+formatting characters, variation selectors, and line breaks. Responses are
+bounded by `plugins.lyrics.max_length` and the IRC 512-byte wire-line limit.
+
+Optional settings:
+
+~~~yaml
+plugins:
+  lyrics:
+    enabled: true
+    timeout_seconds: 8
+    max_length: 320
     cooldown_seconds: 5
 ~~~
 
