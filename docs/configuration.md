@@ -107,6 +107,8 @@ plugins:
   github: {enabled: true, timeout_seconds: 8, max_length: 360, token: ""}
   # IMDb max_length is UTF-8 response bytes; the IRC 512-byte wire cap is also enforced.
   imdb: {enabled: true, timeout_seconds: 8, max_length: 320, max_results: 3, cooldown_seconds: 5}
+  # Requires BOT_GENIUS_ACCESS_TOKEN in .env or the service environment.
+  lyrics: {enabled: true, timeout_seconds: 8, max_length: 320, cooldown_seconds: 5}
   reddit: {enabled: true, timeout_seconds: 8, max_length: 360}
   daily: {enabled: true, bonus_xp: 25}
   scramble: {enabled: true, data_file: "data/scramble.txt", timeout_minutes: 5, max_length: 240}
