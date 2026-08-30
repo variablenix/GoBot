@@ -252,7 +252,7 @@ func (p *Paste) createPaste(parent context.Context, content string) (string, err
 		result = p.baseURL + "/" + strings.TrimSpace(response.ID)
 	}
 	if result == "" {
-		return "", fmt.Errorf("Opengist response did not include a URL")
+		return "", fmt.Errorf("opengist response did not include a URL")
 	}
 	return result, nil
 }

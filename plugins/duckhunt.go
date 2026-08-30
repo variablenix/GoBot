@@ -1128,10 +1128,7 @@ func duckAchievementCondition(key string, player duckPlayer, kills, friends uint
 }
 
 func formatDuckAchievement(nick string, achievement duckAchievementDefinition) string {
-	description := achievement.Description
-	if strings.Contains(description, goldenDuckLabel) {
-		description = strings.Replace(description, goldenDuckLabel, ircColor(ircGold, goldenDuckLabel), 1)
-	}
+	description := strings.Replace(achievement.Description, goldenDuckLabel, ircColor(ircGold, goldenDuckLabel), 1)
 	return fmt.Sprintf("%s %s unlocked: %s - %s", ircColor(ircGreen, "[Achievement]"), ircColor(ircCyan, nick), ircColor(ircYellow, achievement.Name), description)
 }
 
