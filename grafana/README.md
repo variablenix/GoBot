@@ -7,6 +7,8 @@ dashboard for GoBot's `/metrics` endpoint. It covers:
 - process uptime and reliability events
 - per-network incoming and outgoing message rates
 - handled-command rates grouped by plugin
+- the ten most-used plugins during the current GoBot process lifetime
+- current networks and channels GoBot has actually joined
 - outbound queue depth and capacity by network
 - filtering by Prometheus job, environment, hostname, instance, and IRC network
 
@@ -24,7 +26,8 @@ curl http://10.69.0.22:8082/metrics
 
 Along with the original `bot_*` metrics, the response should include
 `bot_network_connected`, `bot_network_messages_received_total`,
-`bot_plugin_commands_handled_total`, and `bot_outgoing_queue_depth`.
+`bot_plugin_commands_handled_total`, `bot_network_channel_joined`, and
+`bot_outgoing_queue_depth`.
 
 ## 2. Configure Prometheus
 
@@ -76,8 +79,14 @@ The dashboard refreshes every 30 seconds, matching the Prometheus scrape
 interval. A newly started bot may need two scrapes (about one minute) before
 rate panels have enough samples to draw a line.
 
+The **Most-used plugins** panel counts handled commands since the current
+GoBot process started, so its ranking resets after a service restart. The
+**Joined networks and channels** panel reflects live JOIN/PART/KICK state and
+clears a network's channels when its IRC connection ends.
+
 ## Security note
 
 GoBot's `/stats` and `/metrics` endpoints do not provide authentication. Bind
 the listener to a private address and allow access only from the Prometheus
-host through the firewall.
+host through the firewall. The membership metric includes joined channel
+names as labels; it does not expose users, accounts, or message contents.

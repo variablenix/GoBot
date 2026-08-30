@@ -30,6 +30,8 @@ type networkStats struct {
 	name               string
 	configuredChannels int
 	queue              *Queue
+	channelMu          sync.RWMutex
+	joinedChannels     map[string]string
 	connected          atomic.Uint64
 	received           atomic.Uint64
 	sent               atomic.Uint64
@@ -91,9 +93,54 @@ func (s *Stats) registerNetwork(name string, configuredChannels int, queue *Queu
 	if existing := s.networks[name]; existing != nil {
 		return existing
 	}
-	network := &networkStats{name: name, configuredChannels: configuredChannels, queue: queue}
+	network := &networkStats{name: name, configuredChannels: configuredChannels, queue: queue, joinedChannels: make(map[string]string)}
 	s.networks[name] = network
 	return network
+}
+
+func (network *networkStats) joinChannel(channel string) {
+	if network == nil {
+		return
+	}
+	channel = strings.TrimSpace(channel)
+	if channel == "" {
+		return
+	}
+	network.channelMu.Lock()
+	network.joinedChannels[strings.ToLower(channel)] = channel
+	network.channelMu.Unlock()
+}
+
+func (network *networkStats) leaveChannel(channel string) {
+	if network == nil {
+		return
+	}
+	network.channelMu.Lock()
+	delete(network.joinedChannels, strings.ToLower(strings.TrimSpace(channel)))
+	network.channelMu.Unlock()
+}
+
+func (network *networkStats) clearJoinedChannels() {
+	if network == nil {
+		return
+	}
+	network.channelMu.Lock()
+	clear(network.joinedChannels)
+	network.channelMu.Unlock()
+}
+
+func (network *networkStats) sortedJoinedChannels() []string {
+	if network == nil {
+		return nil
+	}
+	network.channelMu.RLock()
+	channels := make([]string, 0, len(network.joinedChannels))
+	for _, channel := range network.joinedChannels {
+		channels = append(channels, channel)
+	}
+	network.channelMu.RUnlock()
+	sort.Slice(channels, func(i, j int) bool { return strings.ToLower(channels[i]) < strings.ToLower(channels[j]) })
+	return channels
 }
 
 func (s *Stats) setNetworkConnected(network *networkStats, value bool) {
@@ -104,6 +151,9 @@ func (s *Stats) setNetworkConnected(network *networkStats, value bool) {
 			s.connected.Store(0)
 		}
 		return
+	}
+	if !value {
+		network.clearJoinedChannels()
 	}
 	desired := uint64(0)
 	delta := int64(-1)
@@ -201,20 +251,23 @@ func (s *Stats) networkSnapshot() map[string]interface{} {
 	networks := make(map[string]interface{})
 	for _, network := range s.sortedNetworks() {
 		depth, capacity := 0, 0
+		joinedChannels := network.sortedJoinedChannels()
 		if network.queue != nil {
 			depth = network.queue.Depth()
 			capacity = network.queue.Capacity()
 		}
 		networks[network.name] = map[string]interface{}{
-			"connected":           network.connected.Load() == 1,
-			"reconnects":          network.reconnects.Load(),
-			"messages_received":   network.received.Load(),
-			"messages_sent":       network.sent.Load(),
-			"messages_dropped":    network.dropped.Load(),
-			"commands_handled":    network.commands.Load(),
-			"configured_channels": network.configuredChannels,
-			"queue_depth":         depth,
-			"queue_capacity":      capacity,
+			"connected":            network.connected.Load() == 1,
+			"reconnects":           network.reconnects.Load(),
+			"messages_received":    network.received.Load(),
+			"messages_sent":        network.sent.Load(),
+			"messages_dropped":     network.dropped.Load(),
+			"commands_handled":     network.commands.Load(),
+			"configured_channels":  network.configuredChannels,
+			"joined_channel_count": len(joinedChannels),
+			"joined_channels":      joinedChannels,
+			"queue_depth":          depth,
+			"queue_capacity":       capacity,
 		}
 	}
 	return networks
@@ -254,6 +307,12 @@ func (s *Stats) PrometheusSnapshot() string {
 		writer.metric("bot_network_commands_handled_total", "Commands handled during the current process lifetime.", "counter", labels, network.commands.Load())
 		writer.metric("bot_network_messages_dropped_total", "Messages dropped because the network outbound queue was full.", "counter", labels, network.dropped.Load())
 		writer.metric("bot_network_configured_channels", "Configured IRC channels for the network.", "gauge", labels, network.configuredChannels)
+		joinedChannels := network.sortedJoinedChannels()
+		writer.metric("bot_network_joined_channels", "IRC channels the bot is currently joined to on the network.", "gauge", labels, len(joinedChannels))
+		for _, channel := range joinedChannels {
+			channelLabels := append(append([]metricLabel{}, labels...), metricLabel{name: "channel", value: channel})
+			writer.metric("bot_network_channel_joined", "Current IRC channel membership for the bot.", "gauge", channelLabels, 1)
+		}
 		depth, capacity := 0, 0
 		if network.queue != nil {
 			depth = network.queue.Depth()

@@ -46,6 +46,8 @@ GoBot also exposes operational metrics for richer dashboards:
 | `bot_network_commands_handled_total{network}` | counter | Per-network handled commands since process start |
 | `bot_network_messages_dropped_total{network}` | counter | Per-network outbound messages dropped since process start |
 | `bot_network_configured_channels{network}` | gauge | Configured channels per network |
+| `bot_network_joined_channels{network}` | gauge | Channels the bot is currently joined to per network |
+| `bot_network_channel_joined{network,channel}` | gauge | Current channel membership; one series with value 1 per joined channel |
 | `bot_outgoing_queue_depth{network}` | gauge | Messages currently waiting to be sent |
 | `bot_outgoing_queue_capacity{network}` | gauge | Maximum outbound queue size |
 | `bot_plugin_commands_handled_total{network,plugin}` | counter | Handled commands grouped by plugin |
@@ -53,13 +55,15 @@ GoBot also exposes operational metrics for richer dashboards:
 
 Per-network and per-plugin counters reset when the GoBot process restarts;
 Prometheus `rate()` and `increase()` account for counter resets. Labels are
-limited to configured network names, built-in plugin names, and the bounded
-handler type. Channel names, nicknames, accounts, and message contents are not
-exported.
+limited to network names, the bot's current joined channels, built-in plugin
+names, and the bounded handler type. Nicknames, accounts, and message contents
+are not exported. Because joined channel names are exposed as metric labels,
+keep `/metrics` on a private monitoring network.
 
 The `/stats` JSON response includes a `networks` object with connection,
-traffic, command, reconnect, queue, and configured-channel details for each
-network.
+traffic, command, reconnect, queue, configured-channel, and current joined-
+channel details for each network. Membership is updated from the bot's own
+JOIN, PART, and KICK events and cleared whenever that IRC connection ends.
 
 ## Prometheus scrape configuration
 

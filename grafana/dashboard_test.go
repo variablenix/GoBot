@@ -52,6 +52,8 @@ func TestDashboardJSONUsesExpandedMetrics(t *testing.T) {
 		"Command throughput by plugin",
 		"Outbound queue pressure",
 		"Uptime",
+		"Most-used plugins",
+		"Joined networks and channels",
 	} {
 		if !panelTitles[title] {
 			t.Errorf("dashboard is missing panel %q", title)
@@ -79,6 +81,7 @@ func TestDashboardJSONUsesExpandedMetrics(t *testing.T) {
 		"bot_plugin_panics_total",
 		"bot_outgoing_queue_depth",
 		"bot_outgoing_queue_capacity",
+		"bot_network_channel_joined",
 	} {
 		if !strings.Contains(text, metric) {
 			t.Errorf("dashboard does not query %s", metric)
