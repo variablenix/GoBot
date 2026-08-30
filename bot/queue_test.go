@@ -30,3 +30,17 @@ func TestQueueClampsExtremeRates(t *testing.T) {
 		t.Fatalf("queue interval = %s, want positive", q.interval)
 	}
 }
+
+func TestQueueReportsDepthAndCapacity(t *testing.T) {
+	q := NewQueue(0.01, 2, func(Outgoing) {})
+	defer q.Drain(context.Background())
+	if got := q.Capacity(); got != 40 {
+		t.Fatalf("Capacity() = %d, want 40", got)
+	}
+	if !q.Enqueue(Outgoing{Text: "one"}) || !q.Enqueue(Outgoing{Text: "two"}) {
+		t.Fatal("failed to enqueue messages")
+	}
+	if got := q.Depth(); got != 2 {
+		t.Fatalf("Depth() = %d, want 2", got)
+	}
+}
