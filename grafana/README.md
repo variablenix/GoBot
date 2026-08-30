@@ -1,7 +1,9 @@
 # GoBot Grafana dashboard
 
-[`gobot-dashboard.json`](gobot-dashboard.json) is the importable Grafana
-dashboard for GoBot's `/metrics` endpoint. It covers:
+[`gobot-dashboard.json`](gobot-dashboard.json) is a portable Classic JSON
+dashboard for GoBot's `/metrics` endpoint. Grafana maps its Prometheus data
+source during import instead of retaining an instance-specific data-source
+identifier. It covers:
 
 - Prometheus scrape and IRC connection health
 - process uptime and reliability events
@@ -74,6 +76,11 @@ Prometheus host to `10.69.0.22:8082` before importing the dashboard.
    - **Host:** `nexus-node`
    - **Instance:** `10.69.0.22:8082`
    - **IRC network:** `All`, or one configured GoBot network
+
+The JSON intentionally uses Grafana's portable Classic import model. It does
+not contain API-managed resource fields such as `generation`,
+`resourceVersion`, or `creationTimestamp`, so it can be imported through the
+normal UI and used to overwrite an earlier copy safely.
 
 The dashboard refreshes every 30 seconds, matching the Prometheus scrape
 interval. A newly started bot may need two scrapes (about one minute) before

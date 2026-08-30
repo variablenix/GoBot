@@ -7,24 +7,22 @@ import (
 	"testing"
 )
 
-type dashboardResource struct {
-	APIVersion string `json:"apiVersion"`
-	Kind       string `json:"kind"`
-	Spec       struct {
-		Title     string                      `json:"title"`
-		Elements  map[string]dashboardElement `json:"elements"`
-		Variables []struct {
-			Spec struct {
-				Name string `json:"name"`
-			} `json:"spec"`
-		} `json:"variables"`
-	} `json:"spec"`
-}
-
-type dashboardElement struct {
-	Spec struct {
+type dashboardModel struct {
+	SchemaVersion int    `json:"schemaVersion"`
+	Title         string `json:"title"`
+	UID           string `json:"uid"`
+	Inputs        []struct {
+		Name     string `json:"name"`
+		PluginID string `json:"pluginId"`
+	} `json:"__inputs"`
+	Panels []struct {
 		Title string `json:"title"`
-	} `json:"spec"`
+	} `json:"panels"`
+	Templating struct {
+		List []struct {
+			Name string `json:"name"`
+		} `json:"list"`
+	} `json:"templating"`
 }
 
 func TestDashboardJSONUsesExpandedMetrics(t *testing.T) {
@@ -32,17 +30,20 @@ func TestDashboardJSONUsesExpandedMetrics(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var dashboard dashboardResource
+	var dashboard dashboardModel
 	if err := json.Unmarshal(raw, &dashboard); err != nil {
 		t.Fatalf("dashboard JSON is invalid: %v", err)
 	}
-	if dashboard.APIVersion == "" || dashboard.Kind != "Dashboard" || dashboard.Spec.Title != "GoBot Operations" {
+	if dashboard.SchemaVersion < 39 || dashboard.Title != "GoBot Operations" || dashboard.UID != "gobot-operations" {
 		t.Fatalf("unexpected dashboard identity: %#v", dashboard)
+	}
+	if len(dashboard.Inputs) != 1 || dashboard.Inputs[0].Name != "DS_PROMETHEUS" || dashboard.Inputs[0].PluginID != "prometheus" {
+		t.Fatalf("dashboard Prometheus input is not portable: %#v", dashboard.Inputs)
 	}
 
 	panelTitles := make(map[string]bool)
-	for _, element := range dashboard.Spec.Elements {
-		panelTitles[element.Spec.Title] = true
+	for _, panel := range dashboard.Panels {
+		panelTitles[panel.Title] = true
 	}
 	for _, title := range []string{
 		"IRC connection",
@@ -61,8 +62,8 @@ func TestDashboardJSONUsesExpandedMetrics(t *testing.T) {
 	}
 
 	variables := make(map[string]bool)
-	for _, variable := range dashboard.Spec.Variables {
-		variables[variable.Spec.Name] = true
+	for _, variable := range dashboard.Templating.List {
+		variables[variable.Name] = true
 	}
 	for _, name := range []string{"job", "environment", "hostname", "instance", "network"} {
 		if !variables[name] {
