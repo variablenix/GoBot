@@ -726,6 +726,9 @@ invalid URLs, and malformed third-party text each produce a clear single-line
 response. Queries and returned metadata reject control characters, invisible
 formatting characters, variation selectors, and line breaks. Responses are
 bounded by `plugins.lyrics.max_length` and the IRC 512-byte wire-line limit.
+Metadata is shortened before the link; if an unusually long canonical URL
+would not fit, GoBot uses Genius's short song URL so the single link remains
+complete and usable.
 
 Optional settings:
 

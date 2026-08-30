@@ -195,7 +195,7 @@ func (p *Trivia) expire(b *bot.Bot, key string) {
 		return
 	}
 	answer := game.question.Options[game.question.Correct]
-	b.Send(game.target, fmt.Sprintf("⏱️ Time's up! The answer was %c) %s", 'A'+byte(game.question.Correct), cleanExternalText(answer)))
+	b.Send(game.target, fmt.Sprintf("⏱️ Time's up! The answer was %c) %s", triviaOptionLabel(game.question.Correct), cleanExternalText(answer)))
 }
 
 func (p *Trivia) stopGame(key string) {
@@ -282,13 +282,21 @@ func validTriviaQuestion(category, question string, options []string) bool {
 func formatTriviaQuestion(question triviaQuestion, maxLength int) string {
 	options := make([]string, len(question.Options))
 	for i, option := range question.Options {
-		options[i] = fmt.Sprintf("%c) %s", 'A'+byte(i), cleanExternalText(option))
+		options[i] = fmt.Sprintf("%c) %s", triviaOptionLabel(i), cleanExternalText(option))
 	}
 	suffix := " | " + strings.Join(options, "  ")
 	prefix := "❓ [" + cleanExternalText(question.Category) + "] "
 	available := maxLength - len([]rune(prefix)) - len([]rune(suffix))
 	text := truncateRunes(strings.TrimSuffix(strings.TrimSpace(question.Text), "?"), available)
 	return truncateRunes(prefix+text+"?"+suffix, maxLength)
+}
+
+func triviaOptionLabel(index int) rune {
+	labels := [...]rune{'A', 'B', 'C', 'D'}
+	if index < 0 || index >= len(labels) {
+		return '?'
+	}
+	return labels[index]
 }
 
 var triviaFallbacks = []triviaQuestion{

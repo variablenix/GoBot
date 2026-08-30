@@ -43,6 +43,10 @@ dependencies, and deployment configuration maintained.
 - The paste token is sent only to the configured Opengist base URL and should
   use HTTPS. `BOT_PASTE_TOKEN` and `BOT_PASTE_BASE_URL` belong in the service
   environment, not in Git.
+- The Genius client access token is sent only to the fixed
+  `https://api.genius.com/search` endpoint. Lyrics lookup rejects redirects so
+  the bearer token is not forwarded, and `BOT_GENIUS_ACCESS_TOKEN` belongs in
+  the service environment rather than Git.
 - IRC invitations, command handling, and cooldown warnings are rate-limited.
 - The Docker image runs as a non-root user.
 - Protect the BoltDB data file and its containing directory with filesystem

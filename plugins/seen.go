@@ -24,7 +24,7 @@ func (p *Seen) Help() string                                 { return "!seen <ni
 func (p *Seen) Init(_ bot.PluginConfig, d *storage.DB) error { p.db = d; return nil }
 func (p *Seen) Handle(b *bot.Bot, m bot.Message) bool {
 	if m.Command == "PRIVMSG" && m.Nick != "" {
-		p.db.Set("seen", strings.ToLower(m.Nick), record{m.Nick, m.Target, normalizeSeenText(m.Nick, m.Text), m.Timestamp})
+		_ = p.db.Set("seen", strings.ToLower(m.Nick), record{m.Nick, m.Target, normalizeSeenText(m.Nick, m.Text), m.Timestamp})
 	}
 	cmd, arg, ok := bot.IsCommand(m, b.Config.CommandPrefix)
 	if !ok || cmd != "seen" {
@@ -36,7 +36,10 @@ func (p *Seen) Handle(b *bot.Bot, m bot.Message) bool {
 		return true
 	}
 	var x record
-	json.Unmarshal(v, &x)
+	if err := json.Unmarshal(v, &x); err != nil || strings.TrimSpace(x.Nick) == "" {
+		b.Send(m.ReplyTarget(), "That seen record is unavailable.")
+		return true
+	}
 	b.Send(m.ReplyTarget(), fmt.Sprintf("👁️ %s was last seen in %s %s ago saying: %q", x.Nick, x.Channel, formatSeenAge(x.At, time.Now()), x.Text))
 	return true
 }

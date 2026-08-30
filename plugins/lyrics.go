@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -23,6 +24,15 @@ const (
 	lyricsIRCMaxLineBytes  = 512
 	geniusSearchEndpoint   = "https://api.genius.com/search"
 )
+
+var lyricsHTTPClient = &http.Client{
+	Timeout: 10 * time.Second,
+	// The bearer token is only intended for api.genius.com. A redirect is an
+	// upstream failure here, not permission to forward credentials elsewhere.
+	CheckRedirect: func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	},
+}
 
 type Lyrics struct {
 	cfg      bot.PluginConfig
@@ -43,6 +53,7 @@ type geniusSearchHit struct {
 }
 
 type geniusSong struct {
+	ID            int64  `json:"id"`
 	Title         string `json:"title"`
 	FullTitle     string `json:"full_title"`
 	ArtistNames   string `json:"artist_names"`
@@ -103,7 +114,12 @@ func (p *Lyrics) Handle(b *bot.Bot, m bot.Message) bool {
 		return true
 	}
 
-	p.send(b, m.ReplyTarget(), formatLyricsResult(song))
+	reply, ok := formatLyricsResult(song, m.ReplyTarget(), lyricsMaxLength(p.cfg))
+	if !ok {
+		p.send(b, m.ReplyTarget(), "lyrics result could not be formatted safely")
+		return true
+	}
+	b.Send(m.ReplyTarget(), reply)
 	return true
 }
 
@@ -112,8 +128,8 @@ func (p *Lyrics) send(b *bot.Bot, target, text string) {
 }
 
 var (
-	errGeniusNotFound     = errors.New("Genius song not found")
-	errGeniusUnauthorized = errors.New("Genius authentication failed")
+	errGeniusNotFound     = errors.New("genius song not found")
+	errGeniusUnauthorized = errors.New("genius authentication failed")
 )
 
 func isLyricsCommand(command string) bool {
@@ -169,6 +185,10 @@ func lyricsMaxLength(c bot.PluginConfig) int {
 
 func boundLyricsReply(target, text string, configuredMax int) string {
 	text = cleanLyricsText(text)
+	return truncateUTF8Bytes(text, lyricsReplyByteLimit(target, configuredMax))
+}
+
+func lyricsReplyByteLimit(target string, configuredMax int) int {
 	wireLimit := lyricsIRCMaxLineBytes - len("PRIVMSG ") - len([]byte(target)) - len(" :") - len("\r\n")
 	if wireLimit < 1 {
 		wireLimit = 1
@@ -176,7 +196,7 @@ func boundLyricsReply(target, text string, configuredMax int) string {
 	if configuredMax < 1 || configuredMax > wireLimit {
 		configuredMax = wireLimit
 	}
-	return truncateUTF8Bytes(text, configuredMax)
+	return configuredMax
 }
 
 func cleanLyricsText(text string) string {
@@ -214,7 +234,7 @@ func lookupGeniusSong(ctx context.Context, query, token string) (geniusSong, err
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("User-Agent", "GoBot/1.0 (IRC bot; Genius lyrics link lookup)")
 
-	res, err := apiHTTPClient.Do(req)
+	res, err := lyricsHTTPClient.Do(req)
 	if err != nil {
 		return geniusSong{}, err
 	}
@@ -226,7 +246,7 @@ func lookupGeniusSong(ctx context.Context, query, token string) (geniusSong, err
 		return geniusSong{}, errGeniusNotFound
 	}
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
-		return geniusSong{}, fmt.Errorf("Genius returned HTTP %d", res.StatusCode)
+		return geniusSong{}, fmt.Errorf("genius returned HTTP %d", res.StatusCode)
 	}
 
 	var payload geniusSearchResponse
@@ -246,29 +266,63 @@ func lookupGeniusSong(ctx context.Context, query, token string) (geniusSong, err
 }
 
 func validGeniusSongURL(raw string) bool {
-	parsed, err := url.Parse(strings.TrimSpace(raw))
-	if err != nil || !strings.EqualFold(parsed.Scheme, "https") || parsed.User != nil || parsed.Path == "" {
+	raw = strings.TrimSpace(raw)
+	if raw == "" || cleanLyricsText(raw) != raw {
 		return false
 	}
-	return strings.EqualFold(parsed.Hostname(), "genius.com") ||
-		strings.EqualFold(parsed.Hostname(), "www.genius.com")
+	parsed, err := url.Parse(raw)
+	if err != nil || !strings.EqualFold(parsed.Scheme, "https") || parsed.User != nil ||
+		parsed.Path == "" || parsed.Path == "/" || parsed.RawQuery != "" || parsed.Fragment != "" {
+		return false
+	}
+	host := strings.ToLower(parsed.Host)
+	return host == "genius.com" || host == "www.genius.com"
 }
 
-func formatLyricsResult(song geniusSong) string {
-	artist := cleanLyricsText(song.ArtistNames)
-	if artist == "" {
-		artist = cleanLyricsText(song.PrimaryArtist.Name)
-	}
-	title := cleanLyricsText(song.Title)
-	if title == "" {
-		title = cleanLyricsText(song.FullTitle)
-	}
+func formatLyricsResult(song geniusSong, target string, configuredMax int) (string, bool) {
 	link := strings.TrimSpace(song.URL)
+	if !validGeniusSongURL(link) {
+		return "", false
+	}
+	limit := lyricsReplyByteLimit(target, configuredMax)
+	prefix := "[lyrics] "
+	if len(prefix)+len(link) > limit && song.ID > 0 {
+		link = "https://genius.com/songs/" + strconv.FormatInt(song.ID, 10)
+	}
+	if len(prefix)+len(link) > limit {
+		return "", false
+	}
+
+	artist := cleanLyricsLabel(song.ArtistNames)
+	if artist == "" {
+		artist = cleanLyricsLabel(song.PrimaryArtist.Name)
+	}
+	title := cleanLyricsLabel(song.Title)
+	if title == "" {
+		title = cleanLyricsLabel(song.FullTitle)
+	}
+	label := "Genius song"
 	if artist != "" && title != "" {
-		return fmt.Sprintf("[lyrics] %s - %s | %s", artist, title, link)
+		label = artist + " - " + title
+	} else if title != "" {
+		label = title
 	}
-	if title != "" {
-		return fmt.Sprintf("[lyrics] %s | %s", title, link)
+
+	suffix := " | " + link
+	available := limit - len(prefix) - len(suffix)
+	if available < 1 {
+		return prefix + link, true
 	}
-	return "[lyrics] Genius song | " + link
+	label = truncateUTF8Bytes(label, available)
+	return prefix + label + suffix, true
+}
+
+func cleanLyricsLabel(text string) string {
+	cleaned := cleanLyricsText(text)
+	lower := strings.ToLower(cleaned)
+	if strings.Contains(lower, "http://") || strings.Contains(lower, "https://") ||
+		strings.Contains(lower, "www.") {
+		return ""
+	}
+	return cleaned
 }

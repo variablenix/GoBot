@@ -30,6 +30,10 @@ func (p *Reddit) Handle(b *bot.Bot, m bot.Message) bool {
 		return false
 	}
 	target, sort, ok := parseRedditLookupArg(arg)
+	if !ok {
+		b.Send(m.ReplyTarget(), ircColor(ircYellow, "usage: !reddit [best|hot|new|top|rising] <r/subreddit|Reddit post URL>"))
+		return true
+	}
 	postURL, endpoint, ok := redditLookupEndpointWithSort(target, sort)
 	if !ok {
 		b.Send(m.ReplyTarget(), ircColor(ircYellow, "usage: !reddit [best|hot|new|top|rising] <r/subreddit|Reddit post URL>"))
