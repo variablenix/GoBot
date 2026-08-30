@@ -50,15 +50,17 @@ GoBot also exposes operational metrics for richer dashboards:
 | `bot_network_channel_joined{network,channel}` | gauge | Current channel membership; one series with value 1 per joined channel |
 | `bot_outgoing_queue_depth{network}` | gauge | Messages currently waiting to be sent |
 | `bot_outgoing_queue_capacity{network}` | gauge | Maximum outbound queue size |
-| `bot_plugin_commands_handled_total{network,plugin}` | counter | Handled commands grouped by plugin |
+| `bot_plugin_commands_handled_total{network,plugin}` | counter | Persistent handled-command totals grouped by plugin |
 | `bot_plugin_panics_total{network,plugin,handler}` | counter | Recovered message/event handler panics |
 
-Per-network and per-plugin counters reset when the GoBot process restarts;
-Prometheus `rate()` and `increase()` account for counter resets. Labels are
-limited to network names, the bot's current joined channels, built-in plugin
-names, and the bounded handler type. Nicknames, accounts, and message contents
-are not exported. Because joined channel names are exposed as metric labels,
-keep `/metrics` on a private monitoring network.
+Per-network traffic, reconnect, dropped-message, and panic counters reset when
+the GoBot process restarts; Prometheus `rate()` and `increase()` account for
+those counter resets. Plugin command totals are persisted in BoltDB and remain
+available after a restart, so the Grafana most-used-plugins panel does not lose
+its ranking. Labels are limited to network names, the bot's current joined
+channels, built-in plugin names, and the bounded handler type. Nicknames,
+accounts, and message contents are not exported. Because joined channel names
+are exposed as metric labels, keep `/metrics` on a private monitoring network.
 
 The `/stats` JSON response includes a `networks` object with connection,
 traffic, command, reconnect, queue, configured-channel, and current joined-

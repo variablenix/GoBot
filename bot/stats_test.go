@@ -2,6 +2,7 @@ package bot
 
 import (
 	"context"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -92,6 +93,36 @@ func TestExpandedPrometheusMetricsRemainBackwardCompatible(t *testing.T) {
 	joinedChannels, channelsOK := libera["joined_channels"].([]string)
 	if !ok || libera["configured_channels"] != 3 || libera["joined_channel_count"] != 1 || !channelsOK || len(joinedChannels) != 1 || joinedChannels[0] != "#GoBot" || libera["queue_depth"] != 1 {
 		t.Fatalf("Snapshot() network details = %#v", networks["libera"])
+	}
+}
+
+func TestPluginCommandMetricsPersistAcrossRestart(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "stats.db")
+	db, err := storage.Open(dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	first := NewStats(db)
+	network := first.registerNetwork("ouch", 0, nil)
+	first.recordCommand(network, "help")
+	first.Close()
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	db, err = storage.Open(dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second := NewStats(db)
+	second.registerNetwork("ouch", 0, nil)
+	metrics := second.PrometheusSnapshot()
+	if !strings.Contains(metrics, `bot_plugin_commands_handled_total{network="ouch",plugin="help"} 1`) {
+		t.Fatalf("persisted plugin command metric missing:\n%s", metrics)
+	}
+	second.Close()
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
 	}
 }
 

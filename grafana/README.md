@@ -9,7 +9,7 @@ identifier. It covers:
 - process uptime and reliability events
 - per-network incoming and outgoing message rates
 - handled-command rates grouped by plugin
-- the ten most-used plugins during the current GoBot process lifetime
+- the ten most-used plugins across the persisted GoBot command history
 - current networks and channels GoBot has actually joined
 - outbound queue depth and capacity by network
 - filtering by Prometheus job, environment, hostname, instance, and IRC network
@@ -86,10 +86,11 @@ The dashboard refreshes every 30 seconds, matching the Prometheus scrape
 interval. A newly started bot may need two scrapes (about one minute) before
 rate panels have enough samples to draw a line.
 
-The **Most-used plugins** panel counts handled commands since the current
-GoBot process started, so its ranking resets after a service restart. The
-**Joined networks and channels** panel reflects live JOIN/PART/KICK state and
-clears a network's channels when its IRC connection ends.
+The **Most-used plugins** panel uses persistent per-network command totals from
+BoltDB, so its ranking survives service restarts. A new database has no plugin
+series until the first command is handled. The **Joined networks and channels**
+panel reflects live JOIN/PART/KICK state and clears a network's channels when
+its IRC connection ends.
 
 ## Security note
 

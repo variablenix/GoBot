@@ -702,7 +702,7 @@
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
-      "description": "Top plugins by commands handled during the current GoBot process lifetime. Counts reset when GoBot restarts.",
+      "description": "Top plugins by persistent per-network command totals. Counts survive GoBot restarts while the BoltDB database is retained.",
       "fieldConfig": {
         "defaults": {
           "unit": "short",
