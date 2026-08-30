@@ -68,8 +68,8 @@ func TestLookupGeniusSongUsesTokenAndSelectsSong(t *testing.T) {
 			t.Fatalf("Authorization = %q", got)
 		}
 		return newPluginResponse(http.StatusOK, `{"response":{"hits":[
-			{"result":{"type":"artist","title":"Artist","url":"https://genius.com/artists/artist"}},
-			{"result":{"type":"song","title":"Song","artist_names":"Artist","url":"https://genius.com/Artist-song-lyrics"}}
+			{"type":"artist","result":{"title":"Artist","url":"https://genius.com/artists/artist"}},
+			{"type":"song","result":{"title":"Song","artist_names":"Artist","url":"https://genius.com/Artist-song-lyrics"}}
 		]}}`), nil
 	})}
 
@@ -87,8 +87,8 @@ func TestLookupGeniusSongRejectsInvalidResults(t *testing.T) {
 	t.Cleanup(func() { apiHTTPClient = old })
 	apiHTTPClient = &http.Client{Transport: newPluginRoundTripper(func(*http.Request) (*http.Response, error) {
 		return newPluginResponse(http.StatusOK, `{"response":{"hits":[
-			{"result":{"type":"artist","title":"Artist","url":"https://genius.com/artists/artist"}},
-			{"result":{"type":"song","title":"Bad host","url":"https://evil.example/song"}}
+			{"type":"artist","result":{"title":"Artist","url":"https://genius.com/artists/artist"}},
+			{"type":"song","result":{"title":"Bad host","url":"https://evil.example/song"}}
 		]}}`), nil
 	})}
 	if _, err := lookupGeniusSong(t.Context(), "song", "token"); !errors.Is(err, errGeniusNotFound) {
@@ -127,7 +127,7 @@ func TestLyricsHandleReturnsOneBoundedLine(t *testing.T) {
 	t.Cleanup(func() { apiHTTPClient = old })
 	t.Setenv("BOT_GENIUS_ACCESS_TOKEN", "test-token")
 	apiHTTPClient = &http.Client{Transport: newPluginRoundTripper(func(*http.Request) (*http.Response, error) {
-		return newPluginResponse(http.StatusOK, `{"response":{"hits":[{"result":{"type":"song","title":"Song\ufe0f","artist_names":"Artist\u200d","url":"https://genius.com/Artist-song-lyrics"}}]}}`), nil
+		return newPluginResponse(http.StatusOK, `{"response":{"hits":[{"type":"song","result":{"title":"Song\ufe0f","artist_names":"Artist\u200d","url":"https://genius.com/Artist-song-lyrics"}}]}}`), nil
 	})}
 
 	sent := make(chan bot.Outgoing, 2)
