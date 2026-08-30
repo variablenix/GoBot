@@ -24,6 +24,8 @@ type Stats struct {
 	persistOnce                                              atomic.Bool
 	networkMu                                                sync.RWMutex
 	networks                                                 map[string]*networkStats
+	persistedPluginCommands                                  map[string]map[string]uint64
+	persistWG                                                sync.WaitGroup
 }
 
 type networkStats struct {
@@ -43,11 +45,12 @@ type networkStats struct {
 }
 
 type persistedStats struct {
-	Received   uint64 `json:"messages_received"`
-	Sent       uint64 `json:"messages_sent"`
-	Commands   uint64 `json:"commands_handled"`
-	Reconnects uint64 `json:"reconnects"`
-	Dropped    uint64 `json:"messages_dropped"`
+	Received       uint64                       `json:"messages_received"`
+	Sent           uint64                       `json:"messages_sent"`
+	Commands       uint64                       `json:"commands_handled"`
+	Reconnects     uint64                       `json:"reconnects"`
+	Dropped        uint64                       `json:"messages_dropped"`
+	PluginCommands map[string]map[string]uint64 `json:"plugin_commands,omitempty"`
 }
 
 type metricLabel struct {
@@ -61,7 +64,7 @@ type prometheusWriter struct {
 }
 
 func NewStats(dbs ...*storage.DB) *Stats {
-	s := &Stats{started: time.Now(), networks: make(map[string]*networkStats)}
+	s := &Stats{started: time.Now(), networks: make(map[string]*networkStats), persistedPluginCommands: make(map[string]map[string]uint64)}
 	if len(dbs) > 0 && dbs[0] != nil {
 		s.db = dbs[0]
 		if raw, err := s.db.Get("stats", "global"); err == nil {
@@ -72,10 +75,17 @@ func NewStats(dbs ...*storage.DB) *Stats {
 				s.commands.Store(saved.Commands)
 				s.reconnects.Store(saved.Reconnects)
 				s.dropped.Store(saved.Dropped)
+				if saved.PluginCommands != nil {
+					s.persistedPluginCommands = saved.PluginCommands
+				}
 			}
 		}
 		s.persistDone = make(chan struct{})
-		go s.persistLoop()
+		s.persistWG.Add(1)
+		go func() {
+			defer s.persistWG.Done()
+			s.persistLoop()
+		}()
 	}
 	return s
 }
@@ -94,6 +104,9 @@ func (s *Stats) registerNetwork(name string, configuredChannels int, queue *Queu
 		return existing
 	}
 	network := &networkStats{name: name, configuredChannels: configuredChannels, queue: queue, joinedChannels: make(map[string]string)}
+	for plugin, count := range s.persistedPluginCommands[name] {
+		atomicCounter(&network.pluginCommands, plugin).Store(count)
+	}
 	s.networks[name] = network
 	return network
 }
@@ -213,8 +226,15 @@ func (s *Stats) Persist() {
 	if s.db == nil {
 		return
 	}
+	pluginCommands := make(map[string]map[string]uint64)
+	for _, network := range s.sortedNetworks() {
+		counters := snapshotCounters(&network.pluginCommands)
+		if len(counters) > 0 {
+			pluginCommands[network.name] = counters
+		}
+	}
 	_ = s.db.Set("stats", "global", persistedStats{
-		Received: s.received.Load(), Sent: s.sent.Load(), Commands: s.commands.Load(), Reconnects: s.reconnects.Load(), Dropped: s.dropped.Load(),
+		Received: s.received.Load(), Sent: s.sent.Load(), Commands: s.commands.Load(), Reconnects: s.reconnects.Load(), Dropped: s.dropped.Load(), PluginCommands: pluginCommands,
 	})
 }
 
@@ -223,6 +243,7 @@ func (s *Stats) Close() {
 		return
 	}
 	close(s.persistDone)
+	s.persistWG.Wait()
 	s.Persist()
 }
 
@@ -327,17 +348,11 @@ func (s *Stats) PrometheusSnapshot() string {
 }
 
 func (w *prometheusWriter) syncMapCounters(name, help, network string, counters *sync.Map, includeHandler bool) {
-	values := make(map[string]uint64)
-	keys := make([]string, 0)
-	counters.Range(func(key, value interface{}) bool {
-		text, ok := key.(string)
-		counter, counterOK := value.(*atomic.Uint64)
-		if ok && counterOK {
-			keys = append(keys, text)
-			values[text] = counter.Load()
-		}
-		return true
-	})
+	values := snapshotCounters(counters)
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
 	sort.Strings(keys)
 	for _, key := range keys {
 		plugin, handler := key, ""
@@ -350,6 +365,19 @@ func (w *prometheusWriter) syncMapCounters(name, help, network string, counters 
 		}
 		w.metric(name, help, "counter", labels, values[key])
 	}
+}
+
+func snapshotCounters(counters *sync.Map) map[string]uint64 {
+	values := make(map[string]uint64)
+	counters.Range(func(key, value interface{}) bool {
+		text, ok := key.(string)
+		counter, counterOK := value.(*atomic.Uint64)
+		if ok && counterOK {
+			values[text] = counter.Load()
+		}
+		return true
+	})
+	return values
 }
 
 func (w *prometheusWriter) metric(name, help, metricType string, labels []metricLabel, value interface{}) {
