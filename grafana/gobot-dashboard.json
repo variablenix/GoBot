@@ -215,7 +215,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "min(up{job=~\"$job\", environment=~\"$environment\", hostname=~\"$hostname\", instance=~\"$instance\"})",
+          "expr": "min(up{job=~\"$job\", environment=~\"$environment\", hostname=~\"$hostname\", instance=~\"$instance\"} and on (job, environment, hostname, instance) bot_process_start_time_seconds{job=~\"$job\", environment=~\"$environment\", hostname=~\"$hostname\", instance=~\"$instance\"})",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
