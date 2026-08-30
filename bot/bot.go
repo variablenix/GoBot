@@ -23,6 +23,7 @@ type Bot struct {
 	Plugins        []Plugin
 	Log            *zap.Logger
 	Queue          *Queue
+	networkStats   *networkStats
 	client         *irc.Client
 	reloadHandler  func(Message)
 	mu             sync.RWMutex
@@ -45,6 +46,9 @@ func New(cfg Config, db *storage.DB, plugins []Plugin, log *zap.Logger) *Bot {
 }
 
 func NewWithStats(cfg Config, db *storage.DB, plugins []Plugin, log *zap.Logger, stats *Stats) *Bot {
+	if stats == nil {
+		stats = NewStats()
+	}
 	enabledPlugins := make(map[string]bool, len(plugins))
 	startedPlugins := make(map[string]bool, len(plugins))
 	for _, plugin := range plugins {
@@ -52,6 +56,7 @@ func NewWithStats(cfg Config, db *storage.DB, plugins []Plugin, log *zap.Logger,
 	}
 	b := &Bot{Config: cfg, DB: db, Stats: stats, Plugins: plugins, Log: log, enabledPlugins: enabledPlugins, startedPlugins: startedPlugins, lastCommands: make(map[string]time.Time), lastWarnings: make(map[string]time.Time), lastInvites: make(map[string]time.Time), warmupUntil: make(map[string]time.Time)}
 	b.Queue = NewQueue(cfg.RateLimit.MessagesPerSecond, cfg.RateLimit.Burst, func(o Outgoing) { b.sendNow(o.Target, o.Text) })
+	b.networkStats = stats.registerNetwork(cfg.NetworkName, len(cfg.Channels), b.Queue)
 	return b
 }
 
@@ -175,6 +180,9 @@ func clonePluginOverrides(overrides map[string]map[string]bool) map[string]map[s
 func (b *Bot) Send(target, text string) {
 	if !b.Queue.Enqueue(Outgoing{target, text}) {
 		b.Stats.dropped.Add(1)
+		if b.networkStats != nil {
+			b.networkStats.dropped.Add(1)
+		}
 		b.Log.Warn("outgoing queue full", zap.String("target", target))
 	}
 }
@@ -185,6 +193,9 @@ func (b *Bot) sendNow(target, text string) {
 	if c != nil {
 		c.WriteMessage(&irc.Message{Command: "PRIVMSG", Params: []string{target, text}})
 		b.Stats.sent.Add(1)
+		if b.networkStats != nil {
+			b.networkStats.sent.Add(1)
+		}
 	}
 }
 func (b *Bot) connect(ctx context.Context) error {
@@ -295,13 +306,16 @@ func (b *Bot) connect(ctx context.Context) error {
 		}
 		if m.Command == "PRIVMSG" {
 			b.Stats.received.Add(1)
+			if b.networkStats != nil {
+				b.networkStats.received.Add(1)
+			}
 			b.dispatch(ParseMessage(m))
 		}
 	})})
 	b.mu.Lock()
 	b.client = client
 	b.mu.Unlock()
-	b.Stats.connected.Store(1)
+	b.Stats.setNetworkConnected(b.networkStats, true)
 	if mechanism != "" {
 		// irc.v3 has CAP parsing but no SASL mechanism implementation. Start
 		// the capability exchange manually so authentication can complete before 001.
@@ -321,10 +335,10 @@ func (b *Bot) connect(ctx context.Context) error {
 		client.Write("QUIT :shutting down")
 		conn.Close()
 		<-errc
-		b.Stats.connected.Store(0)
+		b.Stats.setNetworkConnected(b.networkStats, false)
 		return nil
 	case err := <-errc:
-		b.Stats.connected.Store(0)
+		b.Stats.setNetworkConnected(b.networkStats, false)
 		b.mu.Lock()
 		b.client = nil
 		b.mu.Unlock()
@@ -734,7 +748,7 @@ func (b *Bot) dispatch(msg Message) {
 	if _, _, ok := IsCommand(msg, b.Config.CommandPrefix); ok && !b.AllowCommand(msg) {
 		return
 	}
-	command := false
+	_, _, command := IsCommand(msg, b.Config.CommandPrefix)
 	for _, p := range b.Plugins {
 		if !b.pluginEnabled(p.Name()) {
 			continue
@@ -748,6 +762,7 @@ func (b *Bot) dispatch(msg Message) {
 			defer func() {
 				b.pluginMu.RUnlock()
 				if r := recover(); r != nil {
+					b.Stats.recordPluginPanic(b.networkStats, p.Name(), "message")
 					b.Log.Error("plugin panic", zap.String("plugin", p.Name()), zap.Any("panic", r))
 				}
 			}()
@@ -755,12 +770,9 @@ func (b *Bot) dispatch(msg Message) {
 		}()
 		if consumed {
 			if command {
-				b.Stats.commands.Add(1)
+				b.Stats.recordCommand(b.networkStats, p.Name())
 			}
 			return
-		}
-		if _, _, ok := IsCommand(msg, b.Config.CommandPrefix); ok {
-			command = true
 		}
 	}
 }
@@ -782,6 +794,7 @@ func (b *Bot) dispatchEvent(msg Message) {
 			defer func() {
 				b.pluginMu.RUnlock()
 				if r := recover(); r != nil {
+					b.Stats.recordPluginPanic(b.networkStats, p.Name(), "event")
 					b.Log.Error("plugin event panic", zap.String("plugin", p.Name()), zap.Any("panic", r))
 				}
 			}()
@@ -814,6 +827,9 @@ func (b *Bot) Run(ctx context.Context) error {
 			return nil
 		}
 		b.Stats.reconnects.Add(1)
+		if b.networkStats != nil {
+			b.networkStats.reconnects.Add(1)
+		}
 		b.Log.Warn("IRC connection ended", zap.Error(err), zap.Duration("retry_in", backoff))
 		jitter := time.Duration(rand.Int63n(int64(backoff/5 + 1)))
 		select {

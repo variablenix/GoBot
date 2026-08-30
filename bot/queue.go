@@ -43,6 +43,13 @@ func (q *Queue) Enqueue(o Outgoing) bool {
 		return false
 	}
 }
+
+// Depth reports the number of messages currently waiting to be sent.
+func (q *Queue) Depth() int { return len(q.ch) }
+
+// Capacity reports the maximum number of queued outbound messages.
+func (q *Queue) Capacity() int { return cap(q.ch) }
+
 func (q *Queue) loop() {
 	ticker := time.NewTicker(q.interval)
 	defer ticker.Stop()

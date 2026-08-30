@@ -2,8 +2,8 @@
   "apiVersion": "dashboard.grafana.app/v2",
   "kind": "Dashboard",
   "metadata": {
-    "name": "gobot-overview",
-    "generation": 5,
+    "name": "gobot-operations",
+    "generation": 6,
     "creationTimestamp": "2026-08-01T07:11:36Z",
     "labels": {},
     "annotations": {}
@@ -38,7 +38,7 @@
         "spec": {
           "id": 1,
           "title": "IRC connection",
-          "description": "",
+          "description": "Connected only when every selected IRC network reports an active connection.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -52,7 +52,7 @@
                       "group": "prometheus",
                       "version": "v0",
                       "spec": {
-                        "expr": "max(bot_connected{job=~\"$job\", instance=~\"$instance\"})"
+                        "expr": "min(bot_network_connected{job=~\"$job\", environment=~\"$environment\", hostname=~\"$hostname\", instance=~\"$instance\", network=~\"$network\"})"
                       },
                       "labels": {
                         "grafana.app/export-label": "prometheus-1"
@@ -134,8 +134,8 @@
         "kind": "Panel",
         "spec": {
           "id": 2,
-          "title": "Reconnects",
-          "description": "",
+          "title": "Prometheus scrape",
+          "description": "Whether Prometheus can currently scrape every selected GoBot target.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -149,7 +149,7 @@
                       "group": "prometheus",
                       "version": "v0",
                       "spec": {
-                        "expr": "max(bot_reconnects{job=~\"$job\", instance=~\"$instance\"})"
+                        "expr": "min(up{job=~\"$job\", environment=~\"$environment\", hostname=~\"$hostname\", instance=~\"$instance\"})"
                       },
                       "labels": {
                         "grafana.app/export-label": "prometheus-1"
@@ -170,9 +170,9 @@
             "version": "13.0.2",
             "spec": {
               "options": {
-                "colorMode": "value",
-                "graphMode": "area",
-                "justifyMode": "auto",
+                "colorMode": "background",
+                "graphMode": "none",
+                "justifyMode": "center",
                 "orientation": "auto",
                 "percentChangeColorMode": "standard",
                 "reduceOptions": {
@@ -189,22 +189,36 @@
               "fieldConfig": {
                 "defaults": {
                   "unit": "short",
-                  "decimals": 0,
+                  "mappings": [
+                    {
+                      "type": "value",
+                      "options": {
+                        "0": {
+                          "text": "Down",
+                          "color": "red"
+                        },
+                        "1": {
+                          "text": "Up",
+                          "color": "green"
+                        }
+                      }
+                    }
+                  ],
                   "thresholds": {
                     "mode": "absolute",
                     "steps": [
                       {
                         "value": 0,
-                        "color": "green"
+                        "color": "red"
                       },
                       {
-                        "value": 80,
-                        "color": "red"
+                        "value": 1,
+                        "color": "green"
                       }
                     ]
                   },
                   "color": {
-                    "mode": "palette-classic"
+                    "mode": "thresholds"
                   }
                 },
                 "overrides": []
@@ -217,8 +231,8 @@
         "kind": "Panel",
         "spec": {
           "id": 3,
-          "title": "Commands handled",
-          "description": "",
+          "title": "Reliability events",
+          "description": "Reconnects, dropped outbound messages, and recovered plugin panics during the selected time range.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -232,7 +246,7 @@
                       "group": "prometheus",
                       "version": "v0",
                       "spec": {
-                        "expr": "max(bot_commands_handled{job=~\"$job\", instance=~\"$instance\"})"
+                        "expr": "sum(increase(bot_network_reconnects_total{job=~\"$job\", environment=~\"$environment\", hostname=~\"$hostname\", instance=~\"$instance\", network=~\"$network\"}[$__range])) + sum(increase(bot_network_messages_dropped_total{job=~\"$job\", environment=~\"$environment\", hostname=~\"$hostname\", instance=~\"$instance\", network=~\"$network\"}[$__range])) + (sum(increase(bot_plugin_panics_total{job=~\"$job\", environment=~\"$environment\", hostname=~\"$hostname\", instance=~\"$instance\", network=~\"$network\"}[$__range])) or vector(0))"
                       },
                       "labels": {
                         "grafana.app/export-label": "prometheus-1"
@@ -281,13 +295,13 @@
                         "color": "green"
                       },
                       {
-                        "value": 80,
+                        "value": 1,
                         "color": "red"
                       }
                     ]
                   },
                   "color": {
-                    "mode": "palette-classic"
+                    "mode": "thresholds"
                   }
                 },
                 "overrides": []
@@ -300,8 +314,8 @@
         "kind": "Panel",
         "spec": {
           "id": 4,
-          "title": "Message throughput",
-          "description": "",
+          "title": "Message throughput by network",
+          "description": "Per-second IRC message rates by network, calculated over Grafana's safe rate interval.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -315,8 +329,8 @@
                       "group": "prometheus",
                       "version": "v0",
                       "spec": {
-                        "expr": "sum(rate(bot_messages_received{job=~\"$job\", instance=~\"$instance\"}[5m]))",
-                        "legendFormat": "received"
+                        "expr": "sum by (network) (rate(bot_network_messages_received_total{job=~\"$job\", environment=~\"$environment\", hostname=~\"$hostname\", instance=~\"$instance\", network=~\"$network\"}[$__rate_interval]))",
+                        "legendFormat": "{{network}} received"
                       },
                       "labels": {
                         "grafana.app/export-label": "prometheus-1"
@@ -334,8 +348,8 @@
                       "group": "prometheus",
                       "version": "v0",
                       "spec": {
-                        "expr": "sum(rate(bot_messages_sent{job=~\"$job\", instance=~\"$instance\"}[5m]))",
-                        "legendFormat": "sent"
+                        "expr": "sum by (network) (rate(bot_network_messages_sent_total{job=~\"$job\", environment=~\"$environment\", hostname=~\"$hostname\", instance=~\"$instance\", network=~\"$network\"}[$__rate_interval]))",
+                        "legendFormat": "{{network}} sent"
                       },
                       "labels": {
                         "grafana.app/export-label": "prometheus-1"
@@ -440,8 +454,8 @@
         "kind": "Panel",
         "spec": {
           "id": 5,
-          "title": "Command throughput",
-          "description": "",
+          "title": "Command throughput by plugin",
+          "description": "Per-second handled-command rate, grouped by plugin.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -455,8 +469,8 @@
                       "group": "prometheus",
                       "version": "v0",
                       "spec": {
-                        "expr": "sum(rate(bot_commands_handled{job=~\"$job\", instance=~\"$instance\"}[5m]))",
-                        "legendFormat": "commands"
+                        "expr": "sum by (plugin) (rate(bot_plugin_commands_handled_total{job=~\"$job\", environment=~\"$environment\", hostname=~\"$hostname\", instance=~\"$instance\", network=~\"$network\"}[$__rate_interval]))",
+                        "legendFormat": "{{plugin}}"
                       },
                       "labels": {
                         "grafana.app/export-label": "prometheus-1"
@@ -561,8 +575,8 @@
         "kind": "Panel",
         "spec": {
           "id": 6,
-          "title": "Cumulative counters",
-          "description": "",
+          "title": "Outbound queue pressure",
+          "description": "Current queued messages and queue capacity by IRC network. Sustained depth indicates rate limiting or an unhealthy connection.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -576,8 +590,8 @@
                       "group": "prometheus",
                       "version": "v0",
                       "spec": {
-                        "expr": "max(bot_messages_received{job=~\"$job\", instance=~\"$instance\"})",
-                        "legendFormat": "received"
+                        "expr": "max by (network) (bot_outgoing_queue_depth{job=~\"$job\", environment=~\"$environment\", hostname=~\"$hostname\", instance=~\"$instance\", network=~\"$network\"})",
+                        "legendFormat": "{{network}} depth"
                       },
                       "labels": {
                         "grafana.app/export-label": "prometheus-1"
@@ -595,52 +609,14 @@
                       "group": "prometheus",
                       "version": "v0",
                       "spec": {
-                        "expr": "max(bot_messages_sent{job=~\"$job\", instance=~\"$instance\"})",
-                        "legendFormat": "sent"
+                        "expr": "max by (network) (bot_outgoing_queue_capacity{job=~\"$job\", environment=~\"$environment\", hostname=~\"$hostname\", instance=~\"$instance\", network=~\"$network\"})",
+                        "legendFormat": "{{network}} capacity"
                       },
                       "labels": {
                         "grafana.app/export-label": "prometheus-1"
                       }
                     },
                     "refId": "B",
-                    "hidden": false
-                  }
-                },
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "prometheus",
-                      "version": "v0",
-                      "spec": {
-                        "expr": "max(bot_commands_handled{job=~\"$job\", instance=~\"$instance\"})",
-                        "legendFormat": "commands"
-                      },
-                      "labels": {
-                        "grafana.app/export-label": "prometheus-1"
-                      }
-                    },
-                    "refId": "C",
-                    "hidden": false
-                  }
-                },
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "prometheus",
-                      "version": "v0",
-                      "spec": {
-                        "expr": "max(bot_messages_dropped{job=~\"$job\", instance=~\"$instance\"})",
-                        "legendFormat": "dropped"
-                      },
-                      "labels": {
-                        "grafana.app/export-label": "prometheus-1"
-                      }
-                    },
-                    "refId": "D",
                     "hidden": false
                   }
                 }
@@ -739,7 +715,7 @@
         "spec": {
           "id": 7,
           "title": "Uptime",
-          "description": "",
+          "description": "Uptime of the selected GoBot process. This resets after a rebuild or service restart.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -753,7 +729,7 @@
                       "group": "prometheus",
                       "version": "v0",
                       "spec": {
-                        "expr": "max(bot_uptime_seconds{job=~\"$job\", instance=~\"$instance\"})"
+                        "expr": "max(bot_uptime_seconds{job=~\"$job\", environment=~\"$environment\", hostname=~\"$hostname\", instance=~\"$instance\"})"
                       },
                       "labels": {
                         "grafana.app/export-label": "prometheus-1"
@@ -800,10 +776,6 @@
                       {
                         "value": 0,
                         "color": "green"
-                      },
-                      {
-                        "value": 80,
-                        "color": "red"
                       }
                     ]
                   },
@@ -944,15 +916,16 @@
       "hideTimepicker": false,
       "fiscalYearStartMonth": 0
     },
-    "title": "GoBot Overview",
+    "title": "GoBot Operations",
+    "description": "Operational health, traffic, plugin activity, reliability, and outbound queue pressure for GoBot.",
     "variables": [
       {
         "kind": "QueryVariable",
         "spec": {
           "name": "job",
           "current": {
-            "text": "",
-            "value": ""
+            "text": "gobot",
+            "value": "gobot"
           },
           "label": "Job",
           "hide": "dontHide",
@@ -984,10 +957,80 @@
       {
         "kind": "QueryVariable",
         "spec": {
+          "name": "environment",
+          "current": {
+            "text": "production",
+            "value": "production"
+          },
+          "label": "Environment",
+          "hide": "dontHide",
+          "refresh": "onDashboardLoad",
+          "skipUrlSync": false,
+          "query": {
+            "kind": "DataQuery",
+            "group": "prometheus",
+            "version": "v0",
+            "spec": {
+              "qryType": 5,
+              "query": "label_values(bot_connected{job=~\"$job\"}, environment)",
+              "refId": "PrometheusVariableQueryEditor-VariableQuery"
+            },
+            "labels": {
+              "grafana.app/export-label": "prometheus-1"
+            }
+          },
+          "regex": "",
+          "regexApplyTo": "value",
+          "sort": "alphabeticalAsc",
+          "definition": "label_values(bot_connected{job=~\"$job\"}, environment)",
+          "options": [],
+          "multi": false,
+          "includeAll": true,
+          "allowCustomValue": true
+        }
+      },
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "name": "hostname",
+          "current": {
+            "text": "nexus-node",
+            "value": "nexus-node"
+          },
+          "label": "Host",
+          "hide": "dontHide",
+          "refresh": "onDashboardLoad",
+          "skipUrlSync": false,
+          "query": {
+            "kind": "DataQuery",
+            "group": "prometheus",
+            "version": "v0",
+            "spec": {
+              "qryType": 5,
+              "query": "label_values(bot_connected{job=~\"$job\", environment=~\"$environment\"}, hostname)",
+              "refId": "PrometheusVariableQueryEditor-VariableQuery"
+            },
+            "labels": {
+              "grafana.app/export-label": "prometheus-1"
+            }
+          },
+          "regex": "",
+          "regexApplyTo": "value",
+          "sort": "alphabeticalAsc",
+          "definition": "label_values(bot_connected{job=~\"$job\", environment=~\"$environment\"}, hostname)",
+          "options": [],
+          "multi": false,
+          "includeAll": true,
+          "allowCustomValue": true
+        }
+      },
+      {
+        "kind": "QueryVariable",
+        "spec": {
           "name": "instance",
           "current": {
-            "text": "",
-            "value": ""
+            "text": "10.69.0.22:8082",
+            "value": "10.69.0.22:8082"
           },
           "label": "Instance",
           "hide": "dontHide",
@@ -999,7 +1042,7 @@
             "version": "v0",
             "spec": {
               "qryType": 5,
-              "query": "label_values(bot_connected{job=~\"$job\"}, instance)",
+              "query": "label_values(bot_connected{job=~\"$job\", environment=~\"$environment\", hostname=~\"$hostname\"}, instance)",
               "refId": "PrometheusVariableQueryEditor-VariableQuery"
             },
             "labels": {
@@ -1009,9 +1052,44 @@
           "regex": "",
           "regexApplyTo": "value",
           "sort": "disabled",
-          "definition": "label_values(bot_connected{job=~\"$job\"}, instance)",
+          "definition": "label_values(bot_connected{job=~\"$job\", environment=~\"$environment\", hostname=~\"$hostname\"}, instance)",
           "options": [],
           "multi": false,
+          "includeAll": true,
+          "allowCustomValue": true
+        }
+      },
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "name": "network",
+          "current": {
+            "text": "All",
+            "value": "$__all"
+          },
+          "label": "IRC network",
+          "hide": "dontHide",
+          "refresh": "onDashboardLoad",
+          "skipUrlSync": false,
+          "query": {
+            "kind": "DataQuery",
+            "group": "prometheus",
+            "version": "v0",
+            "spec": {
+              "qryType": 5,
+              "query": "label_values(bot_network_connected{job=~\"$job\", environment=~\"$environment\", hostname=~\"$hostname\", instance=~\"$instance\"}, network)",
+              "refId": "PrometheusVariableQueryEditor-VariableQuery"
+            },
+            "labels": {
+              "grafana.app/export-label": "prometheus-1"
+            }
+          },
+          "regex": "",
+          "regexApplyTo": "value",
+          "sort": "alphabeticalAsc",
+          "definition": "label_values(bot_network_connected{job=~\"$job\", environment=~\"$environment\", hostname=~\"$hostname\", instance=~\"$instance\"}, network)",
+          "options": [],
+          "multi": true,
           "includeAll": true,
           "allowCustomValue": true
         }
