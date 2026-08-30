@@ -31,14 +31,18 @@ type Lyrics struct {
 
 type geniusSearchResponse struct {
 	Response struct {
-		Hits []struct {
-			Result geniusSong `json:"result"`
-		} `json:"hits"`
+		Hits []geniusSearchHit `json:"hits"`
 	} `json:"response"`
 }
 
+type geniusSearchHit struct {
+	// Genius returns the hit type beside the nested result object. Keep this
+	// at the hit level so song results are not mistaken for empty results.
+	Type   string     `json:"type"`
+	Result geniusSong `json:"result"`
+}
+
 type geniusSong struct {
-	Type          string `json:"type"`
 	Title         string `json:"title"`
 	FullTitle     string `json:"full_title"`
 	ArtistNames   string `json:"artist_names"`
@@ -230,7 +234,7 @@ func lookupGeniusSong(ctx context.Context, query, token string) (geniusSong, err
 		return geniusSong{}, err
 	}
 	for _, hit := range payload.Response.Hits {
-		if !strings.EqualFold(strings.TrimSpace(hit.Result.Type), "song") {
+		if !strings.EqualFold(strings.TrimSpace(hit.Type), "song") {
 			continue
 		}
 		if !validGeniusSongURL(hit.Result.URL) {
