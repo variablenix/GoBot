@@ -7,6 +7,7 @@ import (
 
 	"github.com/variablenix/GoBot/storage"
 	"go.uber.org/zap"
+	"gopkg.in/irc.v3"
 )
 
 func TestStatsListenAddress(t *testing.T) {
@@ -52,6 +53,7 @@ func TestExpandedPrometheusMetricsRemainBackwardCompatible(t *testing.T) {
 	network.received.Store(7)
 	network.sent.Store(5)
 	network.reconnects.Store(2)
+	network.joinChannel("#GoBot")
 	stats.recordCommand(network, "help")
 	stats.recordPluginPanic(network, "weather", "message")
 	if !queue.Enqueue(Outgoing{Target: "#test", Text: "queued"}) {
@@ -71,6 +73,8 @@ func TestExpandedPrometheusMetricsRemainBackwardCompatible(t *testing.T) {
 		`bot_network_messages_received_total{network="libera"} 7`,
 		`bot_network_messages_sent_total{network="libera"} 5`,
 		`bot_network_configured_channels{network="libera"} 3`,
+		`bot_network_joined_channels{network="libera"} 1`,
+		`bot_network_channel_joined{network="libera",channel="#GoBot"} 1`,
 		`bot_outgoing_queue_depth{network="libera"} 1`,
 		`bot_outgoing_queue_capacity{network="libera"} 40`,
 		`bot_plugin_commands_handled_total{network="libera",plugin="help"} 1`,
@@ -85,8 +89,44 @@ func TestExpandedPrometheusMetricsRemainBackwardCompatible(t *testing.T) {
 		t.Fatal("Snapshot() networks has an unexpected type")
 	}
 	libera, ok := networks["libera"].(map[string]interface{})
-	if !ok || libera["configured_channels"] != 3 || libera["queue_depth"] != 1 {
+	joinedChannels, channelsOK := libera["joined_channels"].([]string)
+	if !ok || libera["configured_channels"] != 3 || libera["joined_channel_count"] != 1 || !channelsOK || len(joinedChannels) != 1 || joinedChannels[0] != "#GoBot" || libera["queue_depth"] != 1 {
 		t.Fatalf("Snapshot() network details = %#v", networks["libera"])
+	}
+}
+
+func TestOwnChannelMembershipTracksJoinPartKickAndDisconnect(t *testing.T) {
+	stats := NewStats()
+	instance := NewWithStats(Config{NetworkName: "libera", Identity: IdentityConfig{Nick: "GoBot"}}, nil, nil, zap.NewNop(), stats)
+	defer instance.Queue.Drain(context.Background())
+
+	instance.trackOwnChannelMembership("GoBot", &irc.Message{Prefix: &irc.Prefix{Name: "GoBot"}, Command: "JOIN", Params: []string{"#One"}})
+	instance.trackOwnChannelMembership("GoBot", &irc.Message{Prefix: &irc.Prefix{Name: "someone"}, Command: "JOIN", Params: []string{"#Ignored"}})
+	instance.trackOwnChannelMembership("GoBot", &irc.Message{Prefix: &irc.Prefix{Name: "GoBot"}, Command: "JOIN", Params: []string{"#two"}})
+	instance.trackOwnChannelMembership("GoBot", &irc.Message{Prefix: &irc.Prefix{Name: "GoBot"}, Command: "PART", Params: []string{"#ONE"}})
+	instance.trackOwnChannelMembership("GoBot", &irc.Message{Prefix: &irc.Prefix{Name: "operator"}, Command: "KICK", Params: []string{"#two", "gobot", "reason"}})
+
+	if channels := instance.networkStats.sortedJoinedChannels(); len(channels) != 0 {
+		t.Fatalf("joined channels after PART and KICK = %v, want none", channels)
+	}
+	instance.trackOwnChannelMembership("GoBot", &irc.Message{Prefix: &irc.Prefix{Name: "GoBot"}, Command: "JOIN", Params: []string{"#rejoined"}})
+	stats.setNetworkConnected(instance.networkStats, false)
+	if channels := instance.networkStats.sortedJoinedChannels(); len(channels) != 0 {
+		t.Fatalf("joined channels after disconnect clear = %v, want none", channels)
+	}
+}
+
+func TestJoinedChannelMetricLabelsAreEscapedAndSorted(t *testing.T) {
+	stats := NewStats()
+	network := stats.registerNetwork("libera", 0, nil)
+	network.joinChannel("#z")
+	network.joinChannel("#a\\\"")
+
+	metrics := stats.PrometheusSnapshot()
+	first := strings.Index(metrics, `channel="#a\\\""`)
+	second := strings.Index(metrics, `channel="#z"`)
+	if first < 0 || second < 0 || first >= second {
+		t.Fatalf("joined channel labels were not escaped and sorted:\n%s", metrics)
 	}
 }
 

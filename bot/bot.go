@@ -265,6 +265,7 @@ func (b *Bot) connect(ctx context.Context) error {
 	client := irc.NewClient(conn, irc.ClientConfig{Nick: b.Config.Identity.Nick, User: b.Config.Identity.User, Name: b.Config.Identity.Realname, Handler: irc.HandlerFunc(func(c *irc.Client, m *irc.Message) {
 		handleSASL(c, m, b.Config.Identity.SASLUser, b.Config.Identity.SASLPass, mechanism, capState, b.Log)
 		b.logIRCEvent(m)
+		b.trackOwnChannelMembership(c.CurrentNick(), m)
 		if m.Command == "INVITE" {
 			b.handleInvite(m)
 		}
@@ -336,6 +337,9 @@ func (b *Bot) connect(ctx context.Context) error {
 		conn.Close()
 		<-errc
 		b.Stats.setNetworkConnected(b.networkStats, false)
+		b.mu.Lock()
+		b.client = nil
+		b.mu.Unlock()
 		return nil
 	case err := <-errc:
 		b.Stats.setNetworkConnected(b.networkStats, false)
@@ -343,6 +347,30 @@ func (b *Bot) connect(ctx context.Context) error {
 		b.client = nil
 		b.mu.Unlock()
 		return err
+	}
+}
+
+func (b *Bot) trackOwnChannelMembership(currentNick string, message *irc.Message) {
+	if b.networkStats == nil || message == nil || message.Prefix == nil {
+		return
+	}
+	currentNick = strings.TrimSpace(currentNick)
+	if currentNick == "" {
+		currentNick = b.Config.Identity.Nick
+	}
+	switch message.Command {
+	case "JOIN":
+		if strings.EqualFold(message.Prefix.Name, currentNick) && len(message.Params) > 0 {
+			b.networkStats.joinChannel(message.Params[0])
+		}
+	case "PART":
+		if strings.EqualFold(message.Prefix.Name, currentNick) && len(message.Params) > 0 {
+			b.networkStats.leaveChannel(message.Params[0])
+		}
+	case "KICK":
+		if len(message.Params) > 1 && strings.EqualFold(message.Params[1], currentNick) {
+			b.networkStats.leaveChannel(message.Params[0])
+		}
 	}
 }
 
