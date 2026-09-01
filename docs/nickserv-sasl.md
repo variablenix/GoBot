@@ -183,5 +183,13 @@ For the final passwordless mode, the server must advertise SASL and the
 `EXTERNAL` mechanism. All DNS backends behind a shared IRC hostname should
 expose the same capability set.
 
+Some networks, including OFTC, use the client certificate for TLS CertFP
+identification but do not advertise SASL `EXTERNAL`. GoBot still presents the
+configured certificate during the TLS handshake. When SASL `EXTERNAL` is not
+confirmed, GoBot waits two seconds before its initial channel joins so services
+can apply the account identification and cloak first. The warning that the
+configured SASL mechanism was not advertised is expected for this network;
+it does not mean that the TLS certificate failed.
+
 If a network renames the bot to Guest..., review the optional nickserv_fallback
 and nickserv_ghost identity settings.

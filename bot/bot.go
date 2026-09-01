@@ -41,6 +41,8 @@ type Bot struct {
 	warmupUntil    map[string]time.Time
 }
 
+const certFPInitialJoinDelay = 2 * time.Second
+
 func New(cfg Config, db *storage.DB, plugins []Plugin, log *zap.Logger) *Bot {
 	return NewWithStats(cfg, db, plugins, log, NewStats())
 }
@@ -293,9 +295,36 @@ func (b *Bot) connect(ctx context.Context) error {
 			if b.shouldUseNickServFallback() {
 				go b.nickServFallback(c, actualNick)
 			}
-			for _, ch := range b.Config.Channels {
-				b.markChannelWarmup(ch)
-				c.Write("JOIN " + ch)
+			joinChannels := func() {
+				// A delayed callback must not send a JOIN on a connection that
+				// has already been replaced by a reconnect.
+				b.mu.RLock()
+				currentClient := b.client
+				b.mu.RUnlock()
+				if currentClient != c {
+					return
+				}
+				for _, ch := range b.Config.Channels {
+					b.markChannelWarmup(ch)
+					c.Write("JOIN " + ch)
+				}
+			}
+			if shouldDelayCertFPJoin(b.Config.Server, mechanism, capState) {
+				b.Log.Info("delaying initial channel joins for CertFP identification",
+					zap.String("network", b.Config.NetworkName),
+					zap.Duration("delay", certFPInitialJoinDelay),
+				)
+				timer := time.NewTimer(certFPInitialJoinDelay)
+				go func() {
+					defer timer.Stop()
+					select {
+					case <-timer.C:
+						joinChannels()
+					case <-ctx.Done():
+					}
+				}()
+			} else {
+				joinChannels()
 			}
 		}
 		if m.Command == "NOTICE" && capState.certFPEnroll && capState.enrollSent && m.Prefix != nil && strings.EqualFold(m.Prefix.Name, capState.nickServName) {
@@ -348,6 +377,13 @@ func (b *Bot) connect(ctx context.Context) error {
 		b.mu.Unlock()
 		return err
 	}
+}
+
+func shouldDelayCertFPJoin(server ServerConfig, mechanism string, state *capNegotiation) bool {
+	return strings.TrimSpace(server.ClientCert) != "" &&
+		strings.EqualFold(strings.TrimSpace(mechanism), "EXTERNAL") &&
+		state != nil &&
+		!state.saslSucceeded
 }
 
 func (b *Bot) trackOwnChannelMembership(currentNick string, message *irc.Message) {
