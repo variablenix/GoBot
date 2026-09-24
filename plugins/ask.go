@@ -136,7 +136,7 @@ func (p *Ask) Handle(b *bot.Bot, m bot.Message) bool {
 		return true
 	}
 
-	timeout := cfg.Int("timeout_seconds", 8)
+	timeout := cfg.Int("timeout_seconds", 15)
 	if timeout < 1 {
 		timeout = 1
 	}
@@ -257,7 +257,7 @@ func (p *Ask) findSource(ctx context.Context, question string, cfg bot.PluginCon
 		if cfg.Bool("search_assist_browser_enabled", true) {
 			fetchResults := cfg.Bool("search_results_enabled", true)
 			webResultTried = fetchResults
-			stepCtx, cancel = askStepContext(ctx, 3200*time.Millisecond)
+			stepCtx, cancel = askStepContext(ctx, 5*time.Second)
 			if source, ok := askDuckDuckGoRenderedSearchAssist(stepCtx, question, cfg.String("browser_path", ""), fetchResults); ok {
 				cancel()
 				if source.Provider == "search_result" {
@@ -343,10 +343,21 @@ func (p *Ask) findSource(ctx context.Context, question string, cfg bot.PluginCon
 		}
 		cancel()
 	}
+	// An encyclopedia summary is useful only for entity questions, not as a
+	// substitute for an opinion, procedure, relationship, or date answer.
+	if cfg.Bool("wikidata_fallback", true) && focused != "" && !askNeedsWebResultAnswer(question) && !askNeedsRelationshipAnswer(question) && !askNeedsTemporalAnswer(question) {
+		if article, ok := wikipediaSummary(ctx, focused); ok {
+			return askSource{Title: article.Title, Summary: cleanExternalText(article.Extract), URL: article.ContentURLs.Desktop.Page, Provider: "wikipedia"}, true
+		}
+	}
 	return askSource{}, false
 }
 
 func askStepContext(parent context.Context, max time.Duration) (context.Context, context.CancelFunc) {
+	// Leave part of the remaining budget for later independent providers.
+	if deadline, ok := parent.Deadline(); ok && time.Until(deadline)/2 < max {
+		max = time.Until(deadline) / 2
+	}
 	if max <= 0 {
 		return context.WithCancel(parent)
 	}
@@ -787,7 +798,8 @@ func askDuckDuckGoSearchAssistOnce(ctx context.Context, question, fallbackURL st
 		return askSource{}, false
 	}
 	assistURL := html.UnescapeString(string(matches[1]))
-	if !validHTTPURL(assistURL) {
+	assistParsed, parseErr := url.Parse(assistURL)
+	if parseErr != nil || assistParsed.Scheme != "https" || !isDuckDuckGoHost(assistParsed.Hostname()) || assistParsed.User != nil || assistParsed.Port() != "" {
 		return askSource{}, false
 	}
 	assistReq, err := http.NewRequestWithContext(ctx, http.MethodGet, assistURL, nil)
@@ -1809,7 +1821,10 @@ func newAskWebHTTPClient() *http.Client {
 	return &http.Client{
 		Timeout:   6 * time.Second,
 		Transport: transport,
-		CheckRedirect: func(req *http.Request, _ []*http.Request) error {
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= 10 {
+				return fmt.Errorf("too many redirects")
+			}
 			if !validPublicHTTPURL(req.URL.String()) {
 				return fmt.Errorf("refusing non-public redirect")
 			}
