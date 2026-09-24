@@ -836,7 +836,8 @@ message/command counters. It is useful for a quick IRC-side health check.
 
 ## Definitions
 
-Look up one English word using the public Free Dictionary API:
+Look up one English word using the public Free Dictionary API, with an English
+Wiktionary fallback when the primary service is unreachable or lacks the entry:
 
 ~~~text
 !define resilient
@@ -847,6 +848,11 @@ Look up one English word using the public Free Dictionary API:
 GoBot returns the first concise definition and part of speech in one bounded
 message. No API key is required. The lookup is English-only and third-party
 text is cleaned before it is sent to IRC.
+
+Proper nouns such as `!define Linux` can be found through Wiktionary. Fallback
+answers include the entry link. Coverage is not universal; failure messages
+distinguish an unavailable lookup from a definitive statement that no word
+exists. Use `!wiki Linux` for an encyclopedia summary.
 
 ## Calculator and unit conversion
 
@@ -1354,7 +1360,7 @@ plugins:
     wikidata_fallback: true
     max_length: 360
     max_response_chars: 240
-    timeout_seconds: 8
+    timeout_seconds: 15
     cooldown_seconds: 15
     cache_seconds: 300
 ~~~

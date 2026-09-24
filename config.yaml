@@ -104,7 +104,7 @@ plugins:
     wikidata_fallback: true
     max_length: 360
     max_response_chars: 240
-    timeout_seconds: 8
+    timeout_seconds: 15
     cooldown_seconds: 15
     cache_seconds: 300
   wikipedia: {enabled: true, max_summary_length: 300}

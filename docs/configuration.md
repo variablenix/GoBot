@@ -133,7 +133,7 @@ plugins:
     wikidata_fallback: true
     max_length: 360
     max_response_chars: 240
-    timeout_seconds: 8
+    timeout_seconds: 15
     cooldown_seconds: 15
     cache_seconds: 300
   grab: {enabled: true, max_length: 320, max_quotes_per_user: 20}
@@ -194,7 +194,21 @@ source-grounded, sanitized, one-line, and bounded by `max_length` and
 in memory for `cache_seconds` (default five minutes), keyed by normalized
 question text, so repeated questions do not depend on a second provider race.
 The cache is in memory and is cleared when GoBot restarts. No credentials are required.
-`define` uses the public English dictionary service, `reddit` uses Reddit's public post and
+The default overall `ask` timeout is 15 seconds (maximum 30). Each provider
+reserves time for later fallbacks. Existing configurations explicitly using 8
+seconds keep that limit; increasing it to 15–20 seconds gives the browser and
+fallbacks more time. Chromium must be installed separately for browser lookup
+(Debian: `sudo apt-get install chromium`). A browser does not bypass provider
+challenges or guarantee a Search Assist answer. Entity questions can also fall
+back to a matching Wikipedia summary; procedural and opinion questions cannot
+use an unrelated encyclopedia summary as an answer.
+
+`define` uses the public English dictionary service with an independent English
+Wiktionary fallback. The primary request is capped at two seconds or one third
+of the remaining deadline, leaving time for fallback. Wiktionary responses link
+to the source entry and strip HTML. An unavailable lookup may mean missing
+coverage or a provider failure, rather than proof that a word does not exist.
+`reddit` uses Reddit's public post and
 subreddit JSON endpoints with an RSS fallback, and `horoscope` uses a public
 daily horoscope API. `foods` and `sports` use local text files only. `fun` uses
 local operator-editable text catalogs under `data/fun`, and `weapons` uses the

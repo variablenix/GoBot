@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	xhtml "golang.org/x/net/html"
+
 	"github.com/variablenix/GoBot/bot"
 	"github.com/variablenix/GoBot/storage"
 )
@@ -36,21 +38,25 @@ func (p *Define) Handle(b *bot.Bot, m bot.Message) bool {
 
 	ctx, cancel := context.WithTimeout(context.Background(), definitionTimeout(p.cfg))
 	defer cancel()
-	entry, ok := dictionaryEntry(ctx, term)
+	entry, ok := lookupDefinition(ctx, term)
 	if !ok {
-		b.Send(m.ReplyTarget(), ircColor(ircRed, "no English definition found"))
+		b.Send(m.ReplyTarget(), ircColor(ircRed, "No definition available: the word may be missing or the dictionary services unavailable. Try !wiki "+cleanExternalText(term)))
 		return true
 	}
 	maxLength := p.cfg.Int("max_length", 240)
-	if maxLength < 80 {
-		maxLength = 80
+	if maxLength < 80 || maxLength > 400 {
+		maxLength = 240
 	}
 	definition := truncateRunes(cleanExternalText(entry.Definition), maxLength)
 	part := cleanExternalText(entry.PartOfSpeech)
 	if part != "" {
 		part = " (" + part + ")"
 	}
-	b.Send(m.ReplyTarget(), fmt.Sprintf("📖 %s%s: %s", cleanExternalText(entry.Word), part, definition))
+	message := fmt.Sprintf("📖 %s%s: %s", cleanExternalText(entry.Word), part, definition)
+	if entry.URL != "" {
+		message += " — " + entry.URL
+	}
+	b.Send(m.ReplyTarget(), message)
 	return true
 }
 
@@ -58,6 +64,60 @@ type dictionaryEntryResult struct {
 	Word         string
 	PartOfSpeech string
 	Definition   string
+	URL          string
+}
+
+// Reserve time for an independent provider when the primary is unreachable.
+func lookupDefinition(ctx context.Context, term string) (dictionaryEntryResult, bool) {
+	budget := 2 * time.Second
+	if deadline, ok := ctx.Deadline(); ok && time.Until(deadline)/3 < budget {
+		budget = time.Until(deadline) / 3
+	}
+	primary, cancel := context.WithTimeout(ctx, budget)
+	entry, ok := dictionaryEntry(primary, term)
+	cancel()
+	if ok {
+		return entry, true
+	}
+	return wiktionaryEntry(ctx, term)
+}
+
+func wiktionaryEntry(ctx context.Context, term string) (dictionaryEntryResult, bool) {
+	endpoint := "https://en.wiktionary.org/api/rest_v1/page/definition/" + url.PathEscape(term)
+	req, err := wikipediaRequest(ctx, endpoint)
+	if err != nil {
+		return dictionaryEntryResult{}, false
+	}
+	res, err := apiHTTPClient.Do(req)
+	if err != nil {
+		return dictionaryEntryResult{}, false
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		return dictionaryEntryResult{}, false
+	}
+	var entries map[string][]struct {
+		PartOfSpeech string `json:"partOfSpeech"`
+		Definitions  []struct {
+			Definition string `json:"definition"`
+		} `json:"definitions"`
+	}
+	if json.NewDecoder(io.LimitReader(res.Body, 512*1024)).Decode(&entries) != nil {
+		return dictionaryEntryResult{}, false
+	}
+	for _, entry := range entries["en"] {
+		for _, definition := range entry.Definitions {
+			node, err := xhtml.Parse(strings.NewReader(definition.Definition))
+			if err != nil {
+				continue
+			}
+			text := cleanExternalText(askHTMLText(node))
+			if text != "" {
+				return dictionaryEntryResult{Word: term, PartOfSpeech: entry.PartOfSpeech, Definition: text, URL: "https://en.wiktionary.org/wiki/" + url.PathEscape(term) + "#English"}, true
+			}
+		}
+	}
+	return dictionaryEntryResult{}, false
 }
 
 func dictionaryEntry(ctx context.Context, term string) (dictionaryEntryResult, bool) {

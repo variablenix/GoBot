@@ -36,13 +36,16 @@ func (p *Wikipedia) Handle(b *bot.Bot, m bot.Message) bool {
 		b.Send(m.ReplyTarget(), "I couldn't find that Wikipedia article.")
 		return true
 	}
-	summary := strings.Join(strings.Fields(x.Extract), " ")
+	summary := cleanExternalText(x.Extract)
 	if summary == "" {
 		b.Send(m.ReplyTarget(), "I couldn't find a summary for that Wikipedia article.")
 		return true
 	}
 	r := []rune(summary)
 	max := p.cfg.Int("max_summary_length", 300)
+	if max < 1 || max > 1000 {
+		max = 300
+	}
 	if len(r) > max {
 		summary = string(r[:max]) + "…"
 	}
