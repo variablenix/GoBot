@@ -203,6 +203,16 @@ challenges or guarantee a Search Assist answer. Entity questions can also fall
 back to a matching Wikipedia summary; procedural and opinion questions cannot
 use an unrelated encyclopedia summary as an answer.
 
+The lightweight Search Assist stage allows up to four seconds; the browser
+stage allows up to ten seconds including startup and reserves time for the
+remaining search fallback. Both respect the overall `timeout_seconds` limit.
+For complex comparisons on small VPS hosts, 20 seconds is a useful setting.
+Only one browser lookup runs at a time across networks; waiting for that slot
+also counts against the request deadline. Cost/comparison and other open-ended
+questions skip generic Instant Answer/Wikidata entity summaries and use the
+web-result fallback when Search Assist has no answer. Page challenges and
+provider outages can still prevent an answer even when a personal browser works.
+
 `define` uses the public English dictionary service with an independent English
 Wiktionary fallback. The primary request is capped at two seconds or one third
 of the remaining deadline, leaving time for fallback. Wiktionary responses link

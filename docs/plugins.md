@@ -1346,6 +1346,14 @@ unavailable or presents an anti-automation challenge, open-ended, procedural,
 opinion, comparison, and controversy questions also use the bounded Bing
 public-search fallback described below.
 
+Price and comparison questions such as `!ask how much do dirt bikes cost vs GoKarts?`
+use Search Assist or attributed web excerpts, never a generic entity description
+as a substitute for the comparison. A bounded comparison retry normalizes `vs`
+and compound word boundaries while retaining both subjects. Browser extraction
+waits for answer text with a source link instead of stopping at the empty Search
+Assist heading, and supports expanded answer cards. Browser requests share one
+slot across networks to limit memory use on small hosts.
+
 The plugin is configured under `plugins.ask`:
 
 ~~~yaml

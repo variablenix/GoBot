@@ -248,7 +248,7 @@ func (p *Ask) findSource(ctx context.Context, question string, cfg bot.PluginCon
 	var deferredWebResult askSource
 	deferredWebResultFound := false
 	if cfg.Bool("search_assist_enabled", true) {
-		stepCtx, cancel := askStepContext(ctx, 1500*time.Millisecond)
+		stepCtx, cancel := askStepContext(ctx, 4*time.Second)
 		if source, ok := askDuckDuckGoSearchAssist(stepCtx, question); ok {
 			cancel()
 			return source, true
@@ -257,7 +257,7 @@ func (p *Ask) findSource(ctx context.Context, question string, cfg bot.PluginCon
 		if cfg.Bool("search_assist_browser_enabled", true) {
 			fetchResults := cfg.Bool("search_results_enabled", true)
 			webResultTried = fetchResults
-			stepCtx, cancel = askStepContext(ctx, 5*time.Second)
+			stepCtx, cancel = askBrowserStepContext(ctx)
 			if source, ok := askDuckDuckGoRenderedSearchAssist(stepCtx, question, cfg.String("browser_path", ""), fetchResults); ok {
 				cancel()
 				if source.Provider == "search_result" {
@@ -271,7 +271,7 @@ func (p *Ask) findSource(ctx context.Context, question string, cfg bot.PluginCon
 			}
 		}
 	}
-	if cfg.Bool("duckduckgo_enabled", true) {
+	if cfg.Bool("duckduckgo_enabled", true) && !askNeedsWebResultAnswer(question) {
 		stepCtx, cancel := askStepContext(ctx, 1600*time.Millisecond)
 		if source, ok := askDuckDuckGoWithRetry(stepCtx, question); ok {
 			if refined, ok := refineFocusedAskSource(question, source); ok {
@@ -311,7 +311,7 @@ func (p *Ask) findSource(ctx context.Context, question string, cfg bot.PluginCon
 		}
 		cancel()
 	}
-	if cfg.Bool("wikidata_fallback", true) && focused != "" {
+	if cfg.Bool("wikidata_fallback", true) && focused != "" && !askNeedsWebResultAnswer(question) {
 		stepCtx, cancel := askStepContext(ctx, 2500*time.Millisecond)
 		switch {
 		case askNeedsRelationshipAnswer(question):
@@ -362,6 +362,23 @@ func askStepContext(parent context.Context, max time.Duration) (context.Context,
 		return context.WithCancel(parent)
 	}
 	return context.WithTimeout(parent, max)
+}
+
+// Reserve a small, fixed tail for public search. Halving every stage's
+// remaining time gave Chromium too little time to start and render an answer.
+func askBrowserStepContext(parent context.Context) (context.Context, context.CancelFunc) {
+	budget := 10 * time.Second
+	if deadline, ok := parent.Deadline(); ok {
+		remaining := time.Until(deadline)
+		reserve := 2 * time.Second
+		if remaining/4 < reserve {
+			reserve = remaining / 4
+		}
+		if remaining-reserve < budget {
+			budget = remaining - reserve
+		}
+	}
+	return context.WithTimeout(parent, budget)
 }
 
 func askLocalAnswer(question string) (string, bool) {
@@ -472,9 +489,13 @@ func askNeedsTemporalAnswer(question string) bool {
 
 func askNeedsWebResultAnswer(question string) bool {
 	lower := strings.ToLower(strings.TrimSpace(question))
+	if askComparisonPattern.MatchString(lower) {
+		return true
+	}
 	for _, phrase := range []string{
 		"why ", "why is ", "why are ", "why was ", "why were ",
 		"how does ", "how do ", "how can ", "how should ",
+		"how much ", "what does it cost", "what is the price", "what are the prices",
 		"what makes ", "what do people think", "why do people ", "why do some ",
 		"what are the disadvantages", "what are the benefits", "what are the alternatives",
 		"is it true", "is it worth", "is it safe", "should i ", "should we ",
@@ -657,9 +678,9 @@ type duckDuckGoSearchAssistPayload struct {
 	} `json:"instantAnswers"`
 }
 
-var askSearchAssistScriptPattern = regexp.MustCompile(`(?s)<script[^>]*id=["']deep_preload_script["'][^>]*src=["']([^"']+)["']`)
 var askSearchAssistOpinionPattern = regexp.MustCompile(`(?i)^why\s+should\s+(?:someone|somebody|people|users?|we|you|they)\s+not\s+use\s+(.+?)\s*[?!.]*$`)
 var askSearchAssistGenrePattern = regexp.MustCompile(`(?i)^what\s+(?:(?:music|musical)\s+)?genre\s+is\s+(?:the\s+)?(?:band|artist|group)\s+(.+?)\s*[?!.]*$`)
+var askComparisonPattern = regexp.MustCompile(`(?i)\b(?:vs\.?|versus|compare|comparison|compared)\b|\bdifference\s+between\b`)
 
 type askRenderedSearchAssistData struct {
 	Text  string   `json:"text"`
@@ -674,19 +695,36 @@ type askRenderedSearchResult struct {
 
 const askRenderedSearchAssistScript = `() => {
   const textOf = (element) => (element.innerText || element.textContent || "").trim();
-  const headers = Array.from(document.querySelectorAll("body *")).filter((element) => {
-    const text = textOf(element);
-    return text === "Search Assist" || text.startsWith("Search Assist\n");
-  });
-  if (!headers.length) return null;
-  let card = headers.sort((a, b) => textOf(a).length - textOf(b).length)[0];
-  while (card.parentElement && textOf(card.parentElement).length < 3500) card = card.parentElement;
-  const links = Array.from(card.querySelectorAll("a[href]"))
-    .map((anchor) => anchor.href)
-    .filter((href) => /^https?:\/\//i.test(href));
-  const clone = card.cloneNode(true);
-  clone.querySelectorAll("a, button, [role=button]").forEach((element) => element.remove());
-  return {text: textOf(clone), links};
+  const headers = Array.from(document.querySelectorAll("body *"))
+    .filter((element) => textOf(element) === "Search Assist" &&
+      !Array.from(element.children).some(child => textOf(child) === "Search Assist"));
+  for (const header of headers) {
+    let card = header.parentElement;
+    for (let depth = 0; card && depth < 8; depth++, card = card.parentElement) {
+      // Never collect the surrounding search results or a navigation shell.
+      if (card === document.body || card.querySelector('[data-testid="result-title-a"], .result__a')) break;
+      const links = Array.from(card.querySelectorAll("a[href]")).map(a => a.href).filter(href => {
+        try {
+          const u = new URL(href);
+          return u.protocol === "https:" && u.hostname !== "duckduckgo.com" && !u.hostname.endsWith(".duckduckgo.com");
+        } catch (_) { return false; }
+      });
+      if (!links.length) continue;
+      const clone = card.cloneNode(true);
+      clone.querySelectorAll("a, button, [role=button], script, style, svg").forEach(element => element.remove());
+      clone.querySelectorAll("*").forEach(element => {
+        if (element.children.length === 0 && textOf(element) === "Search Assist") element.remove();
+      });
+      clone.querySelectorAll("p, div, li, h1, h2, h3, tr, br").forEach(element => element.append("\n"));
+      const text = textOf(clone).split("\n").map(line => line.trim()).filter(line =>
+        line && !/^(Search Assist|More|Generating[.…]*|Searching[.…]*)$/i.test(line) &&
+        !/^(Auto-generated based on|Was this helpful)/i.test(line)).join("\n");
+      // A heading, loading state, or empty card is not a completed answer.
+      if (!text) continue;
+      return {text: text.slice(0, 12000), links: links.slice(0, 8)};
+    }
+  }
+  return null;
 }`
 
 // DuckDuckGo changes its result-card markup periodically. The selector list
@@ -769,8 +807,27 @@ func askSearchAssistQueryVariants(question string) []string {
 			queries = append(queries, "what genres does "+subject+" have?")
 		}
 	}
+	if len(queries) == 1 && askComparisonPattern.MatchString(original) {
+		// Preserve the question and both subjects. Normalize word boundaries
+		// and the common comparison abbreviation without inventing a new query.
+		var expanded strings.Builder
+		var previous rune
+		for _, r := range original {
+			if unicode.IsUpper(r) && unicode.IsLower(previous) {
+				expanded.WriteByte(' ')
+			}
+			expanded.WriteRune(r)
+			previous = r
+		}
+		normalized := askVersusPattern.ReplaceAllString(strings.ToLower(expanded.String()), "versus")
+		if normalized != strings.ToLower(original) {
+			queries = append(queries, normalized)
+		}
+	}
 	return queries
 }
+
+var askVersusPattern = regexp.MustCompile(`(?i)\bvs\b\.?`)
 
 func askDuckDuckGoSearchAssistOnce(ctx context.Context, question, fallbackURL string) (askSource, bool) {
 	pageURL := duckDuckGoSearchURL(question)
@@ -793,11 +850,7 @@ func askDuckDuckGoSearchAssistOnce(ctx context.Context, question, fallbackURL st
 	if err != nil {
 		return askSource{}, false
 	}
-	matches := askSearchAssistScriptPattern.FindSubmatch(page)
-	if len(matches) < 2 {
-		return askSource{}, false
-	}
-	assistURL := html.UnescapeString(string(matches[1]))
+	assistURL := askSearchAssistPreloadURL(page, pageURL)
 	assistParsed, parseErr := url.Parse(assistURL)
 	if parseErr != nil || assistParsed.Scheme != "https" || !isDuckDuckGoHost(assistParsed.Hostname()) || assistParsed.User != nil || assistParsed.Port() != "" {
 		return askSource{}, false
@@ -825,6 +878,42 @@ func askDuckDuckGoSearchAssistOnce(ctx context.Context, question, fallbackURL st
 	return parseDuckDuckGoSearchAssist(string(assistBody), fallbackURL)
 }
 
+func askSearchAssistPreloadURL(page []byte, pageURL string) string {
+	base, err := url.Parse(pageURL)
+	if err != nil {
+		return ""
+	}
+	tokens := xhtml.NewTokenizer(bytes.NewReader(page))
+	for {
+		switch tokens.Next() {
+		case xhtml.ErrorToken:
+			return ""
+		case xhtml.StartTagToken, xhtml.SelfClosingTagToken:
+			token := tokens.Token()
+			if token.Data != "script" {
+				continue
+			}
+			var id, src string
+			for _, attr := range token.Attr {
+				if attr.Key == "id" {
+					id = attr.Val
+				}
+				if attr.Key == "src" {
+					src = attr.Val
+				}
+			}
+			if id != "deep_preload_script" || src == "" {
+				continue
+			}
+			ref, err := url.Parse(src)
+			if err != nil {
+				return ""
+			}
+			return base.ResolveReference(ref).String()
+		}
+	}
+}
+
 func askDuckDuckGoRenderedSearchAssist(ctx context.Context, question, browserPath string, fetchResults bool) (askSource, bool) {
 	executable := strings.TrimSpace(browserPath)
 	if executable != "" {
@@ -841,6 +930,14 @@ func askDuckDuckGoRenderedSearchAssist(ctx context.Context, question, browserPat
 		if executable == "" {
 			return askSource{}, false
 		}
+	}
+	// Chromium is expensive on small VPS hosts. Requests from multiple IRC
+	// networks must share one bounded browser slot, including shutdown.
+	select {
+	case askBrowserSlots <- struct{}{}:
+		defer func() { <-askBrowserSlots }()
+	case <-ctx.Done():
+		return askSource{}, false
 	}
 
 	queries := askSearchAssistQueryVariants(question)
@@ -859,8 +956,10 @@ func askDuckDuckGoRenderedSearchAssist(ctx context.Context, question, browserPat
 	return askSource{}, false
 }
 
+var askBrowserSlots = make(chan struct{}, 1)
+
 func askDuckDuckGoRenderedSearchAssistOnce(ctx context.Context, question, fallbackURL, executable string, fetchResults bool) (askSource, bool) {
-	browserTimeout := 4 * time.Second
+	browserTimeout := 10 * time.Second
 	if deadline, ok := ctx.Deadline(); ok {
 		remaining := time.Until(deadline)
 		if remaining <= 0 {
@@ -890,12 +989,15 @@ func askDuckDuckGoRenderedSearchAssistOnce(ctx context.Context, question, fallba
 	if err := chromedp.Run(browserCtx, chromedp.Navigate(duckDuckGoSearchURL(question))); err != nil {
 		return askSource{}, false
 	}
-	assistTimeout := 2 * time.Second
+	// Navigation and browser startup have already consumed some of the budget.
+	// Wait for an actual answer, not merely the Search Assist header.
+	deadline, _ := runCtx.Deadline()
+	assistTimeout := time.Until(deadline)
 	if fetchResults {
-		assistTimeout = 1500 * time.Millisecond
+		assistTimeout -= 750 * time.Millisecond
 	}
-	if browserTimeout < assistTimeout {
-		assistTimeout = browserTimeout
+	if assistTimeout <= 0 {
+		return askSource{}, false
 	}
 	if err := chromedp.Run(browserCtx, chromedp.PollFunction(askRenderedSearchAssistScript, &result,
 		chromedp.WithPollingInterval(100*time.Millisecond),
@@ -914,7 +1016,7 @@ func askDuckDuckGoRenderedSearchAssistOnce(ctx context.Context, question, fallba
 		return askSource{}, false
 	}
 	var results []askRenderedSearchResult
-	resultTimeout := browserTimeout - assistTimeout
+	resultTimeout := time.Until(deadline)
 	if resultTimeout <= 0 {
 		return askSource{}, false
 	}
@@ -1306,19 +1408,12 @@ func parseRenderedSearchAssist(result askRenderedSearchAssistData, fallbackURL s
 }
 
 func parseDuckDuckGoSearchAssist(body, fallbackURL string) (askSource, bool) {
-	const prefix = "DDG.deep.deepPayload = "
-	const suffix = ";DDG.deep.bn="
-	start := strings.Index(body, prefix)
-	if start < 0 {
-		return askSource{}, false
-	}
-	start += len(prefix)
-	end := strings.Index(body[start:], suffix)
-	if end < 0 {
+	assignment := askSearchAssistPayloadPattern.FindStringIndex(body)
+	if assignment == nil {
 		return askSource{}, false
 	}
 	var payload duckDuckGoSearchAssistPayload
-	if err := json.Unmarshal([]byte(body[start:start+end]), &payload); err != nil {
+	if err := json.NewDecoder(strings.NewReader(body[assignment[1]:])).Decode(&payload); err != nil {
 		return askSource{}, false
 	}
 	for _, instantAnswer := range payload.InstantAnswers {
@@ -1337,6 +1432,8 @@ func parseDuckDuckGoSearchAssist(body, fallbackURL string) (askSource, bool) {
 	}
 	return askSource{}, false
 }
+
+var askSearchAssistPayloadPattern = regexp.MustCompile(`\bDDG\.deep\.deepPayload\s*=\s*`)
 
 func askDuckDuckGo(ctx context.Context, question string) (askSource, bool) {
 	endpoint := "https://api.duckduckgo.com/?q=" + url.QueryEscape(question) + "&format=json&no_html=1&skip_disambig=1"
