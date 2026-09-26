@@ -103,6 +103,121 @@ func TestAskExplicitAssistURL(t *testing.T) {
 	}
 }
 
+func TestAskRecoversDelayedAnswerInOriginalCommand(t *testing.T) {
+	old := askHTTPClient
+	t.Cleanup(func() { askHTTPClient = old })
+	for _, question := range []string{"what kind of GoKart does Mario use?", "what kind of GoKart does Toad use?"} {
+		t.Run(question, func(t *testing.T) {
+			started := time.Now()
+			pages := 0
+			askHTTPClient = &http.Client{Transport: newPluginRoundTripper(func(r *http.Request) (*http.Response, error) {
+				if r.URL.Path == "/assist.js" {
+					return newPluginResponse(200, `DDG.deep.deepPayload={"instantAnswers":[{"data":{"answer":"The available kart depends on the game.","sources":[{"article":{"link":"https://example.org/karts"}}]}}]};`), nil
+				}
+				pages++
+				if r.URL.Query().Get("q") != question {
+					t.Fatal("recovery changed the original question")
+				}
+				if pages <= 2 || time.Since(started) < 750*time.Millisecond {
+					return newPluginResponse(200, `<html>No generated answer yet</html>`), nil
+				}
+				return newPluginResponse(200, `<script id="deep_preload_script" src="/assist.js"></script>`), nil
+			})}
+			ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+			defer cancel()
+			cfg := bot.PluginConfig{"search_assist_browser_enabled": false, "duckduckgo_enabled": false, "wikidata_fallback": false, "search_results_enabled": false}
+			source, ok := (&Ask{}).findSource(ctx, question, cfg)
+			if !ok || source.Provider != "search_assist" || pages != 3 {
+				t.Fatalf("original command did not recover: source=%+v ok=%v requests=%d", source, ok, pages)
+			}
+		})
+	}
+}
+
+func TestAskRecoveryIsBoundedAndCancelable(t *testing.T) {
+	old := askHTTPClient
+	t.Cleanup(func() { askHTTPClient = old })
+	for _, timeout := range []time.Duration{50 * time.Millisecond, 2 * time.Second} {
+		t.Run(timeout.String(), func(t *testing.T) {
+			pages := 0
+			askHTTPClient = &http.Client{Transport: newPluginRoundTripper(func(r *http.Request) (*http.Response, error) {
+				if r.Context().Err() != nil {
+					t.Fatal("request made after cancellation")
+				}
+				pages++
+				return newPluginResponse(200, `<html>No answer</html>`), nil
+			})}
+			ctx, cancel := context.WithTimeout(t.Context(), timeout)
+			defer cancel()
+			cfg := bot.PluginConfig{"search_assist_browser_enabled": false, "duckduckgo_enabled": false, "wikidata_fallback": false, "search_results_enabled": false}
+			if _, ok := (&Ask{}).findSource(ctx, "what kind of kart?", cfg); ok {
+				t.Fatal("fabricated an answer from an empty response")
+			}
+			want := 3
+			if timeout < time.Second {
+				want = 1
+			}
+			if pages != want {
+				t.Fatalf("requests=%d want=%d", pages, want)
+			}
+		})
+	}
+}
+
+func TestAskSuccessDoesNotTriggerRecovery(t *testing.T) {
+	old := askHTTPClient
+	t.Cleanup(func() { askHTTPClient = old })
+	requests := 0
+	askHTTPClient = &http.Client{Transport: newPluginRoundTripper(func(r *http.Request) (*http.Response, error) {
+		requests++
+		if r.URL.Path == "/assist.js" {
+			return newPluginResponse(200, `DDG.deep.deepPayload={"instantAnswers":[{"data":{"answer":"An existing successful answer."}}]};`), nil
+		}
+		return newPluginResponse(200, `<script id="deep_preload_script" src="/assist.js"></script>`), nil
+	})}
+	if _, ok := (&Ask{}).findSource(t.Context(), "a question", bot.PluginConfig{}); !ok || requests != 2 {
+		t.Fatalf("successful path changed: ok=%v requests=%d", ok, requests)
+	}
+}
+
+func TestAskReservesRecoveryBudgetWithoutExtendingDeadline(t *testing.T) {
+	for _, budget := range []time.Duration{8 * time.Second, 20 * time.Second} {
+		parent, cancel := context.WithTimeout(t.Context(), budget)
+		ctx, done := askInitialLookupContext(parent)
+		parentDeadline, _ := parent.Deadline()
+		deadline, _ := ctx.Deadline()
+		want := time.Duration(0)
+		if budget == 20*time.Second {
+			want = 3 * time.Second
+		}
+		if parentDeadline.Sub(deadline) != want {
+			t.Errorf("budget=%s reserved=%s want=%s", budget, parentDeadline.Sub(deadline), want)
+		}
+		done()
+		if parent.Err() != nil {
+			t.Fatal("canceling initial lookup canceled recovery parent")
+		}
+		cancel()
+	}
+}
+
+func TestLiveAskKartQuestions(t *testing.T) {
+	if os.Getenv("GOBOT_LIVE_LOOKUPS") != "1" {
+		t.Skip("opt-in live provider smoke test")
+	}
+	for _, question := range []string{"what kind of GoKart does Mario use?", "what kind of GoKart does Toad use?"} {
+		t.Run(question, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)
+			defer cancel()
+			source, ok := (&Ask{}).findSource(ctx, question, bot.PluginConfig{})
+			if !ok {
+				t.Fatal("no answer within the original request")
+			}
+			t.Logf("provider=%s source=%s", source.Provider, source.URL)
+		})
+	}
+}
+
 func TestAskComparisonDoesNotReturnEntityDescription(t *testing.T) {
 	old := askHTTPClient
 	t.Cleanup(func() { askHTTPClient = old })

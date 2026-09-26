@@ -1360,6 +1360,13 @@ for `!assist`. The no-answer search link requests it too. This avoids relying on
 the normal search page's automatic answer-display setting, but is not a public
 Search Assist API, a challenge bypass, or a guarantee of an answer for every query.
 
+Initial lightweight attempts are spaced by 300 ms. If all providers miss, GoBot
+waits 500 ms and makes one final lightweight request for the original question
+within the same command. Requests with at least 12 seconds remaining reserve
+three seconds for this recovery step; shorter deadlines are not shortened.
+Successful answers return immediately without the final retry. All waits and
+requests respect the overall timeout, and failed lookups are not cached.
+
 The plugin is configured under `plugins.ask`:
 
 ~~~yaml

@@ -243,6 +243,35 @@ type askSource struct {
 }
 
 func (p *Ask) findSource(ctx context.Context, question string, cfg bot.PluginConfig) (askSource, bool) {
+	if !cfg.Bool("search_assist_enabled", true) {
+		return p.findSourceOnce(ctx, question, cfg)
+	}
+	lookupCtx, cancel := askInitialLookupContext(ctx)
+	source, ok := p.findSourceOnce(lookupCtx, question, cfg)
+	cancel()
+	if ok || ctx.Err() != nil {
+		return source, ok
+	}
+	// An answer may become available after the initial requests. Revisit the
+	// original question within this command, not only when the user asks again.
+	retryCtx, retryCancel := context.WithTimeout(ctx, 3*time.Second)
+	defer retryCancel()
+	if !askWaitForRetry(retryCtx, 500*time.Millisecond) {
+		return askSource{}, false
+	}
+	return askDuckDuckGoSearchAssistOnce(retryCtx, question, duckDuckGoSearchAssistURL(question))
+}
+
+func askInitialLookupContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	// Reserve a recovery window on normal request budgets. Short user-defined
+	// deadlines retain the existing provider budget rather than being squeezed.
+	if deadline, ok := ctx.Deadline(); ok && time.Until(deadline) >= 12*time.Second {
+		return context.WithDeadline(ctx, deadline.Add(-3*time.Second))
+	}
+	return context.WithCancel(ctx)
+}
+
+func (p *Ask) findSourceOnce(ctx context.Context, question string, cfg bot.PluginConfig) (askSource, bool) {
 	focused := askFocusedTerm(question)
 	webResultTried := false
 	var deferredWebResult askSource
@@ -776,6 +805,9 @@ func askDuckDuckGoSearchAssist(ctx context.Context, question string) (askSource,
 	// and request context limits.
 	queries := askSearchAssistQueryVariants(question)
 	for attempt := 0; attempt < 2; attempt++ {
+		if attempt > 0 && !askWaitForRetry(ctx, 300*time.Millisecond) {
+			break
+		}
 		query := queries[0]
 		if attempt < len(queries) {
 			query = queries[attempt]
@@ -788,6 +820,20 @@ func askDuckDuckGoSearchAssist(ctx context.Context, question string) (askSource,
 		}
 	}
 	return askSource{}, false
+}
+
+func askWaitForRetry(ctx context.Context, delay time.Duration) bool {
+	if ctx.Err() != nil {
+		return false
+	}
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return false
+	case <-timer.C:
+		return ctx.Err() == nil
+	}
 }
 
 func askSearchAssistQueryVariants(question string) []string {
