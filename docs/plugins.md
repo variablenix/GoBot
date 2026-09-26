@@ -1354,6 +1354,12 @@ waits for answer text with a source link instead of stopping at the empty Search
 Assist heading, and supports expanded answer cards. Browser requests share one
 slot across networks to limit memory use on small hosts.
 
+Both the lightweight and browser lookups explicitly request Search Assist using
+the `assiston=1` web route published in DuckDuckGo's [official bang catalog](https://duckduckgo.com/bang.js)
+for `!assist`. The no-answer search link requests it too. This avoids relying on
+the normal search page's automatic answer-display setting, but is not a public
+Search Assist API, a challenge bypass, or a guarantee of an answer for every query.
+
 The plugin is configured under `plugins.ask`:
 
 ~~~yaml

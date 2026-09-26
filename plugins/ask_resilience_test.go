@@ -3,6 +3,7 @@ package plugins
 import (
 	"context"
 	"net/http"
+	"net/url"
 	"os"
 	"reflect"
 	"strings"
@@ -72,6 +73,9 @@ func TestAskComparisonRecoversOnNormalizedRetry(t *testing.T) {
 		if r.URL.Path == "/assist.js" {
 			return newPluginResponse(200, `DDG.deep.deepPayload={"instantAnswers":[{"data":{"answer":"Compare equivalent dirt bikes and go-karts, including maintenance costs.","sources":[{"article":{"link":"https://example.org/comparison"}}]}}]};callback();`), nil
 		}
+		if r.URL.Query().Get("assiston") != "1" {
+			t.Fatal("Search Assist was not explicitly requested")
+		}
 		queries = append(queries, r.URL.Query().Get("q"))
 		if len(queries) == 1 {
 			return newPluginResponse(200, `<html><body>No answer yet</body></html>`), nil
@@ -84,6 +88,18 @@ func TestAskComparisonRecoversOnNormalizedRetry(t *testing.T) {
 	}
 	if !reflect.DeepEqual(queries, []string{"how much do dirt bikes cost vs GoKarts?", "how much do dirt bikes cost versus go karts?"}) {
 		t.Fatalf("unexpected requests: %q", queries)
+	}
+}
+
+func TestAskExplicitAssistURL(t *testing.T) {
+	for _, question := range []string{"how much do dirt bikes cost vs GoKarts?", "R&D vs C++? &assiston=0", "日本語の質問"} {
+		u, err := url.Parse(duckDuckGoSearchAssistURL(question))
+		if err != nil || u.Host != "duckduckgo.com" || u.Scheme != "https" || u.Query().Get("q") != question || !reflect.DeepEqual(u.Query()["assiston"], []string{"1"}) {
+			t.Fatalf("invalid explicit route: %v %v", u, err)
+		}
+	}
+	if !strings.Contains(formatAskNoAnswer("a question", 360), "?assiston=1&q=a+question") {
+		t.Fatal("fallback link does not request Search Assist")
 	}
 }
 

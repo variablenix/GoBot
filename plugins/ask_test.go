@@ -484,7 +484,7 @@ func TestAskResponseDropsInvalidSourceURL(t *testing.T) {
 
 func TestAskNoAnswerProvidesSearchFallback(t *testing.T) {
 	got := formatAskNoAnswer("Is the Earth flat?", 180)
-	if !strings.Contains(got, "I couldn't find a reliable answer") || !strings.Contains(got, "https://duckduckgo.com/?q=Is+the+Earth+flat%3F") {
+	if !strings.Contains(got, "I couldn't find a reliable answer") || !strings.Contains(got, "https://duckduckgo.com/?assiston=1&q=Is+the+Earth+flat%3F") {
 		t.Fatalf("formatAskNoAnswer() = %q, want bounded search fallback", got)
 	}
 	if strings.ContainsAny(got, "\r\n") || len([]byte(got)) > 180 {

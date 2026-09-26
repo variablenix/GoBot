@@ -780,7 +780,7 @@ func askDuckDuckGoSearchAssist(ctx context.Context, question string) (askSource,
 		if attempt < len(queries) {
 			query = queries[attempt]
 		}
-		if source, ok := askDuckDuckGoSearchAssistOnce(ctx, query, duckDuckGoSearchURL(question)); ok {
+		if source, ok := askDuckDuckGoSearchAssistOnce(ctx, query, duckDuckGoSearchAssistURL(question)); ok {
 			return source, true
 		}
 		if err := ctx.Err(); err != nil {
@@ -830,7 +830,7 @@ func askSearchAssistQueryVariants(question string) []string {
 var askVersusPattern = regexp.MustCompile(`(?i)\bvs\b\.?`)
 
 func askDuckDuckGoSearchAssistOnce(ctx context.Context, question, fallbackURL string) (askSource, bool) {
-	pageURL := duckDuckGoSearchURL(question)
+	pageURL := duckDuckGoSearchAssistURL(question)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, pageURL, nil)
 	if err != nil {
 		return askSource{}, false
@@ -946,7 +946,7 @@ func askDuckDuckGoRenderedSearchAssist(ctx context.Context, question, browserPat
 		if index < len(queries) {
 			query = queries[index]
 		}
-		if source, ok := askDuckDuckGoRenderedSearchAssistOnce(ctx, query, duckDuckGoSearchURL(question), executable, fetchResults); ok {
+		if source, ok := askDuckDuckGoRenderedSearchAssistOnce(ctx, query, duckDuckGoSearchAssistURL(question), executable, fetchResults); ok {
 			return source, true
 		}
 		if err := ctx.Err(); err != nil {
@@ -986,7 +986,7 @@ func askDuckDuckGoRenderedSearchAssistOnce(ctx context.Context, question, fallba
 	defer browserCancel()
 
 	var result askRenderedSearchAssistData
-	if err := chromedp.Run(browserCtx, chromedp.Navigate(duckDuckGoSearchURL(question))); err != nil {
+	if err := chromedp.Run(browserCtx, chromedp.Navigate(duckDuckGoSearchAssistURL(question))); err != nil {
 		return askSource{}, false
 	}
 	// Navigation and browser startup have already consumed some of the budget.
@@ -1482,6 +1482,14 @@ func askDuckDuckGoWithRetry(ctx context.Context, question string) (askSource, bo
 
 func duckDuckGoSearchURL(query string) string {
 	return "https://duckduckgo.com/?q=" + url.QueryEscape(strings.TrimSpace(query))
+}
+
+// This is the destination used by DuckDuckGo's official !assist bang
+// (https://duckduckgo.com/bang.js). It requests Search Assist explicitly,
+// rather than relying on the default search setting to display an answer.
+// It is a web route, not an API or a way to bypass provider challenges.
+func duckDuckGoSearchAssistURL(query string) string {
+	return "https://duckduckgo.com/?assiston=1&q=" + url.QueryEscape(strings.TrimSpace(query))
 }
 
 func askHTTPSuccess(status int) bool {
@@ -2056,7 +2064,7 @@ func formatAskResponse(nick, answer, sourceURL string, maxLength, maxResponseCha
 
 func formatAskNoAnswer(question string, maxLength int) string {
 	maxLength = clampAskLength(maxLength, 120, 450, 360)
-	return truncateAskBytes("I couldn't find a reliable answer — search: "+duckDuckGoSearchURL(question), maxLength)
+	return truncateAskBytes("I couldn't find a reliable answer — search: "+duckDuckGoSearchAssistURL(question), maxLength)
 }
 
 func clampAskLength(value, min, max, fallback int) int {
