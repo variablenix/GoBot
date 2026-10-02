@@ -180,12 +180,27 @@ func clonePluginOverrides(overrides map[string]map[string]bool) map[string]map[s
 	return clone
 }
 func (b *Bot) Send(target, text string) {
-	if !b.Queue.Enqueue(Outgoing{target, text}) {
-		b.Stats.dropped.Add(1)
-		if b.networkStats != nil {
-			b.networkStats.dropped.Add(1)
+	parts := outgoingMessageParts(target, text)
+	if len(parts) == 0 {
+		b.recordDroppedOutput()
+		return
+	}
+	for _, part := range parts {
+		if !b.Queue.Enqueue(Outgoing{target, part}) {
+			b.recordDroppedOutput()
+			if b.Log != nil {
+				b.Log.Warn("outgoing queue full", zap.String("target", target))
+			}
 		}
-		b.Log.Warn("outgoing queue full", zap.String("target", target))
+	}
+}
+
+func (b *Bot) recordDroppedOutput() {
+	if b.Stats != nil {
+		b.Stats.dropped.Add(1)
+	}
+	if b.networkStats != nil {
+		b.networkStats.dropped.Add(1)
 	}
 }
 func (b *Bot) sendNow(target, text string) {

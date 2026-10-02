@@ -123,6 +123,9 @@ func (p *Poll) vote(key, nick, rawOption string) string {
 	if err != nil || option < 1 || option > len(current.Options) {
 		return fmt.Sprintf("vote with a number from 1 to %d", len(current.Options))
 	}
+	if current.Votes == nil {
+		current.Votes = make(map[string]int)
+	}
 	current.Votes[strings.ToLower(nick)] = option
 	p.persist(key)
 	return fmt.Sprintf("vote recorded for option %d", option)
@@ -159,12 +162,16 @@ func mustList(db *storage.DB, bucket string) []string {
 
 func formatPoll(current *poll) string {
 	counts := make([]int, len(current.Options))
+	votes := 0
 	for _, option := range current.Votes {
-		counts[option-1]++
+		if option >= 1 && option <= len(counts) {
+			counts[option-1]++
+			votes++
+		}
 	}
 	parts := make([]string, len(current.Options))
 	for i, option := range current.Options {
 		parts[i] = fmt.Sprintf("%d) %s [%d]", i+1, option, counts[i])
 	}
-	return fmt.Sprintf("Poll: %s — %s (%d votes)", current.Question, strings.Join(parts, "; "), len(current.Votes))
+	return fmt.Sprintf("Poll: %s — %s (%d votes)", current.Question, strings.Join(parts, "; "), votes)
 }

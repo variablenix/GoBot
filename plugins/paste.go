@@ -228,7 +228,7 @@ func (p *Paste) createPaste(parent context.Context, content string) (string, err
 	req.Header.Set("Authorization", "token "+p.token)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
-	res, err := apiHTTPClient.Do(req)
+	res, err := authenticatedAPIRequest(req)
 	if err != nil {
 		return "", err
 	}

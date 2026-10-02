@@ -1,6 +1,9 @@
 package plugins
 
 import (
+	"context"
+	"io"
+	"net/http"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -103,5 +106,43 @@ func TestWeatherHelpDocumentsDefaults(t *testing.T) {
 		if !strings.Contains(help, want) {
 			t.Errorf("weather help %q does not contain %q", help, want)
 		}
+	}
+}
+
+type weatherTrackingBody struct {
+	io.Reader
+	closed bool
+}
+
+func (b *weatherTrackingBody) Close() error { b.closed = true; return nil }
+
+func TestWeatherClosesFailedProviderResponses(t *testing.T) {
+	old := apiHTTPClient
+	t.Cleanup(func() { apiHTTPClient = old })
+	for _, failedHost := range []string{"geocoding-api.open-meteo.com", "api.open-meteo.com"} {
+		t.Run(failedHost, func(t *testing.T) {
+			var bodies []*weatherTrackingBody
+			apiHTTPClient = &http.Client{Transport: newPluginRoundTripper(func(r *http.Request) (*http.Response, error) {
+				status, payload := 200, `{"results":[{"name":"Example City","country_code":"US","latitude":1,"longitude":1}]}`
+				if r.URL.Host == failedHost {
+					status, payload = 503, `{}`
+				}
+				body := &weatherTrackingBody{Reader: strings.NewReader(payload)}
+				bodies = append(bodies, body)
+				return &http.Response{StatusCode: status, Header: http.Header{}, Body: body}, nil
+			})}
+			b := &bot.Bot{Config: bot.Config{CommandPrefix: "!"}, Queue: bot.NewQueue(1, 1, func(bot.Outgoing) {})}
+			defer b.Queue.Drain(context.Background())
+			p := &Weather{}
+			p.Init(nil, nil)
+			if !p.Handle(b, bot.Message{Text: "!weather Example City", Nick: "tester", Target: "Echo"}) || len(bodies) == 0 {
+				t.Fatal("weather command did not exercise the provider")
+			}
+			for _, body := range bodies {
+				if !body.closed {
+					t.Fatal("provider error leaked its response body")
+				}
+			}
+		})
 	}
 }

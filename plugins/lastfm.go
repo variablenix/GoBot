@@ -52,7 +52,7 @@ func (p *LastFM) Handle(b *bot.Bot, m bot.Message) bool {
 	values := url.Values{"method": {"user.getrecenttracks"}, "user": {username}, "api_key": {apiKey}, "format": {"json"}, "limit": {"1"}}
 	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, "https://ws.audioscrobbler.com/2.0/?"+values.Encode(), nil)
 	req.Header.Set("User-Agent", "GoBot/1.0 (IRC bot)")
-	res, err := apiHTTPClient.Do(req)
+	res, err := authenticatedAPIRequest(req)
 	if err != nil || res.StatusCode != http.StatusOK {
 		if res != nil {
 			res.Body.Close()

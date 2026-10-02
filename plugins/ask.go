@@ -1259,9 +1259,12 @@ func unwrapBingResultURL(raw string) string {
 	if !strings.HasPrefix(encoded, "a1") {
 		return raw
 	}
-	decoded, err := base64.RawStdEncoding.DecodeString(encoded[2:])
-	if err != nil {
-		decoded, err = base64.StdEncoding.DecodeString(encoded[2:])
+	var decoded []byte
+	for _, encoding := range []*base64.Encoding{base64.RawURLEncoding, base64.URLEncoding, base64.RawStdEncoding, base64.StdEncoding} {
+		decoded, err = encoding.DecodeString(encoded[2:])
+		if err == nil {
+			break
+		}
 	}
 	if err != nil || !validPublicHTTPURL(string(decoded)) {
 		return raw

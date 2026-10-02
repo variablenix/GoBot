@@ -1,10 +1,16 @@
 package plugins
 
 import (
+	"context"
+	"encoding/base64"
+	"encoding/json"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"testing"
+	"time"
+	"unicode/utf8"
 
 	"github.com/variablenix/GoBot/bot"
 )
@@ -171,5 +177,168 @@ func TestYouTubeHelpDocumentsAliases(t *testing.T) {
 		if !strings.Contains(help, want) {
 			t.Errorf("help %q does not contain %q", help, want)
 		}
+	}
+}
+
+func TestYouTubeAssignmentVariantsAndPrimaryOrder(t *testing.T) {
+	data := `{"contents":{"twoColumnSearchResultsRenderer":{"primaryContents":{"sectionListRenderer":{"contents":[{"adSlotRenderer":{"videoRenderer":{"videoId":"advert12345","title":{"simpleText":"Advertisement"}}}},{"videoRenderer":{"videoId":"first123456","title":{"simpleText":"First video"}}},{"videoRenderer":{"videoId":"later123456","title":{"simpleText":"Later video"}}}]}},"secondaryContents":{"videoRenderer":{"videoId":"other123456","title":{"simpleText":"Sidebar video"}}}}}}`
+	for _, assignment := range []string{"var ytInitialData = ", "let ytInitialData=", "const ytInitialData\n =\n", `window["ytInitialData"] = `, `window['ytInitialData']=`} {
+		t.Run(assignment, func(t *testing.T) {
+			for range 25 {
+				got, err := parseYouTubeInitialData([]byte(assignment + data + ";"))
+				if err != nil || got.VideoID != "first123456" {
+					t.Fatalf("wrong primary result: %+v, %v", got, err)
+				}
+			}
+		})
+	}
+}
+
+func TestYouTubeModernRenderersAndInvalidData(t *testing.T) {
+	for _, body := range []string{
+		`{"videoWithContextRenderer":{"videoId":"first123456","title":{"simpleText":"Example video"},"longBylineText":{"simpleText":"Example channel"}}}`,
+		`{"lockupViewModel":{"contentId":"first123456","contentType":"LOCKUP_CONTENT_TYPE_VIDEO","metadata":{"lockupMetadataViewModel":{"title":{"content":"Example video"}}}}}`,
+	} {
+		got, err := parseYouTubeInitialData([]byte("var ytInitialData=" + body + ";"))
+		if err != nil || got.VideoID != "first123456" || got.Title != "Example video" {
+			t.Fatalf("renderer result: %+v, %v", got, err)
+		}
+	}
+	for _, body := range []string{
+		`<html>Confirm your age</html>`, `var ytInitialData = broken;`,
+		`var ytInitialData={"videoRenderer":{"videoId":"../invalid","title":{"simpleText":"Unsafe"}}};`,
+		`var ytInitialData={"lockupViewModel":{"contentType":"LOCKUP_CONTENT_TYPE_PLAYLIST","videoRenderer":{"videoId":"first123456","title":{"simpleText":"Playlist thumbnail"}}}};`,
+	} {
+		if _, err := parseYouTubeInitialData([]byte(body)); err == nil {
+			t.Fatalf("accepted invalid video data: %s", body)
+		}
+	}
+}
+
+func TestYouTubeIndexURLValidation(t *testing.T) {
+	for _, raw := range []string{"https://www.youtube.com/watch?v=first123456", "https://music.youtube.com/watch?v=first123456", "https://youtu.be/first123456"} {
+		if got := youtubeIndexedVideoID(raw); got != "first123456" {
+			t.Errorf("valid URL %q rejected", raw)
+		}
+	}
+	for _, raw := range []string{
+		"https://youtube.com.evil.example/watch?v=first123456", "https://www.youtube.com@evil.example/watch?v=first123456",
+		"http://youtube.com/watch?v=first123456", "https://youtube.com:8443/watch?v=first123456",
+		"https://youtube.com/watch?v=short", "https://youtube.com/watch?v=first123456&v=later123456",
+		"https://youtube.com/channel/first123456", "https://youtu.be/first123456/extra", "http://127.0.0.1/private",
+	} {
+		if got := youtubeIndexedVideoID(raw); got != "" {
+			t.Errorf("unsafe/non-video URL %q accepted: %q", raw, got)
+		}
+	}
+}
+
+func TestYouTubeRecoveryFromAPIAndPageFailures(t *testing.T) {
+	old := youtubeHTTPClient
+	t.Cleanup(func() { youtubeHTTPClient = old })
+	for _, slow := range []bool{false, true} {
+		t.Run(map[bool]string{false: "quota-and-age-gate", true: "timeouts"}[slow], func(t *testing.T) {
+			var requests []string
+			youtubeHTTPClient = &http.Client{Transport: youtubeRoundTripper(func(r *http.Request) (*http.Response, error) {
+				requests = append(requests, r.URL.Host+r.URL.Path)
+				switch r.URL.Host + r.URL.Path {
+				case "www.googleapis.com/youtube/v3/search", "www.youtube.com/results":
+					if slow {
+						<-r.Context().Done()
+						return nil, r.Context().Err()
+					}
+					if r.URL.Host == "www.googleapis.com" {
+						return youtubeTestResponse(403, "application/json", `{}`), nil
+					}
+					return youtubeTestResponse(200, "text/html", `var ytInitialData={"contents":{"backgroundPromoRenderer":{"title":{"simpleText":"Confirm your age"}}}};`), nil
+				case "www.bing.com/search":
+					if r.Context().Err() != nil || r.URL.Query().Get("q") != "site:youtube.com/watch example music" {
+						t.Fatal("fallback lost query or inherited expired context")
+					}
+					// Ignore non-YouTube results, accept Bing's encoded destination,
+					// and never fetch a URL supplied by a search result directly.
+					encoded := "a1" + base64.RawURLEncoding.EncodeToString([]byte("https://www.youtube.com/watch?v=first123456"))
+					return youtubeTestResponse(200, "text/html", `<li class="b_algo"><h2><a href="http://127.0.0.1/private">Wrong source</a></h2></li><li class="b_algo"><h2><a href="https://www.bing.com/ck/a?u=`+encoded+`">Example music - YouTube</a></h2></li>`), nil
+				case "www.youtube.com/oembed":
+					return youtubeTestResponse(200, "application/json", `{"title":"Example music","author_name":"Example artist"}`), nil
+				default:
+					t.Fatalf("unexpected fallback request host/path: %s", r.URL.Host+r.URL.Path)
+					return nil, nil
+				}
+			})}
+			ctx, cancel := context.WithTimeout(t.Context(), 300*time.Millisecond)
+			defer cancel()
+			got, err := (&YouTube{apiKey: "test-key"}).search(ctx, "example music")
+			if err != nil || got.VideoID != "first123456" || got.ChannelName != "Example artist" || len(requests) != 4 {
+				t.Fatalf("recovery: %+v, %v, requests=%v", got, err, requests)
+			}
+		})
+	}
+}
+
+func TestYouTubeIndexedTitleSurvivesMetadataFailure(t *testing.T) {
+	old := youtubeHTTPClient
+	t.Cleanup(func() { youtubeHTTPClient = old })
+	youtubeHTTPClient = &http.Client{Transport: youtubeRoundTripper(func(r *http.Request) (*http.Response, error) {
+		if r.URL.Host == "www.bing.com" {
+			return youtubeTestResponse(200, "text/html", `<li class="b_algo"><h2><a href="https://youtube.com/watch?v=first123456">Example music - YouTube</a></h2></li>`), nil
+		}
+		return youtubeTestResponse(403, "text/html", "Unavailable"), nil
+	})}
+	got, err := (&YouTube{}).searchIndex(t.Context(), "example music")
+	if err != nil || got.Title != "Example music" || got.VideoID != "first123456" {
+		t.Fatalf("best-effort metadata discarded result: %+v, %v", got, err)
+	}
+}
+
+func TestYouTubeReplyBoundsAndTerminalSafety(t *testing.T) {
+	for _, target := range []string{"#test", "#" + strings.Repeat("c", 180)} {
+		for _, limit := range []int{160, 320, 500} {
+			result := youtubeSearchResult{VideoID: "first123456", Title: strings.Repeat("音🎥", 200) + "\uFE0F\u202E\x03" + "04unsafe\r\n", ChannelName: strings.Repeat("界", 200), HasViewCount: true, ViewCount: 123456789}
+			got := formatYouTubeSearchResultForTarget(result, limit, target)
+			if len(got) > limit || len("PRIVMSG "+target+" :"+got+"\r\n") > 512 || !utf8.ValidString(got) {
+				t.Fatalf("reply exceeds UTF-8/wire/config bounds: %d bytes", len(got))
+			}
+			if strings.ContainsAny(got, "\r\n\uFE0F\u202E") || !strings.HasSuffix(stripYouTubeIRC(got), "https://youtu.be/first123456") {
+				t.Fatalf("unsafe reply or lost link: %q", got)
+			}
+		}
+	}
+}
+
+func TestYouTubeSearchHTMLSizeLimit(t *testing.T) {
+	old := youtubeHTTPClient
+	t.Cleanup(func() { youtubeHTTPClient = old })
+	youtubeHTTPClient = &http.Client{Transport: youtubeRoundTripper(func(r *http.Request) (*http.Response, error) {
+		return youtubeTestResponse(200, "text/html", strings.Repeat("x", (4<<20)+1)), nil
+	})}
+	if _, err := youtubeSearchHTML(t.Context(), youtubeResultsURL); err == nil {
+		t.Fatal("oversized HTML accepted")
+	}
+}
+
+// Live checks are opt-in; normal CI uses deterministic provider fixtures.
+func TestLiveYouTubeSearch(t *testing.T) {
+	if os.Getenv("GOBOT_LIVE_YOUTUBE") != "1" {
+		t.Skip("opt-in live YouTube smoke test")
+	}
+	queries := []string{"Linux server setup", "classical piano music"}
+	if raw := os.Getenv("GOBOT_LIVE_YOUTUBE_QUERIES"); raw != "" {
+		if err := json.Unmarshal([]byte(raw), &queries); err != nil {
+			t.Fatal("invalid live query list")
+		}
+	}
+	p := &YouTube{}
+	p.Init(bot.PluginConfig{"api_key": os.Getenv("BOT_YOUTUBE_API_KEY")}, nil)
+	for index, query := range queries {
+		t.Run("query-"+string(rune('A'+index)), func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(t.Context(), p.timeout)
+			defer cancel()
+			result, err := p.search(ctx, query)
+			if err != nil || !validYouTubeSearchResult(result) {
+				t.Fatalf("live lookup failed: %v", err)
+			}
+			t.Logf("title=%s video=%s", result.Title, result.VideoID)
+		})
 	}
 }

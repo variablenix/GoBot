@@ -100,6 +100,7 @@ func lookupIP(ctx context.Context, query string) (ipLookup, error) {
 		select {
 		case <-ctx.Done():
 			timer.Stop()
+			ipRequestMu.Unlock()
 			return ipLookup{}, ctx.Err()
 		case <-timer.C:
 		}

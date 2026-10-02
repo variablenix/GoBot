@@ -68,6 +68,11 @@ func (p *CVE) Handle(b *bot.Bot, m bot.Message) bool {
 		return false
 	}
 	cveID := strings.ToUpper(strings.TrimSpace(arg))
+	// The package-audit plugin shares !vuln. Preserve CVE lookups while letting
+	// non-CVE arguments reach that plugin instead of consuming them as errors.
+	if cmd == "vuln" && !strings.HasPrefix(cveID, "CVE-") {
+		return false
+	}
 	if !cveIDPattern.MatchString(cveID) {
 		b.Send(m.ReplyTarget(), ircColor(ircYellow, "usage: !cve CVE-YYYY-NNNN; browse/search CVEs: "+nvdSearchURL))
 		return true

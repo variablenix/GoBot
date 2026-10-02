@@ -430,7 +430,7 @@ short link:
 !youtube Linux server setup
 ~~~
 
-The response is labeled `[YouTube]`, includes the channel, title, and a
+The response is labeled `[YouTube]`, includes the title, channel when available, and a
 `https://youtu.be/...` link. When `BOT_YOUTUBE_API_KEY` is configured, GoBot
 also adds the video's public view and like totals when YouTube exposes them.
 The statistics are best-effort: a missing like count, an API limitation, or a
@@ -438,7 +438,16 @@ temporary statistics lookup failure does not prevent the search result from
 being returned. The command searches video results, which includes music
 videos and other YouTube video content. GoBot uses the key for the official
 Data API search and statistics lookup, then falls back to YouTube's public
-results page when the key is unavailable or the API cannot be used. Configure
+results page when the key is unavailable or the API cannot be used. If that
+page provides no usable video results (including consent or age-confirmation
+pages), a public web search restricted to YouTube watch links supplies an
+indexed video title and short link. Only validated YouTube video URLs are
+accepted; optional oEmbed metadata adds the channel when available. This does
+not bypass sign-in or age restrictions for viewing a video. Each earlier
+provider has a bounded time budget so it cannot consume the entire fallback
+deadline. Titles, bylines, and statistics are shortened or omitted as needed
+to preserve the video link and IRC byte limit, including Unicode replies.
+Configure
 `plugins.youtube.max_length` and `plugins.youtube.timeout_seconds` as needed.
 The API key is optional, but improves search reliability and avoids depending
 on changes to YouTube's public results HTML.
@@ -451,6 +460,9 @@ The `cve` plugin queries the NVD's public CVE 2.0 API and requires no API key:
 !cve CVE-2024-3094
 !vuln CVE-2024-3094
 ~~~
+
+The shared `!vuln` alias routes CVE identifiers here and package queries such as
+`!vuln npm lodash` to the package-audit plugin when that plugin is enabled.
 
 GoBot returns the CVE ID, the best available CVSS score and severity, up to
 three affected vendor/product/version labels, and the NVD detail link. NVD
@@ -1469,8 +1481,11 @@ project--
 !reddit https://www.reddit.com/r/example/comments/abc123/post/
 ~~~
 
-- seen reports where and when a nickname last spoke. Records are stored in
-  BoltDB.
+- seen reports where and when a nickname last spoke in a channel on the current
+  IRC network. Records are stored in BoltDB; private messages are never stored
+  or disclosed. Legacy nickname-only records are not displayed because their
+  network and public/private origin cannot be verified. A new channel message
+  establishes a safely scoped record after upgrading.
 - tell queues a message and delivers it when the addressed nickname next speaks.
 - karma tracks case-insensitive thing++ and thing-- changes.
 - luv awards the named nickname one persistent blue-heart point with `!luv

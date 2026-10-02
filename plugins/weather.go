@@ -114,6 +114,9 @@ func (p *Weather) Handle(b *bot.Bot, m bot.Message) bool {
 	req, _ := http.NewRequestWithContext(requestCtx, http.MethodGet, geocodeURL, nil)
 	res, err := apiHTTPClient.Do(req)
 	if err != nil || res.StatusCode != 200 {
+		if res != nil {
+			res.Body.Close()
+		}
 		b.Send(m.ReplyTarget(), ircColor(ircRed, "I couldn't find weather for that city."))
 		return true
 	}
@@ -132,6 +135,9 @@ func (p *Weather) Handle(b *bot.Bot, m bot.Message) bool {
 	req, _ = http.NewRequestWithContext(requestCtx, http.MethodGet, forecastURL, nil)
 	res, err = apiHTTPClient.Do(req)
 	if err != nil || res.StatusCode != 200 {
+		if res != nil {
+			res.Body.Close()
+		}
 		b.Send(m.ReplyTarget(), ircColor(ircRed, "Weather data is temporarily unavailable."))
 		return true
 	}

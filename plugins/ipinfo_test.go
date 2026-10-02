@@ -1,6 +1,7 @@
 package plugins
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"strings"
@@ -57,5 +58,28 @@ func TestValidIPQueryRejectsURLLikeInput(t *testing.T) {
 		if validIPQuery(value) {
 			t.Errorf("unsafe IP query accepted: %q", value)
 		}
+	}
+}
+
+func TestIPRateLimitCancellationReleasesLock(t *testing.T) {
+	oldClient, oldLast := ipHTTPClient, ipLastRequest
+	t.Cleanup(func() { ipHTTPClient, ipLastRequest = oldClient, oldLast })
+	ipLastRequest = time.Now()
+	ctx, cancel := context.WithTimeout(t.Context(), time.Millisecond)
+	defer cancel()
+	if _, err := lookupIP(ctx, "8.8.8.8"); err == nil {
+		t.Fatal("cancelled rate-limit wait succeeded")
+	}
+	if !ipRequestMu.TryLock() {
+		ipRequestMu.Unlock() // Leave subsequent tests usable on regression.
+		t.Fatal("cancelled wait left all future IP lookups locked")
+	}
+	ipLastRequest = time.Time{}
+	ipRequestMu.Unlock()
+	ipHTTPClient = &http.Client{Transport: ipRoundTripper(func(r *http.Request) (*http.Response, error) {
+		return ipTestResponse(200, `{"status":"success","query":"8.8.8.8"}`), nil
+	})}
+	if _, err := lookupIP(t.Context(), "8.8.8.8"); err != nil {
+		t.Fatalf("next lookup did not recover: %v", err)
 	}
 }

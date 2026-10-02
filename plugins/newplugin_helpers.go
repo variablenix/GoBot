@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+	"net/http"
 	"os"
 	"strings"
 	"sync"
@@ -13,6 +14,21 @@ import (
 
 	"github.com/variablenix/GoBot/bot"
 )
+
+// Do not let upstream redirects forward API keys or bearer tokens to another
+// origin (including a subdomain), or downgrade an authenticated HTTPS request.
+// A per-request copy preserves the shared transport and test injection without
+// mutating the client used concurrently by unrelated plugins.
+func authenticatedAPIRequest(req *http.Request) (*http.Response, error) {
+	client := *apiHTTPClient
+	client.CheckRedirect = func(next *http.Request, via []*http.Request) error {
+		if len(via) >= 10 || next.URL.Scheme != req.URL.Scheme || !strings.EqualFold(next.URL.Host, req.URL.Host) {
+			return http.ErrUseLastResponse
+		}
+		return nil
+	}
+	return client.Do(req)
+}
 
 // scopedCooldown is deliberately local to the plugin. Bot.AllowCommand gives
 // every command a sender cooldown, while these cooldowns express the tighter

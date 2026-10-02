@@ -423,7 +423,7 @@ func (p *GitHub) getJSON(ctx context.Context, path string, destination any) erro
 	if token := strings.TrimSpace(p.cfg.String("token", "")); token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
-	res, err := apiHTTPClient.Do(req)
+	res, err := authenticatedAPIRequest(req)
 	if err != nil {
 		return err
 	}

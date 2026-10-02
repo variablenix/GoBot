@@ -1,11 +1,48 @@
 package plugins
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/variablenix/GoBot/bot"
 )
+
+func TestVulnRoutesCVEAndPackageQueries(t *testing.T) {
+	oldCVE, oldAPI := cveHTTPClient, apiHTTPClient
+	t.Cleanup(func() { cveHTTPClient, apiHTTPClient = oldCVE, oldAPI })
+	cveHTTPClient = &http.Client{Transport: cveRoundTripper(func(*http.Request) (*http.Response, error) {
+		return cveTestResponse(200, `{"vulnerabilities":[{"cve":{"id":"CVE-2024-1234","descriptions":[{"lang":"en","value":"Example issue"}]}}]}`), nil
+	})}
+	apiHTTPClient = &http.Client{Transport: newPluginRoundTripper(func(r *http.Request) (*http.Response, error) {
+		if r.URL.Host == "api.osv.dev" {
+			return newPluginResponse(200, `{"vulns":[]}`), nil
+		}
+		return newPluginResponse(200, `{"name":"example","version":"1.0.0"}`), nil
+	})}
+	cve, audit := &CVE{}, &Audit{}
+	cve.Init(nil, nil)
+	audit.Init(nil, nil)
+	sent := make(chan string, 4)
+	b := &bot.Bot{Config: bot.Config{CommandPrefix: "!"}, Queue: bot.NewQueue(1, 1, func(m bot.Outgoing) { sent <- m.Text })}
+	defer b.Queue.Drain(context.Background())
+	for _, command := range []string{"!vuln CVE-2024-1234", "!vuln npm example"} {
+		m := bot.Message{Nick: "tester", Target: "Echo", Text: command}
+		if command == "!vuln npm example" {
+			if cve.Handle(b, m) || !audit.Handle(b, m) {
+				t.Fatal("package query was not routed to audit")
+			}
+		} else if !cve.Handle(b, m) {
+			t.Fatal("CVE alias stopped working")
+		}
+	}
+	b.Queue.Drain(context.Background())
+	if len(sent) != 2 || !strings.Contains(<-sent, "CVE-2024-1234") || !strings.Contains(<-sent, "no known vulnerabilities") {
+		t.Fatal("shared alias did not produce the expected replies")
+	}
+}
 
 type cveRoundTripper func(*http.Request) (*http.Response, error)
 

@@ -125,7 +125,10 @@ func (p *Reminder) Handle(b *bot.Bot, m bot.Message) bool {
 	p.mu.Unlock()
 	saved := reminderRecord{ID: fmt.Sprintf("%d", time.Now().UnixNano()), Network: b.Config.NetworkName, Target: m.ReplyTarget(), Nick: m.Nick, Message: message, DueAt: time.Now().Add(duration)}
 	if p.db != nil {
-		_ = p.db.Set("reminders", saved.ID, saved)
+		if err := p.db.Set("reminders", saved.ID, saved); err != nil {
+			b.Send(m.ReplyTarget(), ircColor(ircRed, "could not save the reminder; please try again"))
+			return true
+		}
 	}
 	p.schedule(b, saved)
 	b.Send(m.ReplyTarget(), ircColor(ircGreen, "reminder set for "+formatReminderDuration(duration)))

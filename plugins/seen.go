@@ -18,31 +18,42 @@ type record struct {
 
 type Seen struct{ db *storage.DB }
 
-func (p *Seen) Name() string                                 { return "seen" }
-func (p *Seen) Commands() []string                           { return []string{"seen"} }
-func (p *Seen) Help() string                                 { return "!seen <nick> — show when someone last spoke" }
+func (p *Seen) Name() string       { return "seen" }
+func (p *Seen) Commands() []string { return []string{"seen"} }
+func (p *Seen) Help() string {
+	return "!seen <nick> — show when someone last spoke in a channel on this network"
+}
 func (p *Seen) Init(_ bot.PluginConfig, d *storage.DB) error { p.db = d; return nil }
 func (p *Seen) Handle(b *bot.Bot, m bot.Message) bool {
-	if m.Command == "PRIVMSG" && m.Nick != "" {
-		_ = p.db.Set("seen", strings.ToLower(m.Nick), record{m.Nick, m.Target, normalizeSeenText(m.Nick, m.Text), m.Timestamp})
+	if m.Command == "PRIVMSG" && m.IsChannel && m.Nick != "" && p.db != nil {
+		_ = p.db.Set("seen", seenKey(b.Config.NetworkName, m.Nick), record{m.Nick, m.Target, cleanExternalText(normalizeSeenText(m.Nick, m.Text)), m.Timestamp})
 	}
 	cmd, arg, ok := bot.IsCommand(m, b.Config.CommandPrefix)
 	if !ok || cmd != "seen" {
 		return false
 	}
-	v, e := p.db.Get("seen", strings.ToLower(strings.TrimSpace(arg)))
+	if p.db == nil {
+		b.Send(m.ReplyTarget(), "Seen storage is unavailable.")
+		return true
+	}
+	// Legacy nickname-only records may contain private messages and cannot be
+	// assigned to a network safely. Leave them untouched, but never disclose them.
+	v, e := p.db.Get("seen", seenKey(b.Config.NetworkName, strings.TrimSpace(arg)))
 	if e != nil {
 		b.Send(m.ReplyTarget(), "I haven't seen that nick yet.")
 		return true
 	}
 	var x record
-	if err := json.Unmarshal(v, &x); err != nil || strings.TrimSpace(x.Nick) == "" {
+	if err := json.Unmarshal(v, &x); err != nil || strings.TrimSpace(x.Nick) == "" ||
+		(!strings.HasPrefix(x.Channel, "#") && !strings.HasPrefix(x.Channel, "&")) {
 		b.Send(m.ReplyTarget(), "That seen record is unavailable.")
 		return true
 	}
 	b.Send(m.ReplyTarget(), fmt.Sprintf("👁️ %s was last seen in %s %s ago saying: %q", x.Nick, x.Channel, formatSeenAge(x.At, time.Now()), x.Text))
 	return true
 }
+
+func seenKey(network, nick string) string { return scopedKey(network, "", nick) }
 
 func normalizeSeenText(nick, text string) string {
 	if len(text) >= 2 && text[0] == '\x01' && text[len(text)-1] == '\x01' {

@@ -44,7 +44,7 @@ func (p *News) Handle(b *bot.Bot, m bot.Message) bool {
 		return true
 	}
 	req.Header.Set("X-Api-Key", p.cfg.String("api_key", ""))
-	res, err := apiHTTPClient.Do(req)
+	res, err := authenticatedAPIRequest(req)
 	if err != nil || res.StatusCode != http.StatusOK {
 		if res != nil {
 			res.Body.Close()
