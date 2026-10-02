@@ -322,6 +322,7 @@ func TestLiveYouTubeSearch(t *testing.T) {
 	if os.Getenv("GOBOT_LIVE_YOUTUBE") != "1" {
 		t.Skip("opt-in live YouTube smoke test")
 	}
+	loadLiveProviderCredentials(t)
 	queries := []string{"Linux server setup", "classical piano music"}
 	if raw := os.Getenv("GOBOT_LIVE_YOUTUBE_QUERIES"); raw != "" {
 		if err := json.Unmarshal([]byte(raw), &queries); err != nil {
