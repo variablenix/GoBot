@@ -158,6 +158,159 @@ func TestYouTubeStatisticsAreBestEffort(t *testing.T) {
 	}
 }
 
+func TestYouTubeSearchRoutesUseIdenticalStatisticsFormatting(t *testing.T) {
+	oldClient := youtubeHTTPClient
+	t.Cleanup(func() { youtubeHTTPClient = oldClient })
+	for _, route := range []string{"api", "page", "index"} {
+		t.Run(route, func(t *testing.T) {
+			statisticsRequests := 0
+			requests := 0
+			youtubeHTTPClient = &http.Client{Transport: youtubeRoundTripper(func(r *http.Request) (*http.Response, error) {
+				requests++
+				switch r.URL.Host + r.URL.Path {
+				case "www.googleapis.com/youtube/v3/search":
+					if route == "api" {
+						return youtubeTestResponse(200, "application/json", `{"items":[{"id":{"videoId":"first123456"},"snippet":{"title":"Example music","channelTitle":"Example artist"}}]}`), nil
+					}
+					return youtubeTestResponse(200, "application/json", `{"items":[]}`), nil
+				case "www.youtube.com/results":
+					if route == "page" {
+						return youtubeTestResponse(200, "text/html", `var ytInitialData={"videoRenderer":{"videoId":"first123456","title":{"simpleText":"Example music"},"ownerText":{"simpleText":"Example artist"}}};`), nil
+					}
+					return youtubeTestResponse(200, "text/html", `<html>Verify your age</html>`), nil
+				case "www.bing.com/search":
+					return youtubeTestResponse(200, "text/html", `<li class="b_algo"><h2><a href="https://www.youtube.com/watch?v=first123456">Example music - YouTube</a></h2></li>`), nil
+				case "www.youtube.com/oembed":
+					return youtubeTestResponse(200, "application/json", `{"title":"Example music","author_name":"Example artist"}`), nil
+				case "www.googleapis.com/youtube/v3/videos":
+					statisticsRequests++
+					if r.URL.Query().Get("id") != "first123456" || r.URL.Query().Get("part") != "statistics" || r.URL.Query().Get("key") != "test-key" {
+						t.Fatal("statistics lookup lost the selected video or API configuration")
+					}
+					return youtubeTestResponse(200, "application/json", `{"items":[{"statistics":{"viewCount":"1234567","likeCount":"42000"}}]}`), nil
+				default:
+					t.Fatalf("unexpected request: %s%s", r.URL.Host, r.URL.Path)
+					return nil, nil
+				}
+			})}
+			result, err := (&YouTube{apiKey: "test-key"}).search(t.Context(), "example music")
+			if err != nil || statisticsRequests != 1 || requests != map[string]int{"api": 2, "page": 3, "index": 5}[route] {
+				t.Fatalf("route=%s error=%v statistics=%d requests=%d", route, err, statisticsRequests, requests)
+			}
+			want := ircColor(ircRed, "[YouTube]") + " " + ircColor(ircYellow, "Example artist") + " — " +
+				ircColor(ircCyan, "Example music") + " | " + ircColor(ircYellow, "👁 1,234,567 views") + " | " +
+				ircColor(ircGreen, "👍 42,000 likes") + " | " + ircColor(ircCyan, "https://youtu.be/first123456")
+			got := formatYouTubeSearchResultForTarget(result, 320, "#test")
+			if got != want || strings.ContainsAny(got, "\uFE0F\uFE0E") {
+				t.Fatalf("route %s has inconsistent colors/emojis: %q", route, got)
+			}
+		})
+	}
+}
+
+func TestYouTubeFallbackStatisticsNeverDiscardVideo(t *testing.T) {
+	oldClient := youtubeHTTPClient
+	t.Cleanup(func() { youtubeHTTPClient = oldClient })
+	for _, tc := range []struct {
+		name   string
+		status int
+		body   string
+		views  bool
+		likes  bool
+	}{
+		{"unavailable", 503, `{}`, false, false},
+		{"quota", 403, `{}`, false, false},
+		{"deleted", 200, `{"items":[]}`, false, false},
+		{"malformed-json", 200, `{`, false, false},
+		{"missing-counts", 200, `{"items":[{"statistics":{}}]}`, false, false},
+		{"missing-likes", 200, `{"items":[{"statistics":{"viewCount":"1234"}}]}`, true, false},
+		{"invalid-counts", 200, `{"items":[{"statistics":{"viewCount":"-1","likeCount":"unknown"}}]}`, false, false},
+		{"overflow", 200, `{"items":[{"statistics":{"viewCount":"99999999999999999999","likeCount":"-42"}}]}`, false, false},
+		{"real-zero", 200, `{"items":[{"statistics":{"viewCount":"0","likeCount":"0"}}]}`, true, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			youtubeHTTPClient = &http.Client{Transport: youtubeRoundTripper(func(r *http.Request) (*http.Response, error) {
+				switch r.URL.Host + r.URL.Path {
+				case "www.googleapis.com/youtube/v3/search":
+					return youtubeTestResponse(200, "application/json", `{"items":[]}`), nil
+				case "www.youtube.com/results":
+					return youtubeTestResponse(200, "text/html", `var ytInitialData={"videoRenderer":{"videoId":"first123456","title":{"simpleText":"Example music"}}};`), nil
+				case "www.googleapis.com/youtube/v3/videos":
+					return youtubeTestResponse(tc.status, "application/json", tc.body), nil
+				default:
+					t.Fatal("unexpected provider request")
+					return nil, nil
+				}
+			})}
+			result, err := (&YouTube{apiKey: "test-key"}).search(t.Context(), "example music")
+			if err != nil || result.VideoID != "first123456" || result.Title != "Example music" || result.HasViewCount != tc.views || result.HasLikeCount != tc.likes {
+				t.Fatalf("statistics failure altered a usable result: %+v, %v", result, err)
+			}
+			got := stripYouTubeIRC(formatYouTubeSearchResult(result, 320))
+			if !strings.HasSuffix(got, "https://youtu.be/first123456") || strings.Contains(got, "👁") != tc.views || strings.Contains(got, "👍") != tc.likes {
+				t.Fatalf("missing counts were invented or valid counts/link lost: %q", got)
+			}
+		})
+	}
+}
+
+func TestYouTubeStatisticsTimeoutPreservesSuccessfulSearch(t *testing.T) {
+	oldClient := youtubeHTTPClient
+	t.Cleanup(func() { youtubeHTTPClient = oldClient })
+	for _, budget := range []time.Duration{80 * time.Millisecond, 3 * time.Second} {
+		t.Run(budget.String(), func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(t.Context(), budget)
+			defer cancel()
+			statisticsRequests := 0
+			youtubeHTTPClient = &http.Client{Transport: youtubeRoundTripper(func(r *http.Request) (*http.Response, error) {
+				if r.URL.Path == "/youtube/v3/search" {
+					return youtubeTestResponse(200, "application/json", `{"items":[{"id":{"videoId":"first123456"},"snippet":{"title":"Example music"}}]}`), nil
+				}
+				statisticsRequests++
+				deadline, ok := r.Context().Deadline()
+				parentDeadline, _ := ctx.Deadline()
+				if !ok || deadline.After(parentDeadline) || time.Until(deadline) > time.Second {
+					t.Fatal("statistics request exceeded its one-second or parent budget")
+				}
+				<-r.Context().Done()
+				return nil, r.Context().Err()
+			})}
+			result, err := (&YouTube{apiKey: "test-key"}).search(ctx, "example music")
+			if err != nil || !validYouTubeSearchResult(result) || result.HasViewCount || result.HasLikeCount || statisticsRequests != 1 {
+				t.Fatalf("timed-out statistics discarded video: %+v, %v", result, err)
+			}
+			if budget == 3*time.Second && ctx.Err() != nil {
+				t.Fatal("statistics timeout canceled the whole command")
+			}
+		})
+	}
+}
+
+func TestYouTubeStatisticsSkippedWithoutKeyOrSuccessfulSearch(t *testing.T) {
+	oldClient := youtubeHTTPClient
+	t.Cleanup(func() { youtubeHTTPClient = oldClient })
+	for _, apiKey := range []string{"", "test-key"} {
+		t.Run(map[bool]string{true: "no-key", false: "no-video"}[apiKey == ""], func(t *testing.T) {
+			youtubeHTTPClient = &http.Client{Transport: youtubeRoundTripper(func(r *http.Request) (*http.Response, error) {
+				if r.URL.Path == "/youtube/v3/videos" || (apiKey == "" && r.URL.Host == "www.googleapis.com") {
+					t.Fatal("unnecessary statistics/API request")
+				}
+				if apiKey == "" {
+					return youtubeTestResponse(200, "text/html", `var ytInitialData={"videoRenderer":{"videoId":"first123456","title":{"simpleText":"Example music"}}};`), nil
+				}
+				return youtubeTestResponse(503, "application/json", `{}`), nil
+			})}
+			result, err := (&YouTube{apiKey: apiKey}).search(t.Context(), "example music")
+			if apiKey == "" && (err != nil || !validYouTubeSearchResult(result)) {
+				t.Fatal("no-key search regressed")
+			}
+			if apiKey != "" && err == nil {
+				t.Fatal("unavailable providers unexpectedly succeeded")
+			}
+		})
+	}
+}
+
 func TestFormatYouTubeCount(t *testing.T) {
 	for input, want := range map[int64]string{
 		0:       "0",
@@ -261,6 +414,8 @@ func TestYouTubeRecoveryFromAPIAndPageFailures(t *testing.T) {
 					return youtubeTestResponse(200, "text/html", `<li class="b_algo"><h2><a href="http://127.0.0.1/private">Wrong source</a></h2></li><li class="b_algo"><h2><a href="https://www.bing.com/ck/a?u=`+encoded+`">Example music - YouTube</a></h2></li>`), nil
 				case "www.youtube.com/oembed":
 					return youtubeTestResponse(200, "application/json", `{"title":"Example music","author_name":"Example artist"}`), nil
+				case "www.googleapis.com/youtube/v3/videos":
+					return youtubeTestResponse(403, "application/json", `{}`), nil
 				default:
 					t.Fatalf("unexpected fallback request host/path: %s", r.URL.Host+r.URL.Path)
 					return nil, nil
@@ -269,7 +424,7 @@ func TestYouTubeRecoveryFromAPIAndPageFailures(t *testing.T) {
 			ctx, cancel := context.WithTimeout(t.Context(), 300*time.Millisecond)
 			defer cancel()
 			got, err := (&YouTube{apiKey: "test-key"}).search(ctx, "example music")
-			if err != nil || got.VideoID != "first123456" || got.ChannelName != "Example artist" || len(requests) != 4 {
+			if err != nil || got.VideoID != "first123456" || got.ChannelName != "Example artist" || len(requests) != 5 {
 				t.Fatalf("recovery: %+v, %v, requests=%v", got, err, requests)
 			}
 		})
@@ -389,7 +544,10 @@ func TestLiveYouTubeSearch(t *testing.T) {
 			if err != nil || !validYouTubeSearchResult(result) {
 				t.Fatalf("live lookup failed: %v", err)
 			}
-			t.Logf("title=%s video=%s", result.Title, result.VideoID)
+			if os.Getenv("GOBOT_LIVE_YOUTUBE_REQUIRE_STATS") == "1" && (!result.HasViewCount || !result.HasLikeCount) {
+				t.Fatal("live lookup did not return public view and like counts")
+			}
+			t.Logf("video=%s has_views=%t has_likes=%t", result.VideoID, result.HasViewCount, result.HasLikeCount)
 		})
 	}
 }

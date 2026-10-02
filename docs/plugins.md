@@ -433,9 +433,13 @@ short link:
 The response is labeled `[YouTube]`, includes the title, channel when available,
 and a `https://youtu.be/...` link. When `BOT_YOUTUBE_API_KEY` is configured, GoBot
 also adds the video's public view and like totals when YouTube exposes them.
+The same yellow `👁` views and green `👍` likes formatting is used for API,
+public-page, and indexed fallback results, including age-confirmation searches.
 The statistics are best-effort: a missing like count, an API limitation, or a
 temporary statistics lookup failure does not prevent the search result from
-being returned. The command searches video results, which includes music
+being returned. This lookup is limited to one second within the command's
+overall timeout; unavailable counts are omitted rather than invented.
+The command searches video results, which includes music
 videos and other YouTube video content. GoBot uses the key for the official
 Data API search and statistics lookup, then falls back to YouTube's public
 results page when the key is unavailable or the API cannot be used. If that

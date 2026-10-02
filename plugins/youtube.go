@@ -91,6 +91,18 @@ func (p *YouTube) Handle(b *bot.Bot, m bot.Message) bool {
 }
 
 func (p *YouTube) search(ctx context.Context, query string) (youtubeSearchResult, error) {
+	result, err := p.searchVideo(ctx, query)
+	if err == nil && p.apiKey != "" && ctx.Err() == nil {
+		// Enrich every successful route, including page/index fallbacks. A
+		// statistics failure must never discard a video we already found.
+		step, cancel := context.WithTimeout(ctx, time.Second)
+		p.addStatistics(step, result.VideoID, &result)
+		cancel()
+	}
+	return result, err
+}
+
+func (p *YouTube) searchVideo(ctx context.Context, query string) (youtubeSearchResult, error) {
 	if p.apiKey != "" {
 		step, cancel := youtubeStepContext(ctx, 2*time.Second)
 		result, err := p.searchAPI(step, query)
@@ -147,9 +159,6 @@ func (p *YouTube) searchAPI(ctx context.Context, query string) (youtubeSearchRes
 	for _, item := range response.Items {
 		result := youtubeSearchResult{VideoID: item.ID.VideoID, Title: cleanYouTubeText(item.Snippet.Title), ChannelName: cleanYouTubeText(item.Snippet.ChannelName)}
 		if validYouTubeSearchResult(result) {
-			step, cancel := context.WithTimeout(ctx, time.Second)
-			p.addStatistics(step, result.VideoID, &result)
-			cancel()
 			return result, nil
 		}
 	}
