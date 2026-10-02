@@ -241,6 +241,34 @@ func youtubeSearchHTML(ctx context.Context, endpoint string) ([]byte, error) {
 }
 
 func (p *YouTube) searchIndex(ctx context.Context, query string) (youtubeSearchResult, error) {
+	queries := []string{query}
+	// Artist - title is a common music-search format. If a misspelled artist
+	// prevents an indexed match, retry the explicit title, not a guessed spelling
+	// or an arbitrary first word. Keep the full query as the preferred lookup.
+	for _, separator := range []string{" - ", " — ", " – "} {
+		if _, title, ok := strings.Cut(query, separator); ok && strings.TrimSpace(title) != "" {
+			queries = append(queries, strings.TrimSpace(title))
+			break
+		}
+	}
+	var lastErr error
+	for index, candidate := range queries {
+		step := ctx
+		cancel := func() {}
+		if index < len(queries)-1 {
+			step, cancel = youtubeStepContext(ctx, 3*time.Second)
+		}
+		result, err := p.searchIndexQuery(step, candidate)
+		cancel()
+		if err == nil {
+			return result, nil
+		}
+		lastErr = err
+	}
+	return youtubeSearchResult{}, lastErr
+}
+
+func (p *YouTube) searchIndexQuery(ctx context.Context, query string) (youtubeSearchResult, error) {
 	endpoint := "https://www.bing.com/search?" + url.Values{
 		"q": {"site:youtube.com/watch " + query}, "count": {"8"}, "setlang": {"en-US"},
 	}.Encode()

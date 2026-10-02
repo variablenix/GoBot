@@ -318,6 +318,56 @@ func TestYouTubeSearchHTMLSizeLimit(t *testing.T) {
 }
 
 // Live checks are opt-in; normal CI uses deterministic provider fixtures.
+func TestYouTubeIndexRetriesExplicitMusicTitle(t *testing.T) {
+	old := youtubeHTTPClient
+	t.Cleanup(func() { youtubeHTTPClient = old })
+	var queries []string
+	youtubeHTTPClient = &http.Client{Transport: youtubeRoundTripper(func(r *http.Request) (*http.Response, error) {
+		if r.URL.Path == "/oembed" {
+			return youtubeTestResponse(403, "application/json", `{}`), nil
+		}
+		queries = append(queries, r.URL.Query().Get("q"))
+		if len(queries) == 1 {
+			return youtubeTestResponse(200, "text/html", `<li class="b_algo"><h2><a href="https://example.com/not-a-video">Unrelated result</a></h2></li>`), nil
+		}
+		return youtubeTestResponse(200, "text/html", `<li class="b_algo"><h2><a href="https://www.youtube.com/watch?v=first123456">Example music - YouTube</a></h2></li>`), nil
+	})}
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+	defer cancel()
+	result, err := (&YouTube{}).searchIndex(ctx, "example artist - example music")
+	if err != nil || result.VideoID != "first123456" || len(queries) != 2 || queries[0] != "site:youtube.com/watch example artist - example music" || queries[1] != "site:youtube.com/watch example music" {
+		t.Fatalf("music recovery: result=%+v err=%v queries=%v", result, err, queries)
+	}
+}
+
+func TestYouTubeAliasesReturnUsableIRCResult(t *testing.T) {
+	old := youtubeHTTPClient
+	t.Cleanup(func() { youtubeHTTPClient = old })
+	youtubeHTTPClient = &http.Client{Transport: youtubeRoundTripper(func(*http.Request) (*http.Response, error) {
+		return youtubeTestResponse(200, "text/html", `var ytInitialData={"videoRenderer":{"videoId":"first123456","title":{"simpleText":"Example music"}}};`), nil
+	})}
+	p := &YouTube{}
+	p.Init(nil, nil)
+	sent := make(chan bot.Outgoing, 4)
+	b := &bot.Bot{Config: bot.Config{CommandPrefix: "!"}, Queue: bot.NewQueue(1, 1, func(m bot.Outgoing) { sent <- m })}
+	defer b.Queue.Drain(context.Background())
+	for _, alias := range []string{"!yt", "!youtube"} {
+		if !p.Handle(b, bot.Message{Nick: "tester", Target: "#test", IsChannel: true, Text: alias + " example music"}) {
+			t.Fatal("YouTube alias not handled")
+		}
+	}
+	b.Queue.Drain(context.Background())
+	if len(sent) != 2 {
+		t.Fatal("missing YouTube alias replies")
+	}
+	for len(sent) > 0 {
+		m := <-sent
+		if m.Target != "#test" || !strings.Contains(m.Text, "https://youtu.be/first123456") || len("PRIVMSG #test :"+m.Text+"\r\n") > 512 {
+			t.Fatal("invalid YouTube command reply")
+		}
+	}
+}
+
 func TestLiveYouTubeSearch(t *testing.T) {
 	if os.Getenv("GOBOT_LIVE_YOUTUBE") != "1" {
 		t.Skip("opt-in live YouTube smoke test")

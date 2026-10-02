@@ -430,8 +430,8 @@ short link:
 !youtube Linux server setup
 ~~~
 
-The response is labeled `[YouTube]`, includes the title, channel when available, and a
-`https://youtu.be/...` link. When `BOT_YOUTUBE_API_KEY` is configured, GoBot
+The response is labeled `[YouTube]`, includes the title, channel when available,
+and a `https://youtu.be/...` link. When `BOT_YOUTUBE_API_KEY` is configured, GoBot
 also adds the video's public view and like totals when YouTube exposes them.
 The statistics are best-effort: a missing like count, an API limitation, or a
 temporary statistics lookup failure does not prevent the search result from
@@ -442,13 +442,14 @@ results page when the key is unavailable or the API cannot be used. If that
 page provides no usable video results (including consent or age-confirmation
 pages), a public web search restricted to YouTube watch links supplies an
 indexed video title and short link. Only validated YouTube video URLs are
-accepted; optional oEmbed metadata adds the channel when available. This does
-not bypass sign-in or age restrictions for viewing a video. Each earlier
+accepted; optional oEmbed metadata adds the channel when available. GoBot
+also retries the explicit title portion of `artist - title` searches when the
+full indexed query has no usable match (for example, a misspelled artist).
+This does not bypass sign-in or age restrictions for viewing a video. Each earlier
 provider has a bounded time budget so it cannot consume the entire fallback
 deadline. Titles, bylines, and statistics are shortened or omitted as needed
 to preserve the video link and IRC byte limit, including Unicode replies.
-Configure
-`plugins.youtube.max_length` and `plugins.youtube.timeout_seconds` as needed.
+Configure `plugins.youtube.max_length` and `plugins.youtube.timeout_seconds` as needed.
 The API key is optional, but improves search reliability and avoids depending
 on changes to YouTube's public results HTML.
 

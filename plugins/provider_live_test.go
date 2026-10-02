@@ -35,7 +35,7 @@ func TestLivePluginCommands(t *testing.T) {
 		{&Pkg{}, "!pkg npm lodash", "lodash", ""},
 		{&Docker{}, "!docker alpine", "hub.docker.com", ""},
 		{&CVE{}, "!cve CVE-2024-3094", "CVE-2024-3094", ""},
-		{&Reddit{}, "!reddit linux", "reddit.com", ""},
+		{&Reddit{}, "!reddit r/linux", "reddit.com", ""},
 		{&Steam{}, "!steam Portal 2", "steampowered.com", ""},
 		{&Sports{}, "!sports", "Sports pick:", ""},
 		{&News{}, "!news technology", "http", "BOT_NEWS_API_KEY"},
