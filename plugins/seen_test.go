@@ -45,28 +45,30 @@ func TestSeenDoesNotExposePrivateOrCrossNetworkRecords(t *testing.T) {
 	p := &Seen{}
 	p.Init(nil, db)
 	p.Handle(b, bot.Message{Command: "PRIVMSG", Nick: "Alice", Target: "Echo", Text: "private content", Timestamp: time.Now()})
-	if _, err := db.Get("seen", seenKey("first", "Alice")); err != storage.ErrNotFound {
+	if _, err := db.Get("seen", seenKey("first", "Echo", "Alice")); err != storage.ErrNotFound {
 		t.Fatal("private message was persisted")
 	}
 	p.Handle(b, bot.Message{Command: "PRIVMSG", Nick: "Alice", Target: "#test", IsChannel: true, Text: "public greeting", Timestamp: time.Now()})
-	if !p.Handle(b, bot.Message{Nick: "tester", Target: "Echo", Text: "!seen Alice"}) {
+	if !p.Handle(b, bot.Message{Nick: "tester", Target: "#test", IsChannel: true, Text: "!seen Alice"}) {
 		t.Fatal("seen command was not handled")
 	}
 	b.Queue.Drain(context.Background())
 	if len(sent) != 1 || !strings.Contains(<-sent, "public greeting") {
 		t.Fatal("same-network public record was not returned")
 	}
-	if _, err := db.Get("seen", seenKey("second", "Alice")); err != storage.ErrNotFound {
+	if _, err := db.Get("seen", seenKey("second", "#test", "Alice")); err != storage.ErrNotFound {
 		t.Fatal("network isolation failed")
 	}
 	// Legacy records cannot distinguish networks or prove a public origin.
 	db.Set("seen", "bob", record{Nick: "Bob", Channel: "Echo", Text: "legacy private content"})
-	p.Handle(b, bot.Message{Nick: "tester", Target: "Echo", Text: "!seen Bob"})
-	b.Config.NetworkName = "second"
+	p.Handle(b, bot.Message{Nick: "tester", Target: "#test", IsChannel: true, Text: "!seen Bob"})
+	p.Handle(b, bot.Message{Nick: "tester", Target: "#other", IsChannel: true, Text: "!seen Alice"})
 	p.Handle(b, bot.Message{Nick: "tester", Target: "Echo", Text: "!seen Alice"})
+	b.Config.NetworkName = "second"
+	p.Handle(b, bot.Message{Nick: "tester", Target: "#test", IsChannel: true, Text: "!seen Alice"})
 	b.Queue.Drain(context.Background())
-	if len(sent) != 2 {
-		t.Fatalf("expected two lookup replies, got %d", len(sent))
+	if len(sent) != 4 {
+		t.Fatalf("expected four lookup replies, got %d", len(sent))
 	}
 	for len(sent) > 0 {
 		if reply := <-sent; strings.Contains(reply, "private content") || strings.Contains(reply, "public greeting") {

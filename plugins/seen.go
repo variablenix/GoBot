@@ -21,31 +21,35 @@ type Seen struct{ db *storage.DB }
 func (p *Seen) Name() string       { return "seen" }
 func (p *Seen) Commands() []string { return []string{"seen"} }
 func (p *Seen) Help() string {
-	return "!seen <nick> — show when someone last spoke in a channel on this network"
+	return "!seen <nick> — show when someone last spoke in the current channel"
 }
 func (p *Seen) Init(_ bot.PluginConfig, d *storage.DB) error { p.db = d; return nil }
 func (p *Seen) Handle(b *bot.Bot, m bot.Message) bool {
 	if m.Command == "PRIVMSG" && m.IsChannel && m.Nick != "" && p.db != nil {
-		_ = p.db.Set("seen", seenKey(b.Config.NetworkName, m.Nick), record{m.Nick, m.Target, cleanExternalText(normalizeSeenText(m.Nick, m.Text)), m.Timestamp})
+		_ = p.db.Set("seen", seenKey(b.Config.NetworkName, m.Target, m.Nick), record{m.Nick, m.Target, cleanExternalText(normalizeSeenText(m.Nick, m.Text)), m.Timestamp})
 	}
 	cmd, arg, ok := bot.IsCommand(m, b.Config.CommandPrefix)
 	if !ok || cmd != "seen" {
 		return false
 	}
+	if !m.IsChannel {
+		b.Send(m.ReplyTarget(), "Use !seen in a channel; records are private to that channel.")
+		return true
+	}
 	if p.db == nil {
 		b.Send(m.ReplyTarget(), "Seen storage is unavailable.")
 		return true
 	}
-	// Legacy nickname-only records may contain private messages and cannot be
-	// assigned to a network safely. Leave them untouched, but never disclose them.
-	v, e := p.db.Get("seen", seenKey(b.Config.NetworkName, strings.TrimSpace(arg)))
+	// Legacy records may contain private messages or another channel's history.
+	// Leave them untouched, but never disclose them across channel boundaries.
+	v, e := p.db.Get("seen", seenKey(b.Config.NetworkName, m.Target, strings.TrimSpace(arg)))
 	if e != nil {
 		b.Send(m.ReplyTarget(), "I haven't seen that nick yet.")
 		return true
 	}
 	var x record
 	if err := json.Unmarshal(v, &x); err != nil || strings.TrimSpace(x.Nick) == "" ||
-		(!strings.HasPrefix(x.Channel, "#") && !strings.HasPrefix(x.Channel, "&")) {
+		!strings.EqualFold(x.Channel, m.Target) {
 		b.Send(m.ReplyTarget(), "That seen record is unavailable.")
 		return true
 	}
@@ -53,7 +57,7 @@ func (p *Seen) Handle(b *bot.Bot, m bot.Message) bool {
 	return true
 }
 
-func seenKey(network, nick string) string { return scopedKey(network, "", nick) }
+func seenKey(network, channel, nick string) string { return scopedKey(network, channel, nick) }
 
 func normalizeSeenText(nick, text string) string {
 	if len(text) >= 2 && text[0] == '\x01' && text[len(text)-1] == '\x01' {

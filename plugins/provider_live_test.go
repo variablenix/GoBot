@@ -40,6 +40,9 @@ func TestLivePluginCommands(t *testing.T) {
 		{&Sports{}, "!sports", "Sports pick:", ""},
 		{&News{}, "!news technology", "http", "BOT_NEWS_API_KEY"},
 		{&Lyrics{}, "!lyrics electric wizard Dopethrone", "genius.com", "BOT_GENIUS_ACCESS_TOKEN"},
+		{&Horoscope{}, "!horoscope aries", "Aries:", ""},
+		{&IPInfo{}, "!ip 8.8.8.8", "8.8.8.8", ""},
+		{&LastFM{}, "!lastfm RJ", "last.fm", "BOT_LASTFM_API_KEY"},
 	}
 	for _, test := range cases {
 		t.Run(test.plugin.Name(), func(t *testing.T) {

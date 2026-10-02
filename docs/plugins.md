@@ -1482,11 +1482,12 @@ project--
 !reddit https://www.reddit.com/r/example/comments/abc123/post/
 ~~~
 
-- seen reports where and when a nickname last spoke in a channel on the current
-  IRC network. Records are stored in BoltDB; private messages are never stored
-  or disclosed. Legacy nickname-only records are not displayed because their
-  network and public/private origin cannot be verified. A new channel message
-  establishes a safely scoped record after upgrading.
+- seen reports where and when a nickname last spoke in the current channel.
+  Records are scoped to both network and channel in BoltDB; private messages
+  are never stored, and lookups in private messages or other channels cannot
+  disclose channel history. Legacy unscoped records are not displayed because
+  their origin cannot be verified. A new channel message establishes a safely
+  scoped record after upgrading.
 - tell queues a message and delivers it when the addressed nickname next speaks.
 - karma tracks case-insensitive thing++ and thing-- changes.
 - luv awards the named nickname one persistent blue-heart point with `!luv
