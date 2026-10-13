@@ -2,6 +2,7 @@ package plugins
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/url"
 	"os"
@@ -246,38 +247,99 @@ func TestAskBrowserBudgetLeavesFallbackTime(t *testing.T) {
 // Run with GOBOT_TEST_BROWSER=/path/to/chromium. This fixture runs entirely
 // offline and verifies the DOM code against a delayed, expanded answer card.
 func TestAskRenderedCardWaitsForAnswer(t *testing.T) {
-	executable := os.Getenv("GOBOT_TEST_BROWSER")
-	if executable == "" {
-		t.Skip("set GOBOT_TEST_BROWSER for offline browser fixture")
-	}
-	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)
-	defer cancel()
-	allocator, stop := chromedp.NewExecAllocator(ctx, append(chromedp.DefaultExecAllocatorOptions[:], chromedp.ExecPath(executable))...)
-	defer stop()
-	page, closePage := chromedp.NewContext(allocator)
-	defer closePage()
-	var before *askRenderedSearchAssistData
-	var answer askRenderedSearchAssistData
+	page := askBrowserFixtureContext(t)
 	const fixture = `document.body.innerHTML='<nav><span>Search Assist</span></nav><section id="card"><header><span>Search Assist</span></header><p id="answer"></p><div id="sources"></div><button>More</button></section><article data-testid="result"><a data-testid="result-title-a" href="https://example.org/other">Unrelated search result</a></article>'`
-	if err := chromedp.Run(page, chromedp.Navigate("about:blank"), chromedp.Evaluate(fixture, nil), chromedp.Evaluate("("+askRenderedSearchAssistScript+")()", &before)); err != nil {
+	if err := chromedp.Do(page, chromedp.Navigate("about:blank"), chromedp.Evaluate[chromedp.Void](fixture)); err != nil {
+		t.Fatal(err)
+	}
+	before, err := chromedp.Run(page, chromedp.Evaluate[*askRenderedSearchAssistData]("("+askRenderedSearchAssistScript+")()"))
+	if err != nil {
 		t.Fatal(err)
 	}
 	if before != nil {
 		t.Fatalf("empty card accepted: %+v", before)
 	}
 	const delayed = `setTimeout(() => {document.getElementById('answer').textContent='Dirt bikes and go-karts have different purchase and ownership costs. Compare equivalent models before deciding.';document.getElementById('sources').innerHTML='<a href="https://example.org/comparison">Source</a>';const details=document.createElement('div');details.textContent='Additional comparison details. '.repeat(180);document.getElementById('card').append(details);}, 1800)`
-	if err := chromedp.Run(page, chromedp.Evaluate(delayed, nil), chromedp.PollFunction(askRenderedSearchAssistScript, &answer, chromedp.WithPollingInterval(100*time.Millisecond), chromedp.WithPollingTimeout(4*time.Second))); err != nil {
+	if err := chromedp.Do(page, chromedp.Evaluate[chromedp.Void](delayed)); err != nil {
+		t.Fatal(err)
+	}
+	answer, err := chromedp.Run(page, chromedp.PollFunction[askRenderedSearchAssistData](askRenderedSearchAssistScript, chromedp.WithPollingInterval(100*time.Millisecond), chromedp.WithPollingTimeout(4*time.Second)))
+	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(answer.Text, "purchase and ownership") || strings.Contains(answer.Text, "Unrelated") || len(answer.Links) != 1 {
 		t.Fatalf("wrong card: %+v", answer)
 	}
 	// A short, cited answer is valid too: do not impose a prose-length floor.
-	if err := chromedp.Run(page, chromedp.Evaluate(`document.getElementById('card').innerHTML='<header><svg></svg>Search Assist</header><p>2002</p><a href="https://example.org/date">Source</a>'`, nil), chromedp.Evaluate("("+askRenderedSearchAssistScript+")()", &answer)); err != nil {
+	if err := chromedp.Do(page, chromedp.Evaluate[chromedp.Void](`document.getElementById('card').innerHTML='<header><svg></svg>Search Assist</header><p>2002</p><a href="https://example.org/date">Source</a>'`)); err != nil {
+		t.Fatal(err)
+	}
+	answer, err = chromedp.Run(page, chromedp.Evaluate[askRenderedSearchAssistData]("("+askRenderedSearchAssistScript+")()"))
+	if err != nil {
 		t.Fatal(err)
 	}
 	if answer.Text != "2002" {
 		t.Fatalf("short answer lost: %+v", answer)
+	}
+}
+
+func askBrowserFixtureContext(t *testing.T) context.Context {
+	t.Helper()
+	executable := os.Getenv("GOBOT_TEST_BROWSER")
+	if executable == "" {
+		t.Skip("set GOBOT_TEST_BROWSER for offline browser fixture")
+	}
+	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)
+	allocator, stop := chromedp.NewExecAllocator(ctx, append(chromedp.DefaultExecAllocatorOptions[:], chromedp.ExecPath(executable))...)
+	page, closePage := chromedp.NewContext(allocator)
+	t.Cleanup(func() {
+		closePage()
+		stop()
+		cancel()
+	})
+	return page
+}
+
+func TestAskRenderedResultsPollingPreservesFallbacks(t *testing.T) {
+	page := askBrowserFixtureContext(t)
+	if err := chromedp.Do(page, chromedp.Navigate("about:blank"), chromedp.Evaluate[chromedp.Void](`document.body.innerHTML='<main id="results"></main>'`)); err != nil {
+		t.Fatal(err)
+	}
+	before, err := chromedp.Run(page, chromedp.Evaluate[[]askRenderedSearchResult]("("+askRenderedSearchResultsScript+")()"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if before != nil {
+		t.Fatalf("empty results accepted: %+v", before)
+	}
+	_, err = chromedp.Run(page, chromedp.PollFunction[[]askRenderedSearchResult](askRenderedSearchResultsScript, chromedp.WithPollingInterval(50*time.Millisecond), chromedp.WithPollingTimeout(150*time.Millisecond)))
+	if !errors.Is(err, chromedp.ErrPollingTimeout) || page.Err() != nil {
+		t.Fatalf("empty-result polling did not preserve the browser context: %v", err)
+	}
+	const delayed = `setTimeout(() => {document.getElementById('results').innerHTML='<article data-testid="result"><a data-testid="result-title-a" href="https://duckduckgo.com/l/?uddg=https%3A%2F%2Fexample.org%2Fcomparison">Example comparison</a><p data-testid="result-snippet">Compare equivalent models.</p></article><article class="result"><a class="result__a" href="https://example.org/guide">Example guide</a><p class="result__snippet">A public guide.</p></article><article data-testid="result"><a data-testid="result-title-a" href="javascript:void(0)">Ignore this link</a></article>';}, 200)`
+	if err := chromedp.Do(page, chromedp.Evaluate[chromedp.Void](delayed)); err != nil {
+		t.Fatal(err)
+	}
+	results, err := chromedp.Run(page, chromedp.PollFunction[[]askRenderedSearchResult](askRenderedSearchResultsScript, chromedp.WithPollingInterval(50*time.Millisecond), chromedp.WithPollingTimeout(2*time.Second)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []askRenderedSearchResult{
+		{Title: "Example comparison", URL: "https://example.org/comparison", Snippet: "Compare equivalent models."},
+		{Title: "Example guide", URL: "https://example.org/guide", Snippet: "A public guide."},
+	}
+	if !reflect.DeepEqual(results, want) {
+		t.Fatalf("wrong results or duplicates/unsafe links accepted: %+v", results)
+	}
+	step, cancel := context.WithCancel(page)
+	cancel()
+	_, err = chromedp.Run(step, chromedp.PollFunction[[]askRenderedSearchResult](askRenderedSearchResultsScript))
+	if !errors.Is(err, context.Canceled) || page.Err() != nil {
+		t.Fatalf("child cancellation did not preserve the browser context: %v", err)
+	}
+	value, err := chromedp.Run(page, chromedp.Evaluate[int]("1 + 1"))
+	if err != nil || value != 2 {
+		t.Fatalf("browser no longer usable after canceled polling: %d, %v", value, err)
 	}
 }
 

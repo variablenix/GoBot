@@ -1031,8 +1031,7 @@ func askDuckDuckGoRenderedSearchAssistOnce(ctx context.Context, question, fallba
 	browserCtx, browserCancel := chromedp.NewContext(allocatorCtx)
 	defer browserCancel()
 
-	var result askRenderedSearchAssistData
-	if err := chromedp.Run(browserCtx, chromedp.Navigate(duckDuckGoSearchAssistURL(question))); err != nil {
+	if err := chromedp.Do(browserCtx, chromedp.Navigate(duckDuckGoSearchAssistURL(question))); err != nil {
 		return askSource{}, false
 	}
 	// Navigation and browser startup have already consumed some of the budget.
@@ -1045,9 +1044,10 @@ func askDuckDuckGoRenderedSearchAssistOnce(ctx context.Context, question, fallba
 	if assistTimeout <= 0 {
 		return askSource{}, false
 	}
-	if err := chromedp.Run(browserCtx, chromedp.PollFunction(askRenderedSearchAssistScript, &result,
+	result, err := chromedp.Run(browserCtx, chromedp.PollFunction[askRenderedSearchAssistData](askRenderedSearchAssistScript,
 		chromedp.WithPollingInterval(100*time.Millisecond),
-		chromedp.WithPollingTimeout(assistTimeout))); err == nil {
+		chromedp.WithPollingTimeout(assistTimeout)))
+	if err == nil {
 		if source, ok := parseRenderedSearchAssist(result, fallbackURL); ok {
 			return source, true
 		}
@@ -1061,14 +1061,14 @@ func askDuckDuckGoRenderedSearchAssistOnce(ctx context.Context, question, fallba
 	if !fetchResults {
 		return askSource{}, false
 	}
-	var results []askRenderedSearchResult
 	resultTimeout := time.Until(deadline)
 	if resultTimeout <= 0 {
 		return askSource{}, false
 	}
-	if err := chromedp.Run(browserCtx, chromedp.PollFunction(askRenderedSearchResultsScript, &results,
+	results, err := chromedp.Run(browserCtx, chromedp.PollFunction[[]askRenderedSearchResult](askRenderedSearchResultsScript,
 		chromedp.WithPollingInterval(100*time.Millisecond),
-		chromedp.WithPollingTimeout(resultTimeout))); err != nil {
+		chromedp.WithPollingTimeout(resultTimeout)))
+	if err != nil {
 		return askSource{}, false
 	}
 	selected, ok := selectAskSearchResult(question, results)

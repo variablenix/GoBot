@@ -57,6 +57,16 @@ jobs:
       - name: Run go vet
         run: go vet ./...
 
+      - name: Locate Chrome for offline browser regressions
+        shell: bash
+        run: |
+          test_browser="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
+          if [[ -z "$test_browser" ]]; then
+            echo "Chrome or Chromium is required for the offline Ask regression tests." >&2
+            exit 1
+          fi
+          printf 'GOBOT_TEST_BROWSER=%s\n' "$test_browser" >> "$GITHUB_ENV"
+
       - name: Run tests with race detection
         run: go test -race ./...
 

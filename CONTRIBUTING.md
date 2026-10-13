@@ -27,6 +27,16 @@ make build
 Use `gofmt` on changed Go files. If a change adds a plugin or configuration
 option, include focused tests and update the relevant guide under `docs/`.
 
+For changes to the rendered `!ask` fallback or its browser dependencies, also
+run the offline browser fixtures with your Chrome/Chromium executable:
+
+```sh
+GOBOT_TEST_BROWSER=/path/to/chrome go test -race ./plugins -run 'TestAskRendered' -count=1
+```
+
+These fixtures use synthetic pages without contacting DuckDuckGo or sending
+IRC messages. CI runs them with the runner's installed browser as well.
+
 ## Branches and pull requests
 
 - Start from an up-to-date `main` branch.
