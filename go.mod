@@ -4,7 +4,7 @@ go 1.26.9
 
 require (
 	github.com/agnivade/levenshtein v1.2.1
-	github.com/chromedp/chromedp v0.20.1
+	github.com/chromedp/chromedp v0.21.0
 	github.com/spf13/viper v1.21.0
 	go.etcd.io/bbolt v1.5.0
 	go.uber.org/zap v1.28.0
