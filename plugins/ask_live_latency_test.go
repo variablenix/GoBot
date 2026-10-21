@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -31,6 +32,18 @@ func TestLiveAskLatency(t *testing.T) {
 			t.Logf("provider=%s found=%t elapsed_ms=%d", source.Provider, found, time.Since(started).Milliseconds())
 			if !found || source.Summary == "" {
 				t.Fatal("no sourced answer within the command deadline")
+			}
+			// A nonempty but unrelated entity description is not a successful
+			// answer to these baseline questions. Keep answers out of logs.
+			markers := map[string][]string{
+				"what is Debian?":                         {"debian"},
+				"who created Linux?":                      {"torvalds"},
+				"how much do dirt bikes cost vs GoKarts?": {"bike", "kart"},
+			}
+			for _, marker := range markers[question] {
+				if !strings.Contains(strings.ToLower(source.Summary), marker) {
+					t.Fatal("sourced answer is missing an expected subject or relationship")
+				}
 			}
 		})
 	}
