@@ -200,10 +200,11 @@ func (p *Doobie) advance(b *bot.Bot, channelKey string, sequence *doobieSequence
 		return
 	}
 	line := doobieCountdownSteps[sequence.step]
-	sequence.timer = time.AfterFunc(p.delay, func() { p.advance(b, channelKey, sequence) })
 	p.mu.Unlock()
 
 	b.Send(sequence.target, line)
+	// Enqueue this step before the next timer can run, including zero delay.
+	p.schedule(b, channelKey, sequence)
 }
 
 func (p *Doobie) randomClosingLine() string {

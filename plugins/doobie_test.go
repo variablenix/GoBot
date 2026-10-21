@@ -103,6 +103,7 @@ func TestDoobieSequenceSendsFourSingleLineMessages(t *testing.T) {
 	b := bot.New(cfg, nil, nil, zap.NewNop())
 	// Replace the queue with a fast capture queue so the test does not depend on
 	// an IRC connection or the production pacing rate.
+	b.Queue.Drain(context.Background())
 	b.Queue = bot.NewQueue(1000, 20, func(message bot.Outgoing) { sent <- message.Text })
 	p := &Doobie{}
 	if err := p.Init(bot.PluginConfig{"countdown_delay_seconds": 0, "cooldown_seconds": 1}, nil); err != nil {
