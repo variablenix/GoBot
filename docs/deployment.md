@@ -5,7 +5,7 @@ systemd service, and using Docker.
 
 ## Requirements
 
-- Go `1.26.9+` (or `1.27.2+` when using the Go 1.27 series)
+- Go `1.26.10+` (or `1.27.3+` when using the Go 1.27 series)
 - a writable filesystem for the BoltDB database
 - network access to the IRC servers
 - optionally, Docker and Docker Compose
@@ -42,10 +42,10 @@ make test
 Configuration-only changes require a restart. Code changes require a new
 build before restarting.
 
-Use a patched Go toolchain when rebuilding: Go 1.26.9 and 1.27.2 contain
-standard-library security fixes that are not supplied by updating modules
+Use a patched Go toolchain when rebuilding: Go 1.26.10 and 1.27.3 contain
+certificate-validation security fixes that are not supplied by updating modules
 alone. An existing binary retains its old standard library until it is rebuilt
-and the service is restarted. CI and the Docker builder use Go 1.26.9.
+and the service is restarted. CI and the Docker builder use Go 1.26.10.
 
 ## First-run workflow
 

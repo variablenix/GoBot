@@ -13,7 +13,7 @@ review and maintain.
 
 ## Local checks
 
-GoBot targets Go `1.26.9+` (or `1.27.2+` for the Go 1.27 series).
+GoBot targets Go `1.26.10+` (or `1.27.3+` for the Go 1.27 series).
 Before opening a pull request:
 
 ```sh
