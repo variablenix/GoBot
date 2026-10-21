@@ -1381,8 +1381,8 @@ The lightweight request gets a 650 ms head start, and inline Search Assist
 payloads are accepted without an extra script fetch. If it has not returned an
 answer, browser and intent-appropriate independent fallbacks run concurrently
 instead of waiting through each other's timeouts. A ready fallback waits up to
-200 ms for a Search Assist answer, then returns without waiting for slow losing
-providers. Losing work is canceled and joined, including browser cleanup; the
+200 ms for a Search Assist answer, then cancels slow losing providers instead
+of waiting for their full timeouts. Losing work is joined, including browser cleanup; the
 single-browser limit still applies across networks. A search-result excerpt
 with an existing snippet gets at most 600 ms to refresh from its origin before
 returning the attributed snippet. Sources without snippets retain their normal
