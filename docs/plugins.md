@@ -1340,8 +1340,8 @@ The `!ask` plugin uses DuckDuckGo Search Assist first when
 Search Assist request used by DuckDuckGo's web results, not a documented public
 API; it may be disabled if DuckDuckGo changes the page or endpoint. The plugin
 then uses a local Chromium/Chrome browser to read the rendered Search Assist
-card when the lightweight request has no answer, followed by DuckDuckGo's
-keyless Instant Answer endpoint and Wikidata as fallbacks. Search Assist and
+card when the lightweight request has no answer, with DuckDuckGo's
+keyless Instant Answer endpoint and Wikidata as independent fallbacks. Search Assist and
 DuckDuckGo summaries may be backed by encyclopedia sources; GoBot presents
 them as bounded answers and links to a cited source
 when one is provided. Query framing is normalized across common definition,
@@ -1377,12 +1377,21 @@ for `!assist`. The no-answer search link requests it too. This avoids relying on
 the normal search page's automatic answer-display setting, but is not a public
 Search Assist API, a challenge bypass, or a guarantee of an answer for every query.
 
-Initial lightweight attempts are spaced by 300 ms. If all providers miss, GoBot
-waits 500 ms and makes one final lightweight request for the original question
-within the same command. Requests with at least 12 seconds remaining reserve
-three seconds for this recovery step; shorter deadlines are not shortened.
-Successful answers return immediately without the final retry. All waits and
-requests respect the overall timeout, and failed lookups are not cached.
+The lightweight request gets a 650 ms head start, and inline Search Assist
+payloads are accepted without an extra script fetch. If it has not returned an
+answer, browser and intent-appropriate independent fallbacks run concurrently
+instead of waiting through each other's timeouts. A ready fallback waits up to
+200 ms for a Search Assist answer, then returns without waiting for slow losing
+providers. Losing work is canceled and joined, including browser cleanup; the
+single-browser limit still applies across networks. A search-result excerpt
+with an existing snippet gets at most 600 ms to refresh from its origin before
+returning the attributed snippet. Sources without snippets retain their normal
+bounded fetch budget.
+
+Lightweight attempts still retain the 300 ms normalized retry and a final
+original-question recovery request after 500 ms. Their original budget reserve
+is confined to that lane; it no longer delays independent providers. All waits
+and requests respect the overall timeout, and failed lookups are not cached.
 
 The plugin is configured under `plugins.ask`:
 
@@ -1421,8 +1430,11 @@ Each provider has a bounded sub-timeout so a slow Search Assist request cannot
 consume the entire lookup window; transient DuckDuckGo Instant Answer failures
 are retried within the same invocation. Successful answers are cached in memory
 for `cache_seconds` (default five minutes), keyed by normalized question text.
-If no provider has a usable answer, GoBot returns a bounded DuckDuckGo search link
-instead of inventing one.
+If no provider has a usable answer, GoBot returns a clearly labeled
+`Search Assist / web results` link, not a generic "can't answer" message or a
+fabricated answer. Long queries are shortened before URL encoding so the link
+remains valid within the IRC byte budget. This is still a best-effort service,
+not a guarantee that every question has an available sourced answer.
 
 ## Daily bonus
 

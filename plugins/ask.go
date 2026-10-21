@@ -242,7 +242,7 @@ type askSource struct {
 	Provider string
 }
 
-func (p *Ask) findSource(ctx context.Context, question string, cfg bot.PluginConfig) (askSource, bool) {
+func (p *Ask) findSourceSequential(ctx context.Context, question string, cfg bot.PluginConfig) (askSource, bool) {
 	if !cfg.Bool("search_assist_enabled", true) {
 		return p.findSourceOnce(ctx, question, cfg)
 	}
@@ -524,9 +524,12 @@ func askNeedsWebResultAnswer(question string) bool {
 	for _, phrase := range []string{
 		"why ", "why is ", "why are ", "why was ", "why were ",
 		"how does ", "how do ", "how can ", "how should ",
+		"how to ", "what kind of ", "what type of ", "what types of ",
+		"what genre ", "what music genre ", "what musical genre ",
 		"how much ", "what does it cost", "what is the price", "what are the prices",
 		"what makes ", "what do people think", "why do people ", "why do some ",
 		"what are the disadvantages", "what are the benefits", "what are the alternatives",
+		"what is an alternative", "what are alternatives",
 		"is it true", "is it worth", "is it safe", "should i ", "should we ",
 		"considered", "controversial", "opinion", "review", "experience",
 	} {
@@ -895,6 +898,9 @@ func askDuckDuckGoSearchAssistOnce(ctx context.Context, question, fallbackURL st
 	page, err := io.ReadAll(io.LimitReader(res.Body, 2<<20))
 	if err != nil {
 		return askSource{}, false
+	}
+	if source, ok := parseDuckDuckGoSearchAssist(string(page), fallbackURL); ok {
+		return source, true
 	}
 	assistURL := askSearchAssistPreloadURL(page, pageURL)
 	assistParsed, parseErr := url.Parse(assistURL)
@@ -1275,6 +1281,13 @@ func unwrapBingResultURL(raw string) string {
 func fetchAskSearchResult(ctx context.Context, result askRenderedSearchResult, question string) (askSource, bool) {
 	if !validPublicHTTPURL(result.URL) {
 		return askSource{}, false
+	}
+	if strings.TrimSpace(result.Snippet) != "" {
+		// An attributed snippet is already usable. Refresh it briefly, but do
+		// not spend the whole fallback budget waiting for its origin site.
+		step, cancel := context.WithTimeout(ctx, 600*time.Millisecond)
+		defer cancel()
+		ctx = step
 	}
 	parsedResultURL, _ := url.Parse(result.URL)
 	if parsedResultURL != nil && isRedditHost(parsedResultURL.Hostname()) {
@@ -2113,7 +2126,16 @@ func formatAskResponse(nick, answer, sourceURL string, maxLength, maxResponseCha
 
 func formatAskNoAnswer(question string, maxLength int) string {
 	maxLength = clampAskLength(maxLength, 120, 450, 360)
-	return truncateAskBytes("I couldn't find a reliable answer — search: "+duckDuckGoSearchAssistURL(question), maxLength)
+	const prefix = "Search Assist / web results: "
+	query := []rune(cleanExternalText(question))
+	for {
+		result := prefix + duckDuckGoSearchAssistURL(string(query))
+		if len(result) <= maxLength {
+			return result
+		}
+		// Shorten search terms, never the encoded URL or a percent escape.
+		query = query[:len(query)-1]
+	}
 }
 
 func clampAskLength(value, min, max, fallback int) int {
