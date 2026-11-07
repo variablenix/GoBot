@@ -163,7 +163,16 @@ plugins:
   docker: {enabled: true, timeout_seconds: 8, max_length: 300}
 ```
 
-`status`, `calc`, `foods`, `sports`, `car`, and `weapons` are local. The
+`calc`, `foods`, `sports`, `car`, and `weapons` are local. Without a target,
+`status` (and its `uptime`/`ping` aliases) also uses only local bot state.
+With a public hostname or HTTP(S) URL it checks that website's HTTP status
+and response time on port 80/443, independently of the IRC network. Website
+checks default to a six-second timeout; `plugins.status.timeout_seconds`
+accepts 1–15 seconds. They are not ICMP probes or historical uptime monitors.
+See [Status and uptime](plugins.md#status-and-uptime) for examples and safety
+limits.
+
+The
 `ask` plugin uses DuckDuckGo Search Assist first when `search_assist_enabled` is true.
 This is a best-effort web integration that first uses the lightweight Search
 Assist request and then, when enabled, a local Chromium/Chrome browser to read

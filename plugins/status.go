@@ -21,7 +21,7 @@ type Status struct {
 func (p *Status) Name() string       { return "status" }
 func (p *Status) Commands() []string { return []string{"status", "uptime", "ping"} }
 func (p *Status) Help() string {
-	return "!status [host|http(s) URL] — website HTTP status and response time; without a target: bot connection, uptime, counters (aliases: !uptime, !ping; HTTP, not ICMP)"
+	return "!status [public host|http(s) URL] — HTTP status and response time (ports 80/443); without a target: bot connection, uptime, counters (aliases: !uptime, !ping; HTTP, not ICMP)"
 }
 func (p *Status) Init(cfg bot.PluginConfig, _ *storage.DB) error {
 	seconds := cfg.Int("timeout_seconds", 6)
