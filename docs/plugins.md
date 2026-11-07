@@ -341,14 +341,27 @@ The `note` plugin stores small, user-invoked notes by authenticated IRC account:
 !note clear
 ~~~
 
-`!notes` is an alias for `!note`. Notes are not announced automatically and are
-stored separately for each user. A note response sent in a channel is visible
-there, so use a private message when the note is sensitive. When account tags
-are unavailable, GoBot falls back to the network and nickname. Notes are limited
+`!notes` is an alias for `!note`. Send all note commands in a private message
+to GoBot while identified to an IRC account. The network must provide account
+tags; unverified nicknames cannot read or modify notes. Channel commands only
+receive a private usage notice and do not read, write, or expose notes.
+Records are scoped to both network and account, so a same-named account on
+another network cannot claim them. Legacy unscoped/nickname records remain in
+the old `notes` bucket, untouched and inaccessible to commands; new records use
+`notes_v2`. An operator must verify legacy ownership before any offline recovery;
+there is deliberately no automatic ownership claim or destructive migration.
+Notes are limited
 to 50 per user by default, with 400 characters per note, and unused notes expire
 after 180 days. Operators can change these limits with `plugins.note.max_notes`,
 `plugins.note.max_note_length`, and `plugins.note.expiry_days`; set
 `expiry_days: 0` to disable expiry.
+
+User-controlled HTTP fetchers (`urltitle`, paste-source fetches, Ask excerpts,
+and website status checks) share a strict public-IP policy. Shared/CGNAT,
+benchmark, documentation, reserved, local, and transition addresses are not
+valid targets. Redirects and response headers are bounded, proxies cannot
+bypass destination validation, and URL previews use at most four background
+workers across networks. URL-preview logs omit query strings and paths.
 
 ## Join greetings
 

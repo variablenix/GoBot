@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"regexp"
 	"strconv"
@@ -26,6 +27,8 @@ type URLTitle struct {
 	youtubeAPIKey string
 }
 
+var urlTitleSlots = make(chan struct{}, 4)
+
 func (p *URLTitle) Name() string       { return "urltitle" }
 func (p *URLTitle) Commands() []string { return nil }
 func (p *URLTitle) Help() string       { return "posts the title of URLs shared in a channel" }
@@ -40,11 +43,12 @@ func (p *URLTitle) Init(c bot.PluginConfig, _ *storage.DB) error {
 	// request to a loopback, private, or link-local service.
 	transport.Proxy = nil
 	transport.DialContext = safePublicDialContext
+	transport.MaxResponseHeaderBytes = 64 << 10
 	p.client = &http.Client{
 		Timeout:   time.Duration(c.Int("timeout_seconds", 5)) * time.Second,
 		Transport: transport,
-		CheckRedirect: func(req *http.Request, _ []*http.Request) error {
-			if !publicHTTPURL(req.URL) {
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= 10 || !publicHTTPURLContext(req.Context(), req.URL) {
 				return fmt.Errorf("redirect target is not a public HTTP URL")
 			}
 			return nil
@@ -62,12 +66,24 @@ func (p *URLTitle) Handle(b *bot.Bot, m bot.Message) bool {
 		return false
 	}
 	parsed, err := url.Parse(u)
-	if err != nil || !publicHTTPURL(parsed) {
+	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Hostname() == "" || parsed.User != nil {
 		return false
 	}
+	select {
+	case urlTitleSlots <- struct{}{}:
+	default:
+		return false
+	}
+	// Capture immutable request settings before leaving the router's reload
+	// lock. Re-enabling the plugin must not race with an old background fetch.
+	client, apiKey, maxTitle := p.client, p.youtubeAPIKey, p.cfg.Int("max_title_length", 120)
 	go func() {
-		requestCtx, cancel := context.WithTimeout(context.Background(), p.client.Timeout)
+		defer func() { <-urlTitleSlots }()
+		requestCtx, cancel := context.WithTimeout(context.Background(), client.Timeout)
 		defer cancel()
+		if !publicHTTPURLContext(requestCtx, parsed) {
+			return
+		}
 		req, err := http.NewRequestWithContext(requestCtx, http.MethodGet, parsed.String(), nil)
 		if err != nil {
 			return
@@ -75,16 +91,16 @@ func (p *URLTitle) Handle(b *bot.Bot, m bot.Message) bool {
 		req.Header.Set("User-Agent", "GoBot/1.0 (+IRC URL title fetcher)")
 		req.Header.Set("Accept", "text/html,application/xhtml+xml")
 		start := time.Now()
-		res, err := p.client.Do(req)
+		res, err := client.Do(req)
 		if err != nil {
-			if title, ok := redditTitle(requestCtx, p.client, parsed); ok {
-				b.Send(m.Target, formatURLTitle(title, parsed, p.cfg.Int("max_title_length", 120)))
+			if title, ok := redditTitle(requestCtx, client, parsed); ok {
+				b.Send(m.Target, formatURLTitle(title, parsed, maxTitle))
 			}
 			return
 		}
 		defer res.Body.Close()
-		if time.Since(start) > 2*time.Second {
-			b.Log.Warn("slow URL fetch", zap.String("url", u), zap.Duration("latency", time.Since(start)))
+		if time.Since(start) > 2*time.Second && b.Log != nil {
+			b.Log.Warn("slow URL fetch", zap.String("host", parsed.Hostname()), zap.Duration("latency", time.Since(start)))
 		}
 		body, err := io.ReadAll(io.LimitReader(res.Body, 2<<20))
 		if err != nil {
@@ -96,7 +112,7 @@ func (p *URLTitle) Handle(b *bot.Bot, m bot.Message) bool {
 		// actual post title even when the normal HTML page is a shell, a
 		// bot-check page, or an access-denied document.
 		if isRedditHost(parsed.Hostname()) {
-			if reddit, ok := redditTitle(requestCtx, p.client, parsed); ok {
+			if reddit, ok := redditTitle(requestCtx, client, parsed); ok {
 				title = reddit
 			}
 		}
@@ -107,8 +123,8 @@ func (p *URLTitle) Handle(b *bot.Bot, m bot.Message) bool {
 			// Keep metadata lookup independent from the page-fetch timeout. Some
 			// YouTube pages are slow enough that oEmbed/player requests would
 			// otherwise inherit an already-expired context after the title fetch.
-			metadataCtx, metadataCancel := context.WithTimeout(context.Background(), p.client.Timeout)
-			metadata, ok := youtubeMetadata(metadataCtx, p.client, parsed, body, p.youtubeAPIKey)
+			metadataCtx, metadataCancel := context.WithTimeout(context.Background(), client.Timeout)
+			metadata, ok := youtubeMetadata(metadataCtx, client, parsed, body, apiKey)
 			metadataCancel()
 			if ok {
 				title = metadata.title
@@ -120,10 +136,10 @@ func (p *URLTitle) Handle(b *bot.Bot, m bot.Message) bool {
 			return
 		}
 		if isYouTubeHost(parsed.Hostname()) {
-			b.Send(m.Target, formatYouTubeTitle(title, youtubeChannel, youtubeDuration, p.cfg.Int("max_title_length", 120)))
+			b.Send(m.Target, formatYouTubeTitle(title, youtubeChannel, youtubeDuration, maxTitle))
 			return
 		}
-		b.Send(m.Target, formatURLTitle(title, parsed, p.cfg.Int("max_title_length", 120)))
+		b.Send(m.Target, formatURLTitle(title, parsed, maxTitle))
 	}()
 	return false
 }
@@ -653,5 +669,6 @@ func safePublicDialContext(ctx context.Context, network, address string) (net.Co
 }
 
 func publicIP(ip net.IP) bool {
-	return !ip.IsLoopback() && !ip.IsPrivate() && !ip.IsLinkLocalUnicast() && !ip.IsLinkLocalMulticast() && !ip.IsUnspecified() && !ip.IsMulticast()
+	address, ok := netip.AddrFromSlice(ip)
+	return ok && publicInternetIP(address)
 }

@@ -208,7 +208,13 @@ func (b *Bot) sendNow(target, text string) {
 	c := b.client
 	b.mu.RUnlock()
 	if c != nil {
-		c.WriteMessage(&irc.Message{Command: "PRIVMSG", Params: []string{target, text}})
+		if err := c.WriteMessage(&irc.Message{Command: "PRIVMSG", Params: []string{target, text}}); err != nil {
+			b.recordDroppedOutput()
+			if b.Log != nil {
+				b.Log.Warn("IRC message write failed")
+			}
+			return
+		}
 		b.Stats.sent.Add(1)
 		if b.networkStats != nil {
 			b.networkStats.sent.Add(1)
@@ -260,14 +266,15 @@ func (b *Bot) connect(ctx context.Context) error {
 		}
 	}
 	var conn net.Conn
+	dialer := &net.Dialer{Timeout: 15 * time.Second, KeepAlive: 30 * time.Second}
 	if b.Config.Server.TLS {
-		tlsConfig := &tls.Config{ServerName: b.Config.Server.Host, InsecureSkipVerify: !b.Config.Server.VerifyCert}
+		tlsConfig := &tls.Config{ServerName: b.Config.Server.Host, MinVersion: tls.VersionTLS12, InsecureSkipVerify: !b.Config.Server.VerifyCert}
 		if b.Config.Server.ClientCert != "" {
 			tlsConfig.Certificates = []tls.Certificate{clientCertificate}
 		}
-		conn, err = tls.Dial("tcp", server, tlsConfig)
+		conn, err = (&tls.Dialer{NetDialer: dialer, Config: tlsConfig}).DialContext(ctx, "tcp", server)
 	} else {
-		conn, err = net.Dial("tcp", server)
+		conn, err = dialer.DialContext(ctx, "tcp", server)
 	}
 	if err != nil {
 		return err
@@ -535,7 +542,29 @@ func (b *Bot) IsOwner(m Message) bool {
 		return false
 	}
 	for _, owner := range b.Config.OwnerAccounts {
-		if strings.EqualFold(strings.TrimSpace(owner), account) {
+		owner = strings.TrimSpace(owner)
+		if network, name, qualified := strings.Cut(owner, "/"); qualified {
+			network, name = strings.TrimSpace(network), strings.TrimSpace(name)
+			if network != "" && name != "" && strings.EqualFold(network, strings.TrimSpace(b.Config.NetworkName)) && strings.EqualFold(name, account) {
+				return true
+			}
+			continue
+		}
+		// Bare legacy account names grant access only on the first configured
+		// network. A same-named account elsewhere is a different principal.
+		primary := true
+		if len(b.Config.Networks) > 1 {
+			first := b.Config.Networks[0]
+			name := strings.TrimSpace(first.Name)
+			if name == "" {
+				name = strings.TrimSpace(first.Server.Host)
+			}
+			if name == "" {
+				name = "network-1"
+			}
+			primary = strings.EqualFold(name, strings.TrimSpace(b.Config.NetworkName))
+		}
+		if primary && strings.EqualFold(owner, account) {
 			return true
 		}
 	}
@@ -570,6 +599,11 @@ func (b *Bot) AllowCommand(m Message) bool {
 	if exists && now.Sub(last) < cooldown {
 		lastWarning, warned := b.lastWarnings[key]
 		if !warned || now.Sub(lastWarning) >= warningCooldown {
+			pruneCommandHistory(b.lastWarnings, now, warningCooldown)
+			if _, known := b.lastWarnings[key]; !known && len(b.lastWarnings) >= maxCommandIdentities {
+				b.commandMu.Unlock()
+				return false
+			}
 			b.lastWarnings[key] = now
 			b.commandMu.Unlock()
 			b.Send(m.ReplyTarget(), "command cooldown—please wait a moment")
@@ -578,9 +612,29 @@ func (b *Bot) AllowCommand(m Message) bool {
 		b.commandMu.Unlock()
 		return false
 	}
+	if !exists {
+		pruneCommandHistory(b.lastCommands, now, cooldown)
+		if len(b.lastCommands) >= maxCommandIdentities {
+			b.commandMu.Unlock()
+			return false
+		}
+	}
 	b.lastCommands[key] = now
 	b.commandMu.Unlock()
 	return true
+}
+
+const maxCommandIdentities = 10000
+
+func pruneCommandHistory(history map[string]time.Time, now time.Time, lifetime time.Duration) {
+	if len(history) < maxCommandIdentities {
+		return
+	}
+	for key, last := range history {
+		if now.Sub(last) >= lifetime {
+			delete(history, key)
+		}
+	}
 }
 
 func commandBypassesCooldown(m Message, prefix string) bool {

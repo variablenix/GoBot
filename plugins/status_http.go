@@ -42,7 +42,7 @@ func parseStatusTarget(raw string) (*url.URL, error) {
 	}
 	host := strings.ToLower(strings.TrimSuffix(u.Hostname(), "."))
 	if ip, err := netip.ParseAddr(host); err == nil {
-		if !statusPublicIP(ip) {
+		if !publicInternetIP(ip) {
 			return nil, errStatusTargetBlocked
 		}
 		if ip.Is6() {
@@ -77,37 +77,6 @@ func parseStatusTarget(raw string) (*url.URL, error) {
 	}
 	u.Fragment, u.RawFragment = "", ""
 	return u, nil
-}
-
-// Restrict checks to ordinary globally routed addresses. In addition to local
-// ranges, exclude shared, documentation, benchmark, and transition space from
-// IANA's special-purpose registries (including IPv4-mapped private addresses).
-var statusBlockedPrefixes = []netip.Prefix{
-	netip.MustParsePrefix("0.0.0.0/8"), netip.MustParsePrefix("100.64.0.0/10"),
-	netip.MustParsePrefix("192.0.0.0/24"), netip.MustParsePrefix("192.0.2.0/24"),
-	netip.MustParsePrefix("192.88.99.0/24"), netip.MustParsePrefix("198.18.0.0/15"),
-	netip.MustParsePrefix("198.51.100.0/24"), netip.MustParsePrefix("203.0.113.0/24"),
-	netip.MustParsePrefix("240.0.0.0/4"), netip.MustParsePrefix("2001::/23"),
-	netip.MustParsePrefix("2001:db8::/32"), netip.MustParsePrefix("2002::/16"),
-	netip.MustParsePrefix("3fff::/20"),
-}
-
-var statusIPv6Global = netip.MustParsePrefix("2000::/3")
-
-func statusPublicIP(ip netip.Addr) bool {
-	if !ip.IsValid() || ip.Zone() != "" {
-		return false
-	}
-	ip = ip.Unmap()
-	if !ip.IsGlobalUnicast() || ip.IsPrivate() || ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.Is6() && !statusIPv6Global.Contains(ip) {
-		return false
-	}
-	for _, prefix := range statusBlockedPrefixes {
-		if prefix.Contains(ip) {
-			return false
-		}
-	}
-	return true
 }
 
 func newStatusHTTPClient(timeout time.Duration) *http.Client {
@@ -155,7 +124,7 @@ func dialStatusPublic(ctx context.Context, network, address string,
 	// Validate the entire answer before dialing even one address. Pin each
 	// connection to a validated IP; never resolve the hostname a second time.
 	for _, ip := range ips {
-		if !statusPublicIP(ip) {
+		if !publicInternetIP(ip) {
 			return nil, errStatusTargetBlocked
 		}
 	}

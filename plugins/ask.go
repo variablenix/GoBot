@@ -1979,11 +1979,13 @@ func isDuckDuckGoHost(host string) bool {
 }
 
 func isPublicIP(address netip.Addr) bool {
-	return address.IsGlobalUnicast() && !address.IsPrivate() && !address.IsLoopback() && !address.IsLinkLocalUnicast() && !address.IsLinkLocalMulticast() && !address.IsMulticast() && !address.IsUnspecified()
+	return publicInternetIP(address)
 }
 
 func newAskWebHTTPClient() *http.Client {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.Proxy = nil
+	transport.MaxResponseHeaderBytes = 64 << 10
 	transport.DialContext = askPublicDialContext
 	return &http.Client{
 		Timeout:   6 * time.Second,
@@ -2016,11 +2018,15 @@ func askPublicDialContext(ctx context.Context, network, address string) (net.Con
 		return nil, err
 	}
 	dialer := &net.Dialer{Timeout: 3 * time.Second}
+	// Reject mixed public/private answers before dialing any member.
 	for _, ip := range ips {
 		parsed, parseErr := netip.ParseAddr(ip.String())
 		if parseErr != nil || !isPublicIP(parsed) {
-			continue
+			return nil, fmt.Errorf("refusing non-public address")
 		}
+	}
+	for _, ip := range ips {
+		parsed, _ := netip.ParseAddr(ip.String())
 		conn, dialErr := dialer.DialContext(ctx, network, net.JoinHostPort(parsed.String(), port))
 		if dialErr == nil {
 			return conn, nil

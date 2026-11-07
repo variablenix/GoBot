@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	noteBucket             = "notes"
+	noteBucket             = "notes_v2"
 	defaultMaxNotes        = 50
 	defaultMaxNoteLength   = 400
 	defaultNoteExpiryDays  = 180
@@ -43,7 +43,7 @@ type Note struct {
 func (p *Note) Name() string       { return "note" }
 func (p *Note) Commands() []string { return []string{"note", "notes"} }
 func (p *Note) Help() string {
-	return "!note add <name> <text> — save a note; !note <name> — read it; !note list; !note delete <name>; !note clear"
+	return "In a private message, with an authenticated account: !note add <name> <text>; !note <name>; !note list; !note delete <name>; !note clear (notes are network-scoped)"
 }
 
 func (p *Note) Init(c bot.PluginConfig, db *storage.DB) error {
@@ -60,6 +60,7 @@ func (p *Note) Init(c bot.PluginConfig, db *storage.DB) error {
 	if expiryDays < 0 || expiryDays > 3650 {
 		expiryDays = defaultNoteExpiryDays
 	}
+	p.expiry = 0
 	if expiryDays > 0 {
 		p.expiry = time.Duration(expiryDays) * 24 * time.Hour
 	}
@@ -72,8 +73,16 @@ func (p *Note) Handle(b *bot.Bot, m bot.Message) bool {
 	if !ok || (cmd != "note" && cmd != "notes") {
 		return false
 	}
+	if m.IsChannel {
+		b.Send(m.Nick, ircColor(ircYellow, "Use notes in a private message to GoBot; no note contents or names are returned to channels."))
+		return true
+	}
 	identity := noteIdentity(b, m)
-	if identity == "" || p.db == nil {
+	if identity == "" {
+		b.Send(m.ReplyTarget(), ircColor(ircYellow, "Notes require an authenticated IRC account and account-tag support on this network."))
+		return true
+	}
+	if p.db == nil {
 		b.Send(m.ReplyTarget(), ircColor(ircRed, "note storage is unavailable"))
 		return true
 	}
@@ -265,15 +274,16 @@ func noteUsage() string {
 
 func noteIdentity(b *bot.Bot, m bot.Message) string {
 	account := strings.TrimSpace(m.Account)
-	if account != "" && account != "*" {
-		return "account:" + strings.ToLower(account)
+	network := strings.TrimSpace(b.Config.NetworkName)
+	if network == "" {
+		network = strings.TrimSpace(b.Config.Server.Host)
 	}
-	nick := strings.ToLower(strings.TrimSpace(m.Nick))
-	if nick == "" {
+	if account == "" || account == "*" || network == "" {
 		return ""
 	}
-	network := strings.ToLower(strings.TrimSpace(b.Config.NetworkName))
-	return "nick:" + network + "\x00" + nick
+	// Account names are local to an IRC network. Never claim old unscoped or
+	// nickname-only records automatically; their ownership is ambiguous.
+	return scopedKey(network, "notes", account)
 }
 
 func noteStorageKey(identity string) string {

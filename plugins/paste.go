@@ -41,11 +41,12 @@ func newPasteFetchHTTPClient() *http.Client {
 	}
 	transport.Proxy = nil
 	transport.DialContext = safePublicDialContext
+	transport.MaxResponseHeaderBytes = 64 << 10
 	return &http.Client{
 		Timeout:   8 * time.Second,
 		Transport: transport,
-		CheckRedirect: func(req *http.Request, _ []*http.Request) error {
-			if !publicHTTPURL(req.URL) {
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= 10 || !publicHTTPURLContext(req.Context(), req.URL) {
 				return fmt.Errorf("redirect target is not a public HTTP URL")
 			}
 			return nil

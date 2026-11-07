@@ -288,11 +288,18 @@ alone are never treated as proof of ownership:
 ```yaml
 owner_accounts:
   - "your-account"
-  - "another-owner"
+  - "secondary-network/another-owner"
 ```
 
 GoBot records the IRCv3 `account` tag when the network provides it. There is
 intentionally no ownership-claim command.
+
+Account names are local to their IRC network. With multiple networks, bare
+legacy names such as `your-account` grant owner access only on the **first**
+configured network. Use an explicit `network-name/account-name` entry for each
+additional grant. A same-named account on another network is not an owner by
+default. Single-network bare-account configurations retain their existing
+behavior. Owner configuration changes require a restart.
 
 ### Owner-only private reload
 

@@ -52,7 +52,7 @@ func TestStatusPublicIP(t *testing.T) {
 		"::ffff:10.0.0.1", "64:ff9b::a00:1", "2001::1", "2001:db8::1", "2002:7f00:1::1", "3fff::1",
 	} {
 		ip := netip.MustParseAddr(raw)
-		if statusPublicIP(ip) {
+		if publicInternetIP(ip) {
 			t.Errorf("non-public address accepted: %s", raw)
 		}
 		if _, err := parseStatusTarget("https://" + net.JoinHostPort(raw, "443")); err == nil {
@@ -60,7 +60,7 @@ func TestStatusPublicIP(t *testing.T) {
 		}
 	}
 	for _, raw := range []string{"1.1.1.1", "8.8.8.8", "2606:4700:4700::1111", "::ffff:8.8.8.8"} {
-		if !statusPublicIP(netip.MustParseAddr(raw)) {
+		if !publicInternetIP(netip.MustParseAddr(raw)) {
 			t.Errorf("public address rejected: %s", raw)
 		}
 	}

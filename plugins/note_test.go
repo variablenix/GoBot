@@ -33,13 +33,17 @@ func TestSplitAndParseNoteCommands(t *testing.T) {
 	}
 }
 
-func TestNoteIdentityUsesAccountThenNetworkAndNick(t *testing.T) {
+func TestNoteIdentityRequiresAccountAndScopesItToNetwork(t *testing.T) {
 	b := &bot.Bot{Config: bot.Config{NetworkName: "Ouch"}}
-	if got := noteIdentity(b, bot.Message{Account: "Alice", Nick: "Different"}); got != "account:alice" {
+	if got := noteIdentity(b, bot.Message{Account: "Alice", Nick: "Different"}); got != scopedKey("ouch", "notes", "alice") {
 		t.Fatalf("account identity = %q", got)
 	}
-	if got := noteIdentity(b, bot.Message{Account: "*", Nick: "Alice"}); got != "nick:ouch\x00alice" {
+	if got := noteIdentity(b, bot.Message{Account: "*", Nick: "Alice"}); got != "" {
 		t.Fatalf("fallback identity = %q", got)
+	}
+	other := &bot.Bot{Config: bot.Config{NetworkName: "other"}}
+	if noteIdentity(b, bot.Message{Account: "alice"}) == noteIdentity(other, bot.Message{Account: "alice"}) {
+		t.Fatal("same-named accounts on different networks share note access")
 	}
 }
 
