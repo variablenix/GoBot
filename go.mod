@@ -3,7 +3,7 @@ module github.com/variablenix/GoBot
 go 1.26.10
 
 require (
-	github.com/agnivade/levenshtein v1.2.1
+	github.com/agnivade/levenshtein v1.2.2
 	github.com/chromedp/chromedp v0.21.0
 	github.com/spf13/viper v1.21.0
 	go.etcd.io/bbolt v1.5.0
