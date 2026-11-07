@@ -24,6 +24,7 @@ func TestLivePluginCommands(t *testing.T) {
 		command, want, token string
 	}{
 		{&Wikipedia{}, "!wiki Linux", "wikipedia.org", ""},
+		{&Define{}, "!define Linux", "Linux", ""},
 		{&Weather{}, "!weather London", "London", ""},
 		{&IMDb{}, "!imdb The Matrix", "imdb.com/title/", ""},
 		{&Linux{}, "!linux", "kernel", ""},
