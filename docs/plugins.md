@@ -1430,6 +1430,12 @@ with an existing snippet gets at most 600 ms to refresh from its origin before
 returning the attributed snippet. Sources without snippets retain their normal
 bounded fetch budget.
 
+For explicit `X vs Y` / `X versus Y` comparisons, a search-result fallback must
+mention both distinct subjects; a fast one-sided result cannot preempt an
+in-flight Assist answer. If an origin refresh loses that context, a complete
+attributed snippet is retained instead. This lexical safeguard applies to
+search excerpts, not to generated Assist paraphrases.
+
 Lightweight attempts still retain the 300 ms normalized retry and a final
 original-question recovery request after 500 ms. Their original budget reserve
 is confined to that lane; it no longer delays independent providers. All waits

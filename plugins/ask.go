@@ -1098,6 +1098,9 @@ func selectAskSearchResult(question string, results []askRenderedSearchResult) (
 		if result.Title == "" || !validPublicHTTPURL(result.URL) {
 			continue
 		}
+		if !askComparisonRelevant(question, result.Title+" "+result.Snippet) {
+			continue
+		}
 		parsedURL, _ := url.Parse(result.URL)
 		if parsedURL == nil || isDuckDuckGoHost(parsedURL.Hostname()) {
 			continue
@@ -1309,12 +1312,15 @@ func fetchAskSearchResult(ctx context.Context, result askRenderedSearchResult, q
 			body, readErr := io.ReadAll(io.LimitReader(res.Body, 512<<10))
 			if readErr == nil {
 				if excerpt := extractAskHTMLExcerpt(body, result.Snippet, result.Title, strings.Fields(askFocusedTerm(question))); excerpt != "" {
-					return askSource{Title: result.Title, Summary: formatAskSearchResultSummary(result.Title, excerpt), URL: result.URL, Provider: "search_result"}, true
+					summary := formatAskSearchResultSummary(result.Title, excerpt)
+					if askComparisonRelevant(question, summary) {
+						return askSource{Title: result.Title, Summary: summary, URL: result.URL, Provider: "search_result"}, true
+					}
 				}
 			}
 		}
 	}
-	if result.Snippet != "" {
+	if result.Snippet != "" && askComparisonRelevant(question, result.Title+" "+result.Snippet) {
 		return askSource{Title: result.Title, Summary: formatAskSearchResultSummary(result.Title, result.Snippet), URL: result.URL, Provider: "search_result"}, true
 	}
 	return askSource{}, false

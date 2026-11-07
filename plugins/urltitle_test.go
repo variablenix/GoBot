@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"regexp"
+	"strings"
 	"testing"
 )
 
@@ -14,6 +15,18 @@ func TestURLExtraction(t *testing.T) {
 	got := r.FindAllString("see https://example.com/a and not ftp://bad", -1)
 	if len(got) != 1 || got[0] != "https://example.com/a" {
 		t.Fatalf("got %v", got)
+	}
+}
+
+func TestURLTitleFormatsStripUpstreamIRCAndTerminalControls(t *testing.T) {
+	parsed, _ := url.Parse("https://example.org/")
+	for _, text := range []string{
+		formatURLTitle("safe\x0304 title\x01\x1b\r\n", parsed, 120),
+		formatYouTubeTitle("title\x0304", "channel\x01", "3:00\x1b", 120),
+	} {
+		if strings.ContainsAny(text, "\x01\x03\x1b\r\n") {
+			t.Fatal("untrusted metadata changed IRC or terminal control state")
+		}
 	}
 }
 

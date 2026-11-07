@@ -145,6 +145,7 @@ func (p *URLTitle) Handle(b *bot.Bot, m bot.Message) bool {
 }
 
 func formatURLTitle(title string, parsed *url.URL, maxLength int) string {
+	title = cleanExternalText(title)
 	displaySource := parsed.Host
 	if isYouTubeHost(parsed.Hostname()) {
 		if shortURL, ok := shortYouTubeDisplayURL(parsed); ok {
@@ -155,6 +156,7 @@ func formatURLTitle(title string, parsed *url.URL, maxLength int) string {
 }
 
 func formatYouTubeTitle(title, channel, duration string, maxLength int) string {
+	title, channel, duration = cleanExternalText(title), cleanExternalText(channel), cleanExternalText(duration)
 	result := "[YouTube] " + truncateRunes(title, maxLength)
 	if channel != "" {
 		result += " | Channel: " + truncateRunes(channel, 80)
