@@ -1,28 +1,69 @@
 package plugins
 
 import (
+	"context"
 	"fmt"
+	"net/http"
 	"strings"
+	"time"
 
 	"github.com/variablenix/GoBot/bot"
 	"github.com/variablenix/GoBot/storage"
 )
 
-// Status reports local process and connection state without making a network
-// request. It is intentionally useful when external APIs are unavailable.
-type Status struct{}
+// Status reports local state without a target, or checks a public website when
+// a host/URL is supplied. Website checks do not depend on the IRC network.
+type Status struct {
+	client  *http.Client
+	timeout time.Duration
+}
 
 func (p *Status) Name() string       { return "status" }
 func (p *Status) Commands() []string { return []string{"status", "uptime", "ping"} }
 func (p *Status) Help() string {
-	return "!status — show connection, uptime, and counters (aliases: !uptime, !ping)"
+	return "!status [host|http(s) URL] — website HTTP status and response time; without a target: bot connection, uptime, counters (aliases: !uptime, !ping; HTTP, not ICMP)"
 }
-func (p *Status) Init(_ bot.PluginConfig, _ *storage.DB) error { return nil }
+func (p *Status) Init(cfg bot.PluginConfig, _ *storage.DB) error {
+	seconds := cfg.Int("timeout_seconds", 6)
+	if seconds < 1 || seconds > 15 {
+		seconds = 6
+	}
+	p.timeout = time.Duration(seconds) * time.Second
+	p.client = newStatusHTTPClient(p.timeout)
+	return nil
+}
 
 func (p *Status) Handle(b *bot.Bot, m bot.Message) bool {
-	cmd, _, ok := bot.IsCommand(m, b.Config.CommandPrefix)
+	cmd, arg, ok := bot.IsCommand(m, b.Config.CommandPrefix)
 	if !ok || !isStatusCommand(cmd) {
 		return false
+	}
+	if strings.TrimSpace(arg) != "" {
+		target, err := parseStatusTarget(arg)
+		if err != nil {
+			b.Send(m.ReplyTarget(), ircColor(ircYellow, "Use one public hostname or http(s) URL on port 80/443; private addresses and credentials are not allowed."))
+			return true
+		}
+		select {
+		case statusCheckSlots <- struct{}{}:
+			defer func() { <-statusCheckSlots }()
+		default:
+			b.Send(m.ReplyTarget(), ircColor(ircYellow, "Website checks are busy; try again shortly."))
+			return true
+		}
+		timeout := p.timeout
+		if timeout <= 0 {
+			timeout = 6 * time.Second
+		}
+		client := p.client
+		if client == nil {
+			client = newStatusHTTPClient(timeout)
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+		result, err := checkStatusSite(ctx, client, target)
+		b.Send(m.ReplyTarget(), formatStatusSite(target, result, err))
+		return true
 	}
 	if b.Stats == nil {
 		b.Send(m.ReplyTarget(), ircColor(ircYellow, "GoBot status is unavailable"))

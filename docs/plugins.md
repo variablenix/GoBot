@@ -40,7 +40,7 @@ Plugins are enabled or disabled under plugins.<name>.enabled in config.yaml.
 - port: local bidirectional well-known port/service lookup
 - audit: package vulnerability discovery through OSV
 - docker: Docker Hub image metadata lookup
-- status: local connection, uptime, and counter status
+- status: public website HTTP status/response time, or local bot connection, uptime, and counters
 - xkcd: latest or numbered XKCD comics
 - lastfm: current or recently played Last.fm tracks
 - cats: short cat facts
@@ -839,8 +839,37 @@ returns one cleaned and length-limited message, and does not download images.
 
 ## Status and uptime
 
-These commands use only GoBot's local state and do not call an external
-service:
+With a hostname or HTTP(S) URL, these commands check that website from the
+GoBot host, independently of the IRC network:
+
+~~~text
+!status example.org
+!status https://example.org/health
+!ping example.org
+!ping https://example.org/
+!uptime example.org
+~~~
+
+Bare hostnames default to HTTPS. Results include the HTTP status code and
+elapsed HTTP response time (including connection setup and redirects), not
+ICMP ping/round-trip time. HTTP 403/404/429 responses still mean the server
+responded; they are reported accurately rather than called a connection
+failure. DNS, TLS verification, timeout, and blocked-target failures are
+reported separately. A single check cannot measure a remote site's historical
+uptime, including when invoked as `!uptime <target>`.
+
+Only public HTTP(S) targets on ports 80/443 are allowed. Credentials, private,
+loopback, link-local, shared, reserved, and other special-purpose addresses
+are blocked, including redirects and DNS answers containing a private address.
+Connections are pinned to validated IPs; environment proxies are disabled and
+TLS certificates are verified. Response headers and redirects are bounded,
+page bodies are not read or parsed, and URL query parameters/fragments are not
+echoed. Up to four checks can run concurrently across networks. Configure
+`plugins.status.timeout_seconds` from 1 to 15 seconds (default 6); existing
+command cooldowns also apply.
+
+Without a target, the commands retain their original local-only behavior and
+do not call an external service:
 
 ~~~text
 !status
