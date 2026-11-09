@@ -4,7 +4,7 @@ go 1.26.10
 
 require (
 	github.com/agnivade/levenshtein v1.2.2
-	github.com/chromedp/chromedp v0.21.0
+	github.com/chromedp/chromedp v0.23.0
 	github.com/spf13/viper v1.21.0
 	go.etcd.io/bbolt v1.5.0
 	go.uber.org/zap v1.28.0
@@ -14,7 +14,7 @@ require (
 )
 
 require (
-	github.com/chromedp/cdproto v0.157.8 // indirect
+	github.com/chromedp/cdproto v0.159.0 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/go-json-experiment/json v0.0.0-20260623181947-01eb4420fa68 // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
