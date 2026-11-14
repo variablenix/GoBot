@@ -6,6 +6,7 @@ dependencies, and deployment configuration maintained.
 
 - Keep IRC certificate verification enabled with verify_cert: true.
 - GoBot refuses to send SASL or NickServ credentials over non-TLS IRC.
+- SASL PLAIN and NickServ password fallback also require `verify_cert: true`.
 - Keep client certificate/private-key PEM files outside Git with mode 0600 and
   readable only by the GoBot service user.
 - CertFP fingerprints are registered with NickServ; do not store a fingerprint
@@ -16,6 +17,9 @@ dependencies, and deployment configuration maintained.
 - Keep secrets in .env or a deployment secret store, never in Git.
 - Use authenticated IRC account names for owner controls; nicknames are not
   authorization proof.
+- Give each network a distinct name so it has its own account and storage
+  namespace. Network names that differ only in case or surrounding whitespace
+  count as duplicates.
 - GoBot requests the IRCv3 `account-tag` capability when the server advertises
   it, and uses that tag for owner checks; if the server does not provide it,
   GoBot does not fall back to nickname-based ownership.

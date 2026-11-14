@@ -111,12 +111,7 @@ func main() {
 	instances := make([]*bot.Bot, 0, len(networks))
 	var wg sync.WaitGroup
 	for i, network := range networks {
-		if network.Name == "" {
-			network.Name = network.Server.Host
-			if network.Name == "" {
-				network.Name = fmt.Sprintf("network-%d", i+1)
-			}
-		}
+		network.Name = effectiveNetworkName(network, i)
 		networkCfg := cfg
 		networkCfg.NetworkName = network.Name
 		networkCfg.Server = network.Server
@@ -188,15 +183,35 @@ func pluginOverridesForNetwork(cfg bot.Config, networkName string) map[string]ma
 		return cfg.PluginOverrides
 	}
 	for i, network := range cfg.Networks {
-		name := network.Name
-		if name == "" {
-			name = network.Server.Host
-		}
-		if name == "" {
-			name = fmt.Sprintf("network-%d", i+1)
-		}
-		if strings.EqualFold(name, networkName) {
+		if strings.EqualFold(effectiveNetworkName(network, i), networkName) {
 			return network.PluginOverrides
+		}
+	}
+	return nil
+}
+
+func effectiveNetworkName(network bot.NetworkConfig, index int) string {
+	if network.Name != "" {
+		return network.Name
+	}
+	if network.Server.Host != "" {
+		return network.Server.Host
+	}
+	return fmt.Sprintf("network-%d", index+1)
+}
+
+// A shared name would put two independent servers in the same storage and
+// owner-account namespace. Compare names as the owner check does.
+func validateNetworkNames(networks []bot.NetworkConfig) error {
+	for i, network := range networks {
+		name := strings.TrimSpace(effectiveNetworkName(network, i))
+		if name == "" {
+			return fmt.Errorf("IRC network %d has a blank name", i+1)
+		}
+		for j, previous := range networks[:i] {
+			if strings.EqualFold(name, strings.TrimSpace(effectiveNetworkName(previous, j))) {
+				return fmt.Errorf("IRC networks %d and %d must have distinct names", j+1, i+1)
+			}
 		}
 	}
 	return nil
@@ -209,6 +224,9 @@ func loadConfig() (bot.Config, error) {
 	}
 	var cfg bot.Config
 	if err := viper.Unmarshal(&cfg); err != nil {
+		return bot.Config{}, err
+	}
+	if err := validateNetworkNames(cfg.Networks); err != nil {
 		return bot.Config{}, err
 	}
 	if cfg.Storage.DBPath == "" {

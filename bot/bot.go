@@ -222,6 +222,10 @@ func (b *Bot) sendNow(target, text string) {
 	}
 }
 func (b *Bot) connect(ctx context.Context) error {
+	return b.connectWithRegistrationTimeout(ctx, 45*time.Second)
+}
+
+func (b *Bot) connectWithRegistrationTimeout(ctx context.Context, registrationTimeout time.Duration) error {
 	mechanism, err := saslMechanism(b.Config.Identity, b.Config.Server)
 	if err != nil {
 		return err
@@ -232,8 +236,12 @@ func (b *Bot) connect(ctx context.Context) error {
 	if mechanism == "EXTERNAL" && strings.TrimSpace(b.Config.Server.ClientCert) == "" {
 		return fmt.Errorf("SASL EXTERNAL requires server.client_cert")
 	}
-	if !b.Config.Server.TLS && mechanism != "" {
+	nickServFallback := b.shouldUseNickServFallback()
+	if !b.Config.Server.TLS && (mechanism != "" || nickServFallback) {
 		return fmt.Errorf("refusing to send IRC authentication credentials without TLS")
+	}
+	if (mechanism == "PLAIN" || nickServFallback) && !b.Config.Server.VerifyCert {
+		return fmt.Errorf("refusing to send an IRC password without server certificate verification")
 	}
 	if b.Config.Identity.CertFPEnroll {
 		if mechanism != "PLAIN" {
@@ -279,6 +287,10 @@ func (b *Bot) connect(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	defer conn.Close()
+	if err := conn.SetReadDeadline(time.Now().Add(registrationTimeout)); err != nil {
+		return err
+	}
 	errc := make(chan error, 1)
 	capState := &capNegotiation{
 		mechanism:       mechanism,
@@ -286,7 +298,7 @@ func (b *Bot) connect(ctx context.Context) error {
 		certFingerprint: enrollmentFingerprint,
 		nickServName:    enrollmentNickServ,
 	}
-	client := irc.NewClient(conn, irc.ClientConfig{Nick: b.Config.Identity.Nick, User: b.Config.Identity.User, Name: b.Config.Identity.Realname, Handler: irc.HandlerFunc(func(c *irc.Client, m *irc.Message) {
+	client := irc.NewClient(&boundedIRCConn{Conn: conn}, irc.ClientConfig{Nick: b.Config.Identity.Nick, User: b.Config.Identity.User, Name: b.Config.Identity.Realname, Handler: irc.HandlerFunc(func(c *irc.Client, m *irc.Message) {
 		handleSASL(c, m, b.Config.Identity.SASLUser, b.Config.Identity.SASLPass, mechanism, capState, b.Log)
 		b.logIRCEvent(m)
 		b.trackOwnChannelMembership(c.CurrentNick(), m)
@@ -296,8 +308,10 @@ func (b *Bot) connect(ctx context.Context) error {
 		if m.Command == "JOIN" {
 			b.dispatchEvent(ParseMessage(m))
 		}
-		if m.Command == "001" {
+		if m.Command == "001" && !capState.registered {
 			capState.registered = true
+			_ = conn.SetReadDeadline(time.Time{})
+			b.Stats.setNetworkConnected(b.networkStats, true)
 			maybeSendCertFPEnrollment(c, capState, b.Log)
 			actualNick := ""
 			serverName := ""
@@ -314,7 +328,7 @@ func (b *Bot) connect(ctx context.Context) error {
 				zap.String("requested_nick", b.Config.Identity.Nick),
 				zap.String("actual_nick", actualNick),
 			)
-			if b.shouldUseNickServFallback() {
+			if nickServFallback {
 				go b.nickServFallback(c, actualNick)
 			}
 			joinChannels := func() {
@@ -367,7 +381,12 @@ func (b *Bot) connect(ctx context.Context) error {
 	b.mu.Lock()
 	b.client = client
 	b.mu.Unlock()
-	b.Stats.setNetworkConnected(b.networkStats, true)
+	defer func() {
+		b.Stats.setNetworkConnected(b.networkStats, false)
+		b.mu.Lock()
+		b.client = nil
+		b.mu.Unlock()
+	}()
 	if mechanism != "" {
 		// irc.v3 has CAP parsing but no SASL mechanism implementation. Start
 		// the capability exchange manually so authentication can complete before 001.
@@ -387,16 +406,8 @@ func (b *Bot) connect(ctx context.Context) error {
 		client.Write("QUIT :shutting down")
 		conn.Close()
 		<-errc
-		b.Stats.setNetworkConnected(b.networkStats, false)
-		b.mu.Lock()
-		b.client = nil
-		b.mu.Unlock()
 		return nil
 	case err := <-errc:
-		b.Stats.setNetworkConnected(b.networkStats, false)
-		b.mu.Lock()
-		b.client = nil
-		b.mu.Unlock()
 		return err
 	}
 }

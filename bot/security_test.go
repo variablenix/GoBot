@@ -1,13 +1,16 @@
 package bot
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
 	"net"
+	"strings"
 	"testing"
 	"time"
 
+	"go.uber.org/zap"
 	"gopkg.in/irc.v3"
 )
 
@@ -84,6 +87,82 @@ func TestIRCConnectHonorsCancellation(t *testing.T) {
 		started := time.Now()
 		if err := b.connect(ctx); !errors.Is(err, context.Canceled) || time.Since(started) > time.Second {
 			t.Fatalf("IRC connection ignored cancellation: %v", err)
+		}
+	}
+}
+
+func TestIRCRegistrationTimeoutDoesNotReportConnected(t *testing.T) {
+	listener, err := net.Listen("tcp4", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	serverDone := make(chan error, 1)
+	go func() {
+		conn, err := listener.Accept()
+		if err != nil {
+			serverDone <- err
+			return
+		}
+		defer conn.Close()
+		_ = conn.SetDeadline(time.Now().Add(3 * time.Second))
+		scanner := bufio.NewScanner(conn)
+		for scanner.Scan() {
+			// Accept the client's registration writes without sending 001.
+		}
+		serverDone <- scanner.Err()
+	}()
+	cfg := Config{Server: ServerConfig{Host: "127.0.0.1", Port: listener.Addr().(*net.TCPAddr).Port}, Identity: IdentityConfig{Nick: "echo", User: "echo"}}
+	b := New(cfg, nil, nil, zap.NewNop())
+	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
+	defer cancel()
+	defer b.Queue.Drain(ctx)
+	err = b.connectWithRegistrationTimeout(ctx, 150*time.Millisecond)
+	var netErr net.Error
+	if !errors.As(err, &netErr) || !netErr.Timeout() || ctx.Err() != nil {
+		t.Fatalf("expected registration timeout, got %v", err)
+	}
+	if err := <-serverDone; err != nil {
+		t.Fatal(err)
+	}
+	if b.Stats.connected.Load() != 0 || b.client != nil {
+		t.Fatal("unregistered connection was retained")
+	}
+}
+
+func TestIRCReaderAcceptsTaggedLinesAndRejectsOversizedLine(t *testing.T) {
+	left, right := net.Pipe()
+	defer left.Close()
+	go func() {
+		defer right.Close()
+		_, _ = fmt.Fprint(right, "@example="+strings.Repeat("x", 8000)+" :server NOTICE echo :hello\r\n"+
+			"PING :token\r\n"+strings.Repeat("x", maxIRCWireLine+1))
+	}()
+	_ = left.SetDeadline(time.Now().Add(3 * time.Second))
+	reader := irc.NewReader(&boundedIRCConn{Conn: left})
+	for _, want := range []string{"NOTICE", "PING"} {
+		message, err := reader.ReadMessage()
+		if err != nil || message.Command != want {
+			t.Fatalf("wanted %s, got %v (%v)", want, message, err)
+		}
+	}
+	if _, err := reader.ReadMessage(); !errors.Is(err, errIRCLineTooLong) {
+		t.Fatalf("wanted size limit error, got %v", err)
+	}
+}
+
+func TestIRCPasswordsRequireCertificateVerification(t *testing.T) {
+	for _, id := range []IdentityConfig{
+		{SASLUser: "example", SASLPass: "synthetic-password"},
+		{SASLMechanism: "EXTERNAL", SASLUser: "example", SASLPass: "synthetic-password", NickServFallback: true},
+	} {
+		cfg := Config{Server: ServerConfig{Host: "example.invalid", TLS: true, ClientCert: "unused.pem"}, Identity: id}
+		if id.SASLMechanism == "" {
+			cfg.Server.ClientCert = ""
+		}
+		b := &Bot{Config: cfg}
+		if err := b.connect(t.Context()); err == nil || !strings.Contains(err.Error(), "without server certificate verification") {
+			t.Fatalf("wanted refusal before dialing, got %v", err)
 		}
 	}
 }
