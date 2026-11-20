@@ -40,9 +40,9 @@ func TestValidIMDbQuery(t *testing.T) {
 }
 
 func TestCleanIMDbTextRemovesInvisibleFormatting(t *testing.T) {
-	got := cleanIMDbText("The\ufe0f \u200dMovie\u202e\x03\x034")
+	got := cleanTerminalText("The\ufe0f \u200dMovie\u202e\x03\x034")
 	if got != "The Movie" {
-		t.Fatalf("cleanIMDbText() = %q, want %q", got, "The Movie")
+		t.Fatalf("cleanTerminalText() = %q, want %q", got, "The Movie")
 	}
 	for _, forbidden := range []string{"\ufe0f", "\u200d", "\u202e", "\x03"} {
 		if strings.Contains(got, forbidden) {

@@ -2,8 +2,29 @@ package plugins
 
 import (
 	"strings"
+	"unicode"
 	"unicode/utf8"
 )
+
+// cleanTerminalText removes untrusted IRC controls, invisible formatting and
+// variation selectors, without changing ordinary Unicode text.
+func cleanTerminalText(text string) string {
+	text = cleanExternalText(text)
+	var cleaned strings.Builder
+	cleaned.Grow(len(text))
+	for _, r := range text {
+		if !unsafeTerminalRune(r) {
+			cleaned.WriteRune(r)
+		}
+	}
+	return strings.Join(strings.Fields(cleaned.String()), " ")
+}
+
+func unsafeTerminalRune(r rune) bool {
+	return unicode.IsControl(r) || unicode.Is(unicode.Cf, r) ||
+		(r >= 0xFE00 && r <= 0xFE0F) ||
+		(r >= 0xE0100 && r <= 0xE01EF)
+}
 
 // These are standard mIRC IRC formatting controls. IRC clients that support
 // colors render them; clients that do not will still receive the plain text.

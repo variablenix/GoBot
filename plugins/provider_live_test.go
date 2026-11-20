@@ -43,7 +43,7 @@ func TestLivePluginCommands(t *testing.T) {
 		{&Lyrics{}, "!lyrics electric wizard Dopethrone", "genius.com", "BOT_GENIUS_ACCESS_TOKEN"},
 		{&Horoscope{}, "!horoscope aries", "Aries:", ""},
 		{&IPInfo{}, "!ip 8.8.8.8", "8.8.8.8", ""},
-		{&LastFM{}, "!lastfm RJ", "last.fm", "BOT_LASTFM_API_KEY"},
+		{&ListenBrainz{}, "!listenbrainz rob", "listenbrainz.org/user/rob/", ""},
 	}
 	for _, test := range cases {
 		t.Run(test.plugin.Name(), func(t *testing.T) {
@@ -107,7 +107,7 @@ func loadLiveProviderCredentials(t *testing.T) {
 	if v.ReadConfig(f) != nil {
 		t.Fatal("cannot parse live provider environment file")
 	}
-	for _, key := range []string{"BOT_YOUTUBE_API_KEY", "BOT_NEWS_API_KEY", "BOT_LASTFM_API_KEY", "BOT_GENIUS_ACCESS_TOKEN", "BOT_GITHUB_TOKEN"} {
+	for _, key := range []string{"BOT_YOUTUBE_API_KEY", "BOT_NEWS_API_KEY", "BOT_GENIUS_ACCESS_TOKEN", "BOT_GITHUB_TOKEN"} {
 		if os.Getenv(key) == "" {
 			t.Setenv(key, v.GetString(key))
 		}

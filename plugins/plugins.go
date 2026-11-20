@@ -22,7 +22,7 @@ func All() []bot.Plugin {
 		&Horoscope{},
 		&Urban{},
 		&XKCD{},
-		&LastFM{},
+		&ListenBrainz{},
 		&Cats{},
 		&EightBall{},
 		&Doobie{},

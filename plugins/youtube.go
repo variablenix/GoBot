@@ -432,7 +432,7 @@ func youtubeObject(node map[string]interface{}, path ...string) (map[string]inte
 	return node, true
 }
 
-func cleanYouTubeText(text string) string { return cleanIMDbText(cleanTitle(text)) }
+func cleanYouTubeText(text string) string { return cleanTerminalText(cleanTitle(text)) }
 
 func youtubeText(value interface{}) string {
 	node, ok := value.(map[string]interface{})

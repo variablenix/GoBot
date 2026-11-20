@@ -226,6 +226,7 @@ func loadConfig() (bot.Config, error) {
 	if err := viper.Unmarshal(&cfg); err != nil {
 		return bot.Config{}, err
 	}
+	migrateListenBrainzConfig(&cfg)
 	if err := validateNetworkNames(cfg.Networks); err != nil {
 		return bot.Config{}, err
 	}
@@ -259,7 +260,6 @@ func configureViper() {
 	bind("server.client_cert", "BOT_TLS_CLIENT_CERT")
 	bind("server.client_key", "BOT_TLS_CLIENT_KEY")
 	bind("plugins.news.api_key", "BOT_NEWS_API_KEY")
-	bind("plugins.lastfm.api_key", "BOT_LASTFM_API_KEY")
 	bind("plugins.github.token", "BOT_GITHUB_TOKEN")
 	bind("plugins.urltitle.youtube_api_key", "BOT_YOUTUBE_API_KEY")
 	bind("plugins.youtube.api_key", "BOT_YOUTUBE_API_KEY")

@@ -112,8 +112,8 @@ plugins:
   horoscope: {enabled: true, max_summary_length: 360}
   urban: {enabled: true}
   xkcd: {enabled: true}
-  # Requires a free Last.fm API key; leave empty to disable lookups.
-  lastfm: {enabled: true, api_key: ""}
+  # Public current/recent ListenBrainz tracks; no API key or user token needed.
+  listenbrainz: {enabled: true, timeout_seconds: 15}
   cats: {enabled: true}
   eightball: {enabled: true, responses_file: "quotes/eightball.txt"}
   doobie: {enabled: true, countdown_delay_seconds: 1, cooldown_seconds: 15, quotes_file: "quotes/doobie.txt"}

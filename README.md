@@ -16,6 +16,8 @@ source-grounded question answers, URL titles, and Prometheus metrics.
 It also includes keyless CVE, package, OSV, Docker Hub, and IP/ASN lookups,
 Opengist pastes, local crypto/encoding and port utilities, local acronym
 expansion, and a persistent word-scramble game.
+Current and recent music tracks use keyless [ListenBrainz lookups](docs/plugins.md#listenbrainz)
+with `!listenbrainz`, `!lb`, `!np`, and `!last`.
 
 The repository contains example connection settings so you can see the
 configuration shape. Replace them with the networks, channels, identity, and

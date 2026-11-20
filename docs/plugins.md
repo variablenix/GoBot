@@ -42,7 +42,7 @@ Plugins are enabled or disabled under plugins.<name>.enabled in config.yaml.
 - docker: Docker Hub image metadata lookup
 - status: public website HTTP status/response time, or local bot connection, uptime, and counters
 - xkcd: latest or numbered XKCD comics
-- lastfm: current or recently played Last.fm tracks
+- listenbrainz: current or recently played ListenBrainz tracks (keyless)
 - cats: short cat facts
 - eightball: customizable Magic 8-Ball answers
 - doobie: 3-2-1 smoke countdown with `!doobie`, `!420`, `$doobie`, or `$420`
@@ -818,27 +818,60 @@ GoBot uses XKCD's official JSON interface and returns the number, title, date,
 and link. The interface supports latest and numbered comics, not full-text
 search.
 
-## Last.fm
+## ListenBrainz
 
-Last.fm requires a free API key:
+Public now-playing and recent listens use the [ListenBrainz API](https://listenbrainz.readthedocs.io/en/latest/users/api/core.html).
+No API key, user token, password, or developer application is required by GoBot:
 
 ~~~yaml
 plugins:
-  lastfm:
+  listenbrainz:
     enabled: true
-    api_key: ""
+    timeout_seconds: 15
 ~~~
 
-Use a Last.fm username once; GoBot remembers it for your nickname:
+Use your **ListenBrainz** username once; GoBot remembers it on the current IRC
+network, for your authenticated account (or your nickname when unauthenticated):
 
 ~~~text
-!lastfm username
-!lastfm
+!listenbrainz music_fan
+!lb
 !np
+!last
 ~~~
 
-The response reports the current track or the most recently played track.
-GoBot does not collect passwords or OAuth credentials.
+The response reports the current track, falling back to the most recently
+played track, with a ListenBrainz profile link when it fits one IRC line.
+An empty history is reported explicitly. Metadata is cleaned for IRC and
+terminal clients, including removal of invisible variation selectors.
+Lookups share the provider's one-request-per-second limit across all networks;
+GoBot honors rate-limit reset/Retry-After headers and bounds concurrent work.
+The timeout covers both calls and rate-limit waits (1–30 seconds; default 15).
+Upstream outages and missing users are reported without overwriting a saved
+default. Public track information can be shown in a channel: these saved
+preferences are not private or proof of ownership of a music account.
+
+### Migrating from Last.fm
+
+- `!lastfm` remains a compatibility alias, but now queries **ListenBrainz**.
+- Old `plugins.lastfm.enabled` settings and per-channel `lastfm` opt-outs are
+  translated in memory on startup/reload. Explicit `listenbrainz` settings take
+  precedence. Update configuration names to `listenbrainz` when convenient;
+  `BOT_LASTFM_API_KEY` and the old `api_key` setting are no longer used.
+- Last.fm nickname defaults remain untouched in storage, but are **not** reused
+  as ListenBrainz usernames. Run `!listenbrainz <your-username>` to set a new
+  default. This avoids incorrectly identifying a different service's account.
+- Rebuild and restart GoBot to install this change. No database migration or
+  token is required for the lookup plugin.
+
+GoBot only **reads** listening history; it has never submitted scrobbles.
+To move actual scrobbling, sign in to [ListenBrainz](https://listenbrainz.org/)
+with your MusicBrainz account, import your Last.fm history through ListenBrainz's
+settings, and configure a [supported player/scrobbler](https://listenbrainz.org/add-data/)
+to submit to ListenBrainz. A submitting client may need your private ListenBrainz
+user token from [ListenBrainz settings](https://listenbrainz.org/settings/);
+do not put it in IRC or GoBot configuration. Creating an application on the
+MetaBrainz applications page is not needed for GoBot's public lookups.
 
 ## Cats
 

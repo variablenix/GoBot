@@ -10,7 +10,6 @@ import (
 	"net/url"
 	"strings"
 	"time"
-	"unicode"
 	"unicode/utf8"
 
 	"github.com/variablenix/GoBot/bot"
@@ -105,7 +104,7 @@ func validIMDbQuery(query string) bool {
 		return false
 	}
 	for _, r := range query {
-		if unsafeIMDbRune(r) {
+		if unsafeTerminalRune(r) {
 			return false
 		}
 	}
@@ -137,7 +136,7 @@ func imdbMaxResults(c bot.PluginConfig) int {
 }
 
 func boundIMDbReply(target, text string, configuredMax int) string {
-	text = cleanIMDbText(text)
+	text = cleanTerminalText(text)
 	// gopkg.in/irc.v3 writes messages as-is. Reserve the exact bytes used by
 	// "PRIVMSG <target> :" and CRLF so the complete wire line stays at or
 	// below IRC's 512-byte limit.
@@ -167,25 +166,6 @@ func truncateUTF8Bytes(text string, maxBytes int) string {
 		cut--
 	}
 	return text[:cut] + suffix
-}
-
-func cleanIMDbText(text string) string {
-	text = cleanExternalText(text)
-	var cleaned strings.Builder
-	cleaned.Grow(len(text))
-	for _, r := range text {
-		if unsafeIMDbRune(r) {
-			continue
-		}
-		cleaned.WriteRune(r)
-	}
-	return strings.Join(strings.Fields(cleaned.String()), " ")
-}
-
-func unsafeIMDbRune(r rune) bool {
-	return unicode.IsControl(r) || unicode.Is(unicode.Cf, r) ||
-		(r >= 0xFE00 && r <= 0xFE0F) ||
-		(r >= 0xE0100 && r <= 0xE01EF)
 }
 
 func lookupIMDbTitles(ctx context.Context, query string) ([]imdbTitle, error) {
@@ -259,7 +239,7 @@ func formatIMDbResults(titles []imdbTitle, maxResults int) string {
 	}
 	items := make([]string, 0, maxResults)
 	for _, title := range titles[:maxResults] {
-		label := cleanIMDbText(title.Label)
+		label := cleanTerminalText(title.Label)
 		details := make([]string, 0, 3)
 		if year := imdbYear(title); year != "" {
 			details = append(details, year)
@@ -267,7 +247,7 @@ func formatIMDbResults(titles []imdbTitle, maxResults int) string {
 		if kind := imdbKind(title); kind != "" {
 			details = append(details, kind)
 		}
-		if stars := cleanIMDbText(title.Stars); stars != "" {
+		if stars := cleanTerminalText(title.Stars); stars != "" {
 			details = append(details, stars)
 		}
 		if len(details) > 0 {
@@ -287,7 +267,7 @@ func imdbYear(title imdbTitle) string {
 	if title.Year > 0 {
 		return fmt.Sprintf("%d", title.Year)
 	}
-	return cleanIMDbText(title.YearRaw)
+	return cleanTerminalText(title.YearRaw)
 }
 
 func imdbKind(title imdbTitle) string {
@@ -309,6 +289,6 @@ func imdbKind(title imdbTitle) string {
 	case "videogame":
 		return "game"
 	default:
-		return cleanIMDbText(title.Kind)
+		return cleanTerminalText(title.Kind)
 	}
 }
