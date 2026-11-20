@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/variablenix/GoBot/bot"
 	"github.com/variablenix/GoBot/storage"
+	"go.uber.org/zap"
 )
 
 const listenBrainzBucket = "listenbrainz"
@@ -85,26 +87,37 @@ func (p *ListenBrainz) Handle(b *bot.Bot, m bot.Message) bool {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), p.timeout)
 	defer cancel()
-	listens, err := p.client.get(ctx, username, "playing-now")
-	playing := len(listens) > 0
-	if err == nil && !playing {
-		listens, err = p.client.get(ctx, username, "listens?count=1")
-	}
+	listens, playing, currentUnavailable, err := p.client.lookup(ctx, username)
 	if err != nil {
 		reply := "ListenBrainz is temporarily unavailable; please try again later"
 		if errors.Is(err, errListenBrainzUser) {
 			reply = "ListenBrainz user not found; check the username on listenbrainz.org"
 		} else if errors.Is(err, errListenBrainzRate) {
 			reply = "ListenBrainz rate limit reached; please try again later"
+		} else if errors.Is(err, context.DeadlineExceeded) {
+			reply = "ListenBrainz API timed out; listening history could not be checked"
+		}
+		if b.Log != nil {
+			// Do not log usernames, URLs, upstream bodies, or raw transport errors.
+			b.Log.Warn("ListenBrainz lookup failed", zap.String("reason", listenBrainzFailureReason(err)))
+		}
+		if !errors.Is(err, errListenBrainzUser) {
+			reply = boundListenBrainzReply(m.ReplyTarget(), username, reply, "")
 		}
 		b.Send(m.ReplyTarget(), reply)
 		return true
 	}
 	// Persist only after a successful lookup, never for a typo or upstream error.
 	suffix := ""
+	if currentUnavailable {
+		suffix = " (now playing unavailable)"
+		if b.Log != nil {
+			b.Log.Debug("ListenBrainz used recent-listen fallback")
+		}
+	}
 	if strings.TrimSpace(arg) != "" && p.db != nil {
 		if err := p.db.Set(listenBrainzBucket, key, username); err != nil {
-			suffix = " (default not saved)"
+			suffix += " (default not saved)"
 		}
 	}
 	b.Send(m.ReplyTarget(), formatListenBrainz(m.ReplyTarget(), username, listens, playing, suffix))
@@ -134,10 +147,9 @@ type listenBrainzListen struct {
 }
 
 func formatListenBrainz(target, username string, listens []listenBrainzListen, playing bool, suffix string) string {
-	profile := "https://listenbrainz.org/user/" + url.PathEscape(username) + "/"
 	// The existing terminal-safe sanitizer also removes variation selectors and
 	// bidi formatting from untrusted music metadata. Never render supplied URLs.
-	text := cleanTerminalText(username) + " has no listens yet"
+	text := cleanTerminalText(username) + " has no recent listens"
 	if len(listens) > 0 {
 		status := "last played"
 		if playing {
@@ -146,6 +158,11 @@ func formatListenBrainz(target, username string, listens []listenBrainzListen, p
 		text = fmt.Sprintf("%s %s %q by %s", cleanTerminalText(username), status,
 			cleanTerminalText(listens[0].Metadata.Track), cleanTerminalText(listens[0].Metadata.Artist))
 	}
+	return boundListenBrainzReply(target, username, "🎵 "+text, suffix)
+}
+
+func boundListenBrainzReply(target, username, text, suffix string) string {
+	profile := "https://listenbrainz.org/user/" + url.PathEscape(username) + "/"
 	// Reserve the canonical profile link and warning; keep the complete reply
 	// within one IRC line even for multibyte names and long channel targets.
 	limit := min(450, 512-len("PRIVMSG "+target+" :\r\n"))
@@ -155,7 +172,7 @@ func formatListenBrainz(target, username string, listens []listenBrainzListen, p
 		// Omit that link rather than emit a broken/truncated URL or extra lines.
 		tail = suffix
 	}
-	return truncateUTF8Bytes("🎵 "+truncateUTF8Bytes(text, limit-len("🎵 ")-len(tail))+tail, limit)
+	return truncateUTF8Bytes(truncateUTF8Bytes(text, limit-len(tail))+tail, limit)
 }
 
 type listenBrainzClient struct {
@@ -167,6 +184,77 @@ type listenBrainzClient struct {
 
 func newListenBrainzClient() *listenBrainzClient {
 	return &listenBrainzClient{gate: make(chan struct{}, 1), slots: make(chan struct{}, 4)}
+}
+
+// A slow optional current-track endpoint must not consume the whole command
+// budget and prevent the independent recent-listens endpoint from answering.
+func (c *listenBrainzClient) lookup(ctx context.Context, username string) ([]listenBrainzListen, bool, bool, error) {
+	currentBudget := 5 * time.Second
+	if deadline, ok := ctx.Deadline(); ok {
+		currentBudget = min(currentBudget, time.Until(deadline)/3)
+	}
+	currentCtx, cancelCurrent := context.WithTimeout(ctx, currentBudget)
+	listens, currentErr := c.get(currentCtx, username, "playing-now")
+	cancelCurrent()
+	if currentErr == nil && len(listens) > 0 {
+		return listens, true, false, nil
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, false, false, err
+	}
+	if errors.Is(currentErr, errListenBrainzUser) || errors.Is(currentErr, errListenBrainzRate) {
+		return nil, false, false, currentErr
+	}
+	// Reserve up to three seconds for one transient-error retry, but allow a
+	// normal recent-history response considerably longer than the optional call.
+	historyCtx := ctx
+	cancelHistory := func() {}
+	if deadline, ok := ctx.Deadline(); ok {
+		if remaining := time.Until(deadline); remaining > 6*time.Second {
+			historyCtx, cancelHistory = context.WithTimeout(ctx, remaining-3*time.Second)
+		}
+	}
+	listens, err := c.get(historyCtx, username, "listens?count=1")
+	cancelHistory()
+	if err != nil && ctx.Err() == nil && retryableListenBrainzError(err) {
+		// get still enforces the global one-request-per-second limit and any
+		// provider cooldown. No immediate retry of 429, 404, or invalid JSON.
+		listens, err = c.get(ctx, username, "listens?count=1")
+	}
+	return listens, false, currentErr != nil, err
+}
+
+type listenBrainzHTTPError int
+
+func (e listenBrainzHTTPError) Error() string {
+	return fmt.Sprintf("ListenBrainz HTTP %d", int(e))
+}
+
+func retryableListenBrainzError(err error) bool {
+	var status listenBrainzHTTPError
+	if errors.As(err, &status) {
+		return status == http.StatusRequestTimeout || status >= 500
+	}
+	var networkError net.Error
+	return errors.Is(err, context.DeadlineExceeded) || errors.Is(err, io.ErrUnexpectedEOF) || errors.As(err, &networkError)
+}
+
+func listenBrainzFailureReason(err error) string {
+	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		return "timeout"
+	case errors.Is(err, errListenBrainzUser):
+		return "user_not_found"
+	case errors.Is(err, errListenBrainzRate):
+		return "rate_limited"
+	case errors.Is(err, errListenBrainzData):
+		return "invalid_response"
+	}
+	var status listenBrainzHTTPError
+	if errors.As(err, &status) {
+		return fmt.Sprintf("http_%d", int(status))
+	}
+	return "network_error"
 }
 
 func (c *listenBrainzClient) get(ctx context.Context, username, endpoint string) ([]listenBrainzListen, error) {
@@ -219,11 +307,14 @@ func (c *listenBrainzClient) get(ctx context.Context, username, endpoint string)
 		return nil, errListenBrainzRate
 	case http.StatusOK:
 	default:
-		return nil, errListenBrainzData
+		return nil, listenBrainzHTTPError(res.StatusCode)
 	}
 	const maxBody = 512 << 10
 	raw, err := io.ReadAll(io.LimitReader(res.Body, maxBody+1))
-	if err != nil || len(raw) > maxBody {
+	if err != nil {
+		return nil, err
+	}
+	if len(raw) > maxBody {
 		return nil, errListenBrainzData
 	}
 	var data struct {
@@ -269,7 +360,7 @@ func (c *listenBrainzClient) observeRate(res *http.Response, now time.Time) {
 			}
 		}
 	}
-	if res.StatusCode == http.StatusTooManyRequests {
+	if res.StatusCode == http.StatusTooManyRequests || res.StatusCode == http.StatusServiceUnavailable {
 		if retry, err := http.ParseTime(res.Header.Get("Retry-After")); err == nil {
 			postpone(strconv.FormatInt(int64(retry.Sub(now).Seconds())+1, 10))
 		} else {

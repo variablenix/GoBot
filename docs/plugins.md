@@ -842,7 +842,14 @@ network, for your authenticated account (or your nickname when unauthenticated):
 
 The response reports the current track, falling back to the most recently
 played track, with a ListenBrainz profile link when it fits one IRC line.
-An empty history is reported explicitly. Metadata is cleaned for IRC and
+An empty recent history is reported explicitly. If the optional now-playing
+endpoint fails or stalls, GoBot still tries recent listens and marks the result
+`now playing unavailable` rather than claiming it is current. The first request
+uses at most five seconds (or one third of the configured overall timeout),
+leaving time for the recent-listen fallback and one bounded transient-error
+retry. Complete outages are reported honestly, with a profile link and a
+distinct timeout message; they are never treated as an empty history.
+Metadata is cleaned for IRC and
 terminal clients, including removal of invisible variation selectors.
 Lookups share the provider's one-request-per-second limit across all networks;
 GoBot honors rate-limit reset/Retry-After headers and bounds concurrent work.

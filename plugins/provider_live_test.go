@@ -77,6 +77,14 @@ func TestLivePluginCommands(t *testing.T) {
 			}
 			joined := strings.Join(replies, " ")
 			lower := strings.ToLower(joined)
+			if test.plugin.Name() == "listenbrainz" {
+				if !successfulListenBrainzReply(joined) {
+					t.Fatalf("ListenBrainz did not return current/recent listening information: %s", joined)
+				}
+				// A valid recent-track fallback explicitly warns that current
+				// status was unavailable; that warning is not a failed lookup.
+				lower = strings.Replace(lower, " (now playing unavailable)", "", 1)
+			}
 			for _, failure := range []string{"unavailable", "not configured", "not found", "no results", "usage:", "failed"} {
 				if strings.Contains(lower, failure) {
 					t.Fatalf("provider did not return a result: %s", joined)

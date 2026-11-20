@@ -71,7 +71,7 @@ func TestListenBrainzCommandsAndRequestSafety(t *testing.T) {
 func TestListenBrainzRecentAndEmptyHistory(t *testing.T) {
 	for _, test := range []struct{ history, want string }{
 		{lbCurrentFixture, "last played"},
-		{lbEmptyFixture, "has no listens yet"},
+		{lbEmptyFixture, "has no recent listens"},
 	} {
 		t.Run(test.want, func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
@@ -98,39 +98,43 @@ func TestListenBrainzRecentAndEmptyHistory(t *testing.T) {
 func TestListenBrainzProviderFailures(t *testing.T) {
 	for _, test := range []struct {
 		name, body, want string
-		status           int
+		status, calls    int
 	}{
-		{"unknown user", `{}`, "user not found", 404},
-		{"throttled", `{}`, "rate limit", 429},
-		{"outage", `{}`, "temporarily unavailable", 503},
-		{"bad JSON", `{`, "temporarily unavailable", 200},
-		{"missing payload", `{}`, "temporarily unavailable", 200},
-		{"null listens", `{"payload":{"listens":null}}`, "temporarily unavailable", 200},
-		{"missing metadata", `{"payload":{"listens":[{}]}}`, "temporarily unavailable", 200},
-		{"hidden title", `{"payload":{"listens":[{"track_metadata":{"track_name":"\u202e","artist_name":"artist"}}]}}`, "temporarily unavailable", 200},
-		{"multiple tracks", `{"payload":{"listens":[{},{}]}}`, "temporarily unavailable", 200},
-		{"trailing data", lbCurrentFixture + `{}`, "temporarily unavailable", 200},
-		{"oversized", lbCurrentFixture + strings.Repeat(" ", 512<<10), "temporarily unavailable", 200},
-		{"redirect", ``, "temporarily unavailable", 302},
+		{"unknown user", `{}`, "user not found", 404, 1},
+		{"throttled", `{}`, "rate limit", 429, 1},
+		{"outage", `{}`, "temporarily unavailable", 503, 3},
+		{"bad JSON", `{`, "temporarily unavailable", 200, 2},
+		{"missing payload", `{}`, "temporarily unavailable", 200, 2},
+		{"null listens", `{"payload":{"listens":null}}`, "temporarily unavailable", 200, 2},
+		{"missing metadata", `{"payload":{"listens":[{}]}}`, "temporarily unavailable", 200, 2},
+		{"hidden title", `{"payload":{"listens":[{"track_metadata":{"track_name":"\u202e","artist_name":"artist"}}]}}`, "temporarily unavailable", 200, 2},
+		{"multiple tracks", `{"payload":{"listens":[{},{}]}}`, "temporarily unavailable", 200, 2},
+		{"trailing data", lbCurrentFixture + `{}`, "temporarily unavailable", 200, 2},
+		{"oversized", lbCurrentFixture + strings.Repeat(" ", 512<<10), "temporarily unavailable", 200, 2},
+		{"redirect", ``, "temporarily unavailable", 302, 2},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			calls := 0
-			p := newTestListenBrainz(t, nil, func(*http.Request) (*http.Response, error) {
-				calls++
-				res := newPluginResponse(test.status, test.body)
-				res.Header.Set("Location", "http://127.0.0.1/private")
-				return res, nil
+			synctest.Test(t, func(t *testing.T) {
+				calls := 0
+				p := newTestListenBrainz(t, nil, func(*http.Request) (*http.Response, error) {
+					calls++
+					res := newPluginResponse(test.status, test.body)
+					res.Header.Set("Location", "http://127.0.0.1/private")
+					return res, nil
+				})
+				reply := listenBrainzReply(t, p, "primary", "listener", "Alice", "!lb music_fan")
+				if calls != test.calls || !strings.Contains(reply, test.want) {
+					t.Fatalf("wrong error handling: %s (%d calls)", reply, calls)
+				}
 			})
-			reply := listenBrainzReply(t, p, "primary", "listener", "Alice", "!lb music_fan")
-			if calls != 1 || !strings.Contains(reply, test.want) {
-				t.Fatalf("wrong error handling: %s (%d calls)", reply, calls)
-			}
 		})
 	}
-	p := newTestListenBrainz(t, nil, func(*http.Request) (*http.Response, error) { return nil, errors.New("synthetic transport failure") })
-	if reply := listenBrainzReply(t, p, "primary", "listener", "Alice", "!lb music_fan"); !strings.Contains(reply, "temporarily unavailable") || strings.Contains(reply, "synthetic") {
-		t.Fatalf("transport error was leaked or mishandled: %s", reply)
-	}
+	synctest.Test(t, func(t *testing.T) {
+		p := newTestListenBrainz(t, nil, func(*http.Request) (*http.Response, error) { return nil, errors.New("synthetic transport failure") })
+		if reply := listenBrainzReply(t, p, "primary", "listener", "Alice", "!lb music_fan"); !strings.Contains(reply, "temporarily unavailable") || strings.Contains(reply, "synthetic") {
+			t.Fatalf("transport error was leaked or mishandled: %s", reply)
+		}
+	})
 }
 
 func TestListenBrainzSavedDefaultsAreScopedAndLegacyIsPreserved(t *testing.T) {
@@ -275,6 +279,7 @@ func TestListenBrainzRateHeaders(t *testing.T) {
 		{map[string]string{"X-RateLimit-Remaining": "0", "X-RateLimit-Reset-In": "-1", "X-RateLimit-Reset": fmt.Sprint(now.Unix() + 40)}, 200, 40},
 		{map[string]string{"X-RateLimit-Remaining": "0", "X-RateLimit-Reset-In": "999999999999"}, 200, 365 * 24 * 60 * 60},
 		{map[string]string{"Retry-After": "60"}, 429, 60},
+		{map[string]string{"Retry-After": "20"}, 503, 20},
 		{map[string]string{"Retry-After": now.Add(time.Minute).Format(http.TimeFormat)}, 429, 61},
 		{map[string]string{"Retry-After": "-1", "X-RateLimit-Reset-In": "invalid"}, 429, 1},
 	} {
@@ -305,7 +310,13 @@ func TestLiveListenBrainz(t *testing.T) {
 	p := &ListenBrainz{}
 	p.Init(nil, nil)
 	reply := listenBrainzReply(t, p, "test", "listener", "tester", "!listenbrainz "+username)
-	if !strings.Contains(reply, "https://listenbrainz.org/user/") || strings.Contains(reply, "unavailable") {
+	if !strings.Contains(reply, "https://listenbrainz.org/user/") || !successfulListenBrainzReply(reply) {
 		t.Fatalf("public lookup did not return a profile: %s", reply)
 	}
+	t.Logf("public lookup succeeded (recent-listen fallback: %t)", strings.Contains(reply, "now playing unavailable"))
+}
+
+func successfulListenBrainzReply(reply string) bool {
+	return strings.HasPrefix(reply, "🎵 ") &&
+		(strings.Contains(reply, " is listening to ") || strings.Contains(reply, " last played ") || strings.Contains(reply, " has no recent listens"))
 }
